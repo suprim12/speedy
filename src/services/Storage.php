@@ -88,7 +88,13 @@ class Storage extends Component
     {
         $meta = ['url' => $url, 'tags' => array_values($tags), 'expires' => $expires, 'created' => time(), 'headers' => $headers];
 
-        $this->atomicWrite($this->htmlFile($key), $html);
+        $file = $this->htmlFile($key);
+        // Compressed copies, so the web server (gzip_static) and PHP send them without compressing each time.
+        $this->atomicWrite("$file.gz", (string)gzencode($html, 9));
+        if (function_exists('brotli_compress')) {
+            $this->atomicWrite("$file.br", (string)brotli_compress($html, 11));
+        }
+        $this->atomicWrite($file, $html);
         $this->atomicWrite($this->metaFile($key), Json::encode($meta));
 
         foreach ($tags as $tag) {
@@ -105,7 +111,10 @@ class Storage extends Component
     public function delete(string $key): ?string
     {
         $meta = $this->meta($key);
-        @unlink($this->htmlFile($key));
+        $file = $this->htmlFile($key);
+        @unlink($file);
+        @unlink("$file.gz");
+        @unlink("$file.br");
         @unlink($this->metaFile($key));
 
         return $meta['url'] ?? null;

@@ -36,4 +36,6 @@
 - Rebuild all pages, from the utility page or `speedy/clear --rebuild`, keeping the old copies until the new ones are ready.
 - `craft.speedy.dynamic()` for parts of a cached page built for each visitor, such as a cart count or a form, loaded in one request with their scripts.
 - An API for clearing and rebuilding pages over HTTP with a key.
+- Expired pages (`ttl()` and scheduled content) keep being sent while their new copy is built, so no visitor waits.
+- Compressed copies of each page are saved, and sent by PHP and by nginx (`gzip_static`) without compressing each time.
 - Console commands: `speedy/clear`, `speedy/warm`, `speedy/expire`, `speedy/status` and `speedy/server-rules`.

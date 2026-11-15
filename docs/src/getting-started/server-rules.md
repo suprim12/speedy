@@ -34,6 +34,7 @@ if (-f $document_root$speedy_page) { rewrite ^ $speedy_page last; }
 location ^~ /speedy/ {
     internal;
     default_type text/html;
+    gzip_static on;
     add_header X-Speedy "STATIC" always;
     add_header Cache-Control "no-cache, s-maxage=0" always;
 }
@@ -47,6 +48,7 @@ What the rules do:
 - Cookies you list in `skipCookies` are added to the cookie line.
 - Speedy’s own rebuild requests (`X-Speedy-Warm`) always reach Craft.
 - `internal` stops anyone opening the cache folder directly.
+- `gzip_static` sends the compressed copy Speedy saves next to each page (`index.html.gz`), so nginx doesn’t compress it on every request. It’s included in most nginx builds; if `nginx -t` says it’s unknown, remove that line.
 - Everything else goes to Craft as usual, which still serves cached pages through PHP.
 
 ## Apache

@@ -30,6 +30,9 @@ class Cacher extends Component
     /** Set while a visitor has something in their session, such as a form step or a flash message. */
     public const STATE_COOKIE = 'speedy_state';
 
+    /** How long an expired page may still be sent while its new copy is built, in seconds. */
+    private const STALE_GRACE = 600;
+
     /** Query parameter that makes warming requests miss CDN caches. */
     public const WARM_PARAM = 'speedy-warm';
 
@@ -190,21 +193,40 @@ class Cacher extends Component
             return false;
         }
         $meta = $storage->meta($key);
-        if (($meta['expires'] ?? null) !== null && $meta['expires'] <= time()) {
-            $storage->delete($key);
-            return false;
+        $expires = $meta['expires'] ?? null;
+        $state = 'HIT';
+        if ($expires !== null && $expires <= time()) {
+            // Expired, such as a ttl() page or scheduled content going live. Keep sending the old copy for a short
+            // while and rebuild it in the background, so this visitor doesn't wait. Past the grace period, or when
+            // rebuilding is off, build it now instead.
+            if (!Plugin::getInstance()->getSettings()->rebuildCleared || $expires <= time() - self::STALE_GRACE || empty($meta['url'])) {
+                $storage->delete($key);
+                return false;
+            }
+            if (Craft::$app->getCache()->add('speedy:rebuilding:' . md5($key), true, 60)) {
+                Plugin::getInstance()->warmer->queue([$meta['url']], true);
+            }
+            $state = 'STALE';
         }
 
         $response = Craft::$app->getResponse();
         $response->format = Response::FORMAT_RAW;
-        $response->content = (string)file_get_contents($file);
         $headers = $response->getHeaders();
+        $request = Craft::$app->getRequest();
+        $acceptsGzip = $request instanceof Request && str_contains((string)$request->getHeaders()->get('Accept-Encoding'), 'gzip');
+        if ($acceptsGzip && is_file("$file.gz")) {
+            $response->content = (string)file_get_contents("$file.gz");
+            $headers->set('Content-Encoding', 'gzip');
+        } else {
+            $response->content = (string)file_get_contents($file);
+        }
+        $headers->set('Vary', 'Accept-Encoding');
         $headers->set('Content-Type', 'text/html; charset=UTF-8');
         foreach ($meta['headers'] ?? [] as $name => $value) {
             $headers->set($name, $value);
         }
-        $headers->set(self::HEADER, 'HIT');
-        $headers->set('Cache-Control', Plugin::getInstance()->cdn->cacheControl());
+        $headers->set(self::HEADER, $state);
+        $headers->set('Cache-Control', $state === 'STALE' ? 'no-cache, s-maxage=0' : Plugin::getInstance()->cdn->cacheControl());
         Craft::$app->end(0, $response);
     }
 

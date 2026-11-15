@@ -6,6 +6,8 @@ While a page is built, Craft notes the soonest moment any element on it goes liv
 
 For example, `/news` lists News entries. An entry is scheduled for 9 am tomorrow, so `/news` is cleared at 9 am and rebuilt with it.
 
+If a visitor arrives in the moment between the page expiring and its rebuild, they get the old copy (`X-Speedy: STALE`) while the new one is built in the background, so nobody waits. After 10 minutes, an expired page is built fresh instead.
+
 ## How it’s run
 
 Speedy queues a delayed job for the next moment a page expires. That works with no setup, as long as your queue runs.

@@ -66,6 +66,7 @@ class ServerRules extends Component
         location ^~ $path/ {
             internal;
             default_type text/html;
+            gzip_static on;
             add_header X-Speedy "STATIC" always;
             add_header Cache-Control "$cacheControl" always;
         }

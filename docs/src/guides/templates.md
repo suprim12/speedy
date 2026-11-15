@@ -59,6 +59,7 @@ Look at the `X-Speedy` response header in your browser’s dev tools:
 |---|---|
 | `HIT` | Served from the cache by PHP |
 | `MISS` | Built now, and cached |
+| `STALE` | The page had expired (`ttl()` or scheduled content), so this is the old copy while a new one is built in the background |
 | `WARM` | Built by Speedy’s warming |
 | `SKIP <reason>` | Not cached, and why |
 | `STATIC` | Served by the web server, without PHP |
