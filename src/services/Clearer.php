@@ -65,7 +65,7 @@ class Clearer extends Component
         if (count($this->_reasons) < 3) {
             $this->_reasons[] = $event->element instanceof ElementInterface
                 ? $this->describe($event->element)
-                : Craft::t('speedy', 'Caches cleared for {tags}', ['tags' => implode(', ', array_slice($tags, 0, 3))]);
+                : $this->describeTags($tags);
         }
     }
 
@@ -241,6 +241,22 @@ class Clearer extends Component
         $state['expireJobAt'] = $at;
         $storage->writeData('state', $state);
         Queue::push(new ExpireJob(), 1024, max(0, $at - time()));
+    }
+
+    /**
+     * Words for a change Craft announced by tag alone, such as an import finishing: “Entries changed”.
+     *
+     * @param string[] $tags
+     */
+    private function describeTags(array $tags): string
+    {
+        foreach ($tags as $tag) {
+            if (preg_match('/^element::([^:]+(?:\\\\[^:]+)*)(?:::\*)?$/', $tag, $m) && is_subclass_of($m[1], ElementInterface::class)) {
+                return Craft::t('speedy', '{type} changed', ['type' => $m[1]::pluralDisplayName()]);
+            }
+        }
+
+        return Craft::t('speedy', 'Content changed');
     }
 
     private function describe(ElementInterface $element): string

@@ -153,17 +153,17 @@
 {# Advanced ----------------------------------------------------------------- #}
 <div id="advanced" class="hidden">
 {{ forms.selectField({
-	label: 'Where pages are kept'|t('speedy'),
-	instructions: 'Files are fastest, and the web server can send them without PHP. Craft’s cache, such as Redis, is shared by several web servers that have no shared disk; pages are then sent by PHP.'|t('speedy'),
+	label: 'Cache storage'|t('speedy'),
+	instructions: 'Where cached pages are stored. File storage is the fastest, and lets the web server serve pages directly without PHP. Craft cache (Redis or Memcached) shares pages across multiple web servers without shared disk storage; pages are then served through PHP.'|t('speedy'),
 	id: 'storage',
 	name: 'storage',
 	options: [
-		{ label: 'Files'|t('speedy'), value: 'files' },
-		{ label: 'Craft’s cache ({class})'|t('speedy', { class: cacheInfo.label }), value: 'craftCache' },
+		{ label: 'File storage (recommended)'|t('speedy'), value: 'files' },
+		{ label: 'Craft cache — {backend}'|t('speedy', { backend: cacheInfo.label }), value: 'craftCache' },
 	],
 	value: settings.storage,
 	disabled: 'storage' in overrides,
-	warning: 'storage' in overrides ? configWarning('storage') : (cacheInfo.database ? 'Craft’s cache is the database on this site, so pages would make it grow. Use Redis or files.'|t('speedy') : (not cacheInfo.shared ? 'Craft’s cache is on this server only, so it isn’t shared between servers.'|t('speedy'))),
+	warning: 'storage' in overrides ? configWarning('storage') : (cacheInfo.database ? 'Craft’s cache uses the database on this site. Storing pages there would grow the database; configure Redis or use file storage.'|t('speedy') : (not cacheInfo.shared ? 'Craft’s cache is local to this server, so it isn’t shared across web servers.'|t('speedy'))),
 }) }}
 
 <hr>

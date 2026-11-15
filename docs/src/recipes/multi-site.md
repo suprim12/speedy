@@ -14,7 +14,7 @@ Behind a load balancer, every server must see the same cache, or a page cleared 
 
 ### Keep pages in Redis
 
-If Craft’s cache is Redis (or Memcached), keep pages there. In **Settings → Plugins → Speedy Cache → Advanced**, set **Where pages are kept** to **Craft’s cache**, or:
+If Craft’s cache is Redis (or Memcached), keep pages there. In **Settings → Plugins → Speedy Cache → Advanced**, set **Cache storage** to **Craft cache**, or:
 
 ```php
 // config/speedy.php
