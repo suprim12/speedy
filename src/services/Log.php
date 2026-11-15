@@ -25,8 +25,13 @@ class Log extends Component
      */
     public function add(string $reason, int $count, array $urls, ?string $cdn = null): void
     {
-        $file = $this->file();
         $entry = ['time' => time(), 'reason' => $reason, 'count' => $count, 'urls' => array_slice($urls, 0, 50), 'cdn' => $cdn];
+        $storage = Plugin::getInstance()->storage;
+        if ($storage->usesCache()) {
+            $storage->cache()->addLog($entry);
+            return;
+        }
+        $file = $this->file();
         @mkdir(dirname($file), 0775, true);
         file_put_contents($file, Json::encode($entry) . "\n", FILE_APPEND | LOCK_EX);
 
@@ -52,6 +57,12 @@ class Log extends Component
      */
     public function recent(int $limit = 50): array
     {
+        $storage = Plugin::getInstance()->storage;
+        if ($storage->usesCache()) {
+            /** @var array<int, array{time: int, reason: string, count: int, urls: string[], cdn: ?string}> $entries */
+            $entries = $storage->cache()->recentLog($limit);
+            return $entries;
+        }
         $lines = @file($this->file(), FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
         $entries = [];
         foreach (array_reverse(array_slice($lines, -$limit)) as $line) {

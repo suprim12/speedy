@@ -51,6 +51,12 @@ class Settings extends Model
     /** How many pages are rebuilt at once. */
     public int $warmConcurrency = 2;
 
+    public const STORAGE_FILES = 'files';
+    public const STORAGE_CRAFT_CACHE = 'craftCache';
+
+    /** Where pages are kept: `files` (fastest, and the web server can send them) or `craftCache`, Craft’s cache such as Redis, shared by several servers. */
+    public string $storage = self::STORAGE_FILES;
+
     /** Where cached HTML is written. It must be inside the web root for the web server to serve it. */
     public string $cachePath = '@webroot/speedy';
 
@@ -121,7 +127,7 @@ class Settings extends Model
     public function isEnabled(): bool
     {
         // On hosts with a temporary disk, such as Craft Cloud, saved pages would vanish or differ between servers.
-        if (App::isEphemeral()) {
+        if (App::isEphemeral() && $this->storage !== self::STORAGE_CRAFT_CACHE) {
             return false;
         }
 
@@ -162,6 +168,7 @@ class Settings extends Model
     {
         return [
             [['queryStrings'], 'in', 'range' => ['skip', 'ignore']],
+            [['storage'], 'in', 'range' => [self::STORAGE_FILES, self::STORAGE_CRAFT_CACHE]],
             [['warmConcurrency'], 'integer', 'min' => 1, 'max' => 10],
             [['wildcardThreshold'], 'integer', 'min' => 1],
             [['cdnMaxAge'], 'integer', 'min' => 0],

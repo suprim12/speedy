@@ -66,6 +66,9 @@ class Cacher extends Component
     /** @var resource|null The lock held while this request builds its page. */
     private $_lock = null;
 
+    /** The page whose build lock is held in Craft’s mutex, when pages are kept in Craft’s cache. */
+    private ?string $_mutexKey = null;
+
     /** How long a visitor waits for another request to finish building the same page, in seconds. */
     private const BUILD_WAIT = 5;
 
@@ -188,8 +191,7 @@ class Cacher extends Component
     private function serve(string $key): bool
     {
         $storage = Plugin::getInstance()->storage;
-        $file = $storage->htmlFile($key);
-        if (!is_file($file)) {
+        if (!$storage->exists($key)) {
             return false;
         }
         $meta = $storage->meta($key);
@@ -214,11 +216,13 @@ class Cacher extends Component
         $headers = $response->getHeaders();
         $request = Craft::$app->getRequest();
         $acceptsGzip = $request instanceof Request && str_contains((string)$request->getHeaders()->get('Accept-Encoding'), 'gzip');
-        if ($acceptsGzip && is_file("$file.gz")) {
-            $response->content = (string)file_get_contents("$file.gz");
+        $page = $storage->read($key, $acceptsGzip);
+        if ($page === null) {
+            return false;
+        }
+        $response->content = $page['content'];
+        if ($page['gzip']) {
             $headers->set('Content-Encoding', 'gzip');
-        } else {
-            $response->content = (string)file_get_contents($file);
         }
         $headers->set('Vary', 'Accept-Encoding');
         $headers->set('Content-Type', 'text/html; charset=UTF-8');
@@ -424,7 +428,24 @@ class Cacher extends Component
      */
     private function lockOrWait(string $key): bool
     {
-        $handle = @fopen(Plugin::getInstance()->storage->lockFile($key), 'c');
+        $storage = Plugin::getInstance()->storage;
+        if ($storage->usesCache()) {
+            // Several servers share the cache, so the lock is Craft’s mutex rather than a local file.
+            $until = microtime(true) + self::BUILD_WAIT;
+            do {
+                if ($storage->cache()->lock($key)) {
+                    $this->_mutexKey = $key;
+                    return true;
+                }
+                usleep(100000);
+                if ($storage->exists($key)) {
+                    return false;
+                }
+            } while (microtime(true) < $until);
+
+            return true;
+        }
+        $handle = @fopen($storage->lockFile($key), 'c');
         if ($handle === false) {
             return true;
         }
@@ -454,6 +475,10 @@ class Cacher extends Component
 
     private function unlock(): void
     {
+        if ($this->_mutexKey !== null) {
+            Plugin::getInstance()->storage->cache()->unlock($this->_mutexKey);
+            $this->_mutexKey = null;
+        }
         if ($this->_lock) {
             flock($this->_lock, LOCK_UN);
             fclose($this->_lock);

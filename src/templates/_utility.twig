@@ -150,12 +150,17 @@
 		<p class="zilch">{{ 'Nothing cleared yet.'|t('speedy') }}</p>
 	{% endif %}
 
+	{% if settings.storage == 'craftCache' %}
+	<h2>{{ 'Serve pages without PHP'|t('speedy') }}</h2>
+	<p>{{ 'Pages are kept in Craft’s cache, so they’re sent by PHP. Server rules only work with files.'|t('speedy') }}</p>
+	{% else %}
 	<h2>{{ 'Serve pages without PHP'|t('speedy') }}</h2>
 	<p>{{ 'Cached pages work as they are. For the fastest pages, let the web server send them without starting PHP: add these rules, then use “Check server serving”.'|t('speedy') }}</p>
 	{% if not webPath %}<p class="warning with-icon">{{ 'The cache folder isn’t inside the web root, so the web server can’t serve it. Set cachePath to a folder in @webroot.'|t('speedy') }}</p>{% endif %}
 	<details><summary>{{ 'Nginx'|t('speedy') }}</summary><pre class="speedy-code"><code>{{ nginx }}</code></pre></details>
 	<details><summary>{{ 'Apache'|t('speedy') }}</summary><pre class="speedy-code"><code>{{ apache }}</code></pre></details>
-	{% if state.lastExpire ?? false %}<p class="light">{{ 'Scheduled changes last checked {time}.'|t('speedy', { time: state.lastExpire|datetime('short') }) }}</p>{% endif %}
+		{% endif %}
+{% if state.lastExpire ?? false %}<p class="light">{{ 'Scheduled changes last checked {time}.'|t('speedy', { time: state.lastExpire|datetime('short') }) }}</p>{% endif %}
 </div>
 
 {% css %}

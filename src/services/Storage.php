@@ -16,6 +16,7 @@ use craft\helpers\Json;
 use FilesystemIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use suprim\speedy\models\Settings;
 use suprim\speedy\Plugin;
 use Throwable;
 
@@ -31,6 +32,8 @@ class Storage extends Component
 {
     /** Tag index files larger than this are rewritten without duplicate or stale lines. */
     private const COMPACT_BYTES = 262144;
+
+    private ?CacheStore $_cacheStore = null;
 
     /**
      * A page’s key, such as `example.com/news/summer-sale`, or null when the URL can’t be cached safely.
@@ -61,6 +64,10 @@ class Storage extends Component
 
     public function exists(string $key): bool
     {
+        if ($this->usesCache()) {
+            return $this->cache()->exists($key);
+        }
+
         return is_file($this->htmlFile($key));
     }
 
@@ -69,6 +76,10 @@ class Storage extends Component
      */
     public function meta(string $key): ?array
     {
+        if ($this->usesCache()) {
+            return $this->cache()->meta($key);
+        }
+
         $file = $this->metaFile($key);
         if (!is_file($file)) {
             return null;
@@ -87,6 +98,10 @@ class Storage extends Component
     public function write(string $key, string $html, string $url, array $tags, ?int $expires, array $headers = []): void
     {
         $meta = ['url' => $url, 'tags' => array_values($tags), 'expires' => $expires, 'created' => time(), 'headers' => $headers];
+        if ($this->usesCache()) {
+            $this->cache()->write($key, $html, $meta, $tags, $expires);
+            return;
+        }
 
         $file = $this->htmlFile($key);
         // Compressed copies, so the web server (gzip_static) and PHP send them without compressing each time.
@@ -110,6 +125,10 @@ class Storage extends Component
      */
     public function delete(string $key): ?string
     {
+        if ($this->usesCache()) {
+            return $this->cache()->delete($key);
+        }
+
         $meta = $this->meta($key);
         $file = $this->htmlFile($key);
         @unlink($file);
@@ -128,6 +147,10 @@ class Storage extends Component
      */
     public function takePagesForTags(array $tags): array
     {
+        if ($this->usesCache()) {
+            return $this->cache()->takePagesForTags($tags);
+        }
+
         $keys = [];
         foreach (array_unique($tags) as $tag) {
             $file = $this->tagFile($tag);
@@ -148,6 +171,10 @@ class Storage extends Component
      */
     public function countPagesForTag(string $tag): int
     {
+        if ($this->usesCache()) {
+            return $this->cache()->countPagesForTag($tag);
+        }
+
         $file = $this->tagFile($tag);
         if (!is_file($file)) {
             return 0;
@@ -163,6 +190,10 @@ class Storage extends Component
      */
     public function takeExpired(int $now): array
     {
+        if ($this->usesCache()) {
+            return $this->cache()->takeExpired($now);
+        }
+
         $dir = $this->dataRoot() . '/expiry';
         if (!is_dir($dir)) {
             return [];
@@ -197,6 +228,10 @@ class Storage extends Component
      */
     public function nextExpiry(): ?int
     {
+        if ($this->usesCache()) {
+            return $this->cache()->nextExpiry();
+        }
+
         $files = glob($this->dataRoot() . '/expiry/*.txt') ?: [];
         if (!$files) {
             return null;
@@ -211,6 +246,11 @@ class Storage extends Component
      */
     public function clearAll(): void
     {
+        if ($this->usesCache()) {
+            $this->cache()->clearAll();
+            return;
+        }
+
         // Moving a folder is instant however many pages it holds, so clearing never times out half-way.
         // The old files are deleted afterwards, by deleteTrash().
         $moved = false;
@@ -261,6 +301,11 @@ class Storage extends Component
      */
     public function allKeys(): iterable
     {
+        if ($this->usesCache()) {
+            yield from $this->cache()->allKeys();
+            return;
+        }
+
         $root = $this->dataRoot() . '/meta';
         if (!is_dir($root)) {
             return;
@@ -281,6 +326,10 @@ class Storage extends Component
      */
     public function stats(): array
     {
+        if ($this->usesCache()) {
+            return $this->cache()->stats();
+        }
+
         $pages = 0;
         $bytes = 0;
         $root = $this->cacheRoot();
@@ -295,6 +344,40 @@ class Storage extends Component
         }
 
         return ['pages' => $pages, 'bytes' => $bytes];
+    }
+
+    /**
+     * The page to send, compressed when the visitor accepts gzip and a compressed copy exists.
+     *
+     * @return array{content: string, gzip: bool}|null
+     */
+    public function read(string $key, bool $gzip): ?array
+    {
+        if ($this->usesCache()) {
+            return $this->cache()->read($key, $gzip);
+        }
+        $file = $this->htmlFile($key);
+        if ($gzip && is_file("$file.gz")) {
+            return ['content' => (string)file_get_contents("$file.gz"), 'gzip' => true];
+        }
+        if (!is_file($file)) {
+            return null;
+        }
+
+        return ['content' => (string)file_get_contents($file), 'gzip' => false];
+    }
+
+    /**
+     * Whether pages are kept in Craft’s cache, such as Redis, rather than in files.
+     */
+    public function usesCache(): bool
+    {
+        return Plugin::getInstance()->getSettings()->storage === Settings::STORAGE_CRAFT_CACHE;
+    }
+
+    public function cache(): CacheStore
+    {
+        return $this->_cacheStore ??= new CacheStore();
     }
 
     public function cacheRoot(): string
@@ -312,6 +395,10 @@ class Storage extends Component
      */
     public function readData(string $name): array
     {
+        if ($this->usesCache()) {
+            return $this->cache()->readData($name);
+        }
+
         $file = $this->dataRoot() . "/$name.json";
         $data = is_file($file) ? Json::decodeIfJson((string)@file_get_contents($file)) : null;
 
@@ -320,6 +407,11 @@ class Storage extends Component
 
     public function writeData(string $name, array $data): void
     {
+        if ($this->usesCache()) {
+            $this->cache()->writeData($name, $data);
+            return;
+        }
+
         $this->atomicWrite($this->dataRoot() . "/$name.json", Json::encode($data));
     }
 

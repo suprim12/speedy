@@ -152,12 +152,21 @@ class Insights extends Component
             $checks[] = ['level' => $level, 'message' => $message];
         };
 
-        if (App::isEphemeral()) {
+        $usesCache = $plugin->storage->usesCache();
+        if ($usesCache) {
+            $cache = CacheStore::describe();
+            if ($cache['database']) {
+                $add('warning', Craft::t('speedy', 'Pages are kept in Craft’s cache, which is the database on this site, so they make the database grow. Set Craft’s cache to Redis, or keep pages in files.'));
+            } elseif (!$cache['shared']) {
+                $add('warning', Craft::t('speedy', 'Pages are kept in Craft’s cache, which is on this server only ({class}). Each web server keeps its own copies; files are faster for one server.', ['class' => $cache['label']]));
+            }
+        }
+        if (App::isEphemeral() && !$usesCache) {
             $add('warning', Craft::t('speedy', 'This host’s disk is temporary, as on Craft Cloud, so Speedy can’t keep pages and is off. Craft Cloud caches pages itself.'));
         } elseif (!$settings->isEnabled()) {
             $add('warning', Craft::t('speedy', 'Caching is off, so pages are built for every visit.'));
         }
-        foreach ([$plugin->storage->cacheRoot(), $plugin->storage->dataRoot()] as $dir) {
+        foreach ($usesCache ? [] : [$plugin->storage->cacheRoot(), $plugin->storage->dataRoot()] as $dir) {
             $parent = is_dir($dir) ? $dir : dirname($dir);
             if (!is_writable($parent)) {
                 $add('error', Craft::t('speedy', 'Speedy can’t write to {dir}.', ['dir' => $dir]));
@@ -198,7 +207,7 @@ class Insights extends Component
         if ($general->devMode && Craft::$app->env === 'production') {
             $add('warning', Craft::t('speedy', 'devMode is on in production.'));
         }
-        if (!($plugin->storage->readData('state')['serverChecked'] ?? false)) {
+        if (!$usesCache && !($plugin->storage->readData('state')['serverChecked'] ?? false)) {
             $add('hint', Craft::t('speedy', 'Add the server rules below so cached pages are sent without PHP, then click “Check server serving”.'));
         }
 

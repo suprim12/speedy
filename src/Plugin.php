@@ -32,6 +32,7 @@ use Psr\Log\LogLevel;
 use suprim\speedy\elements\actions\ClearPages;
 use suprim\speedy\models\Settings;
 use suprim\speedy\services\Cacher;
+use suprim\speedy\services\CacheStore;
 use suprim\speedy\services\Cdn;
 use suprim\speedy\services\Clearer;
 use suprim\speedy\services\Dynamic;
@@ -204,6 +205,7 @@ class Plugin extends BasePlugin
             'stats' => $this->storage->stats(),
             'configRows' => $this->configRows(),
             'ephemeral' => App::isEphemeral(),
+            'cacheInfo' => CacheStore::describe(),
         ]);
     }
 
