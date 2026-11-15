@@ -157,6 +157,9 @@ class Cacher extends Component
 
         Craft::$app->getElements()->startCollectingCacheInfo();
         $this->_collecting = true;
+        if ($this->_warming) {
+            Plugin::getInstance()->queries->start();
+        }
         Event::on(Response::class, Response::EVENT_AFTER_PREPARE, function(Event $event) {
             /** @var Response $response */
             $response = $event->sender;
@@ -329,6 +332,10 @@ class Cacher extends Component
             $this->storeResponse($response);
         } finally {
             $this->unlock();
+            if ($this->_warming) {
+                $request = Craft::$app->getRequest();
+                Plugin::getInstance()->queries->finish(strtok($request->getAbsoluteUrl(), '?') . ($this->_query ? '?' . http_build_query($this->_query) : ''));
+            }
         }
     }
 

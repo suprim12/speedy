@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- **Repeated queries**: the utility page lists pages that run the same database query again and again (N+1 queries), with the template and line, and how to fix it. Counted while Speedy rebuilds pages, never on visitors’ requests.
 - A dashboard widget with the pages cached, recent clears, the CDN and any problems.
 - **Only cache**: cache just the pages that match, such as `news*`, with `/` for the homepage. Empty caches every page, as before.
 - Cached pages are rebuilt in the background when a deploy applies project config changes. Turn it off with `rebuildAfterDeploy`.

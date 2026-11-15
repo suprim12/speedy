@@ -38,6 +38,7 @@ use suprim\speedy\services\Clearer;
 use suprim\speedy\services\Dynamic;
 use suprim\speedy\services\Insights;
 use suprim\speedy\services\Log;
+use suprim\speedy\services\Queries;
 use suprim\speedy\services\ServerRules;
 use suprim\speedy\services\Storage;
 use suprim\speedy\services\Warmer;
@@ -59,6 +60,7 @@ use yii\queue\Queue;
  * @property-read ServerRules $serverRules
  * @property-read Insights $insights
  * @property-read Dynamic $dynamic
+ * @property-read Queries $queries
  * @method Settings getSettings()
  */
 class Plugin extends BasePlugin
@@ -79,6 +81,7 @@ class Plugin extends BasePlugin
                 'serverRules' => ServerRules::class,
                 'insights' => Insights::class,
                 'dynamic' => Dynamic::class,
+                'queries' => Queries::class,
             ],
         ];
     }
@@ -191,6 +194,7 @@ class Plugin extends BasePlugin
             ['refreshCsrf', $s->refreshCsrf, Craft::t('speedy', 'Refresh CSRF tokens on cached pages, so forms work.')],
             ['defaultTtl', $s->defaultTtl, Craft::t('speedy', 'A maximum age for every page, in seconds.')],
             ['rebuildAfterDeploy', $s->rebuildAfterDeploy, Craft::t('speedy', 'Rebuild cached pages when a deploy applies project config changes.')],
+            ['queryReport', $s->queryReport, Craft::t('speedy', 'Count the queries of rebuilt pages and list repeated ones (N+1 queries).')],
             ['warmConcurrency', $s->warmConcurrency, Craft::t('speedy', 'How many pages are rebuilt at once.')],
             ['sitemap', $s->sitemap, Craft::t('speedy', 'The sitemap read when rebuilding everything.')],
             ['cacheComment', $s->cacheComment, Craft::t('speedy', 'Add a “Cached by Speedy Cache” comment to cached pages.')],

@@ -50,6 +50,36 @@ The details panel of entries, categories, products and other elements with pages
 
 Select entries, categories or Commerce products, and choose **Clear cached pages** from the actions menu. It clears every cached page that shows them. It needs the **Utilities → Speedy Cache** permission.
 
+## Repeated queries
+
+Pages that run the same database query again and again, usually once for each item in a loop. This is called an N+1 query: a news listing of 30 entries that reads each entry’s categories runs 30 extra queries, where eager-loading runs one.
+
+Cached pages are still fast, but these pages are slow to rebuild, and slow for every visitor who isn’t sent a cached page, such as logged-in visitors and shoppers with a cart.
+
+Speedy counts the queries while it rebuilds pages in the background, so visitors’ requests aren’t slowed down. A query run 10 times or more on one page is listed, with where it ran and what to do:
+
+> **21×** Categories are fetched one item at a time inside a loop at news/_index, line 14. Eager-load them with .with() on the query that loops, or add .eagerly() where they’re used.
+
+For example:
+
+```twig
+{# Before: one query for each entry’s categories #}
+{% for entry in craft.entries().section('news').all() %}
+  {{ entry.categories.all()|join(', ') }}
+{% endfor %}
+
+{# After: one query for them all #}
+{% for entry in craft.entries().section('news').with(['categories']).all() %}
+  {{ entry.categories|join(', ') }}
+{% endfor %}
+```
+
+A page drops off the list the next time it’s rebuilt without repeated queries. Turn the report off with `queryReport`:
+
+```php
+'queryReport' => false,
+```
+
 ## Support report
 
 ![The support report: versions, caching settings, CDN, checks, recent clears and plugins](/images/report.jpg)

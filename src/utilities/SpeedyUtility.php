@@ -58,6 +58,7 @@ class SpeedyUtility extends Utility
             'report' => $plugin->insights->report(),
             'cloudfront' => $plugin->cdn->cloudfrontUsage(),
             'log' => $plugin->log->recent(30),
+            'queries' => $plugin->queries->report(),
             'state' => $plugin->storage->readData('state'),
             'webPath' => $plugin->serverRules->webPath(),
             'nginx' => $plugin->serverRules->nginx(),

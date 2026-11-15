@@ -149,6 +149,41 @@
 		<p class="zilch">{{ 'Nothing cleared yet.'|t('speedy') }}</p>
 	{% endif %}
 
+	{% if settings.queryReport %}
+	<h2 id="speedy-queries">{{ 'Repeated queries'|t('speedy') }}</h2>
+	<p>{{ 'Pages that run the same database query again and again, usually for each item in a loop (an N+1 query). Cached pages are still fast, but these slow down rebuilds and every visitor who isn’t sent a cached page, such as logged-in visitors. Checked whenever Speedy rebuilds a page.'|t('speedy') }}</p>
+	{% if queries|length %}
+		<table class="data fullwidth speedy-pages">
+			<thead><tr>
+				<th scope="col">{{ 'Page'|t('speedy') }}</th>
+				<th scope="col">{{ 'Queries'|t('speedy') }}</th>
+				<th scope="col">{{ 'Repeated'|t('speedy') }}</th>
+			</tr></thead>
+			<tbody>
+				{% for row in queries %}
+					<tr>
+						<td>
+							<a href="{{ row.url }}" target="_blank" rel="noopener">{{ row.url|replace({ 'https://': '', 'http://': '' }) }}</a>
+							<div class="light smalltext">{{ 'Checked {time}'|t('speedy', { time: row.time|datetime('short') }) }}{{ row.ms ? ' · ' ~ 'built in {ms} ms'|t('speedy', { ms: row.ms|number }) }}</div>
+						</td>
+						<td>{{ row.queries|number }}</td>
+						<td>
+							{% for repeat in row.repeated %}
+								<div class="speedy-repeat">
+									<strong>{{ '{count}×'|t('speedy', { count: repeat.count }) }}</strong> {{ repeat.tip }}
+									<details><summary class="light">{{ 'Show the query'|t('speedy') }}</summary><pre class="speedy-code">{{ repeat.sql }}</pre></details>
+								</div>
+							{% endfor %}
+						</td>
+					</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	{% else %}
+		<p class="zilch">{{ 'No repeated queries found in the pages rebuilt so far.'|t('speedy') }}</p>
+	{% endif %}
+	{% endif %}
+
 	<h2>{{ 'Support report'|t('speedy') }}</h2>
 	<p>{{ 'Versions, settings, checks and recent clears, to paste into a support email. Keys and tokens are only shown as “set”.'|t('speedy') }}</p>
 	<div class="flex speedy-report-actions">
@@ -188,6 +223,8 @@
 .speedy-pages td { vertical-align: top; }
 .speedy-pager { gap: 10px; margin-top: 12px; }
 .speedy-report-actions { gap: 10px; margin-bottom: 8px; }
+.speedy-repeat + .speedy-repeat { margin-top: 8px; }
+.speedy-repeat .speedy-code { white-space: pre-wrap; margin-top: 4px; }
 {% endcss %}
 
 {% js %}

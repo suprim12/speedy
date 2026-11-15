@@ -20,6 +20,7 @@ Full-page caching that works with your templates as they are, keeps your databas
 - **Cloudflare, CloudFront, Fastly, Bunny and Varnish built in.** Cleared when pages change, with a Cloudflare zone for each domain, and other plugins can add more. CloudFront paths are batched into wildcards to stay in the free tier.
 - **Scheduled content.** Pages clear when a post goes live or expires, including the listings it appears on.
 - **See why.** A plain-English log: “Saved entry ‘Summer Sale’ → 12 pages cleared”.
+- **Find slow templates.** Pages that run the same query in a loop (N+1 queries) are listed with the template and line, and how to eager-load instead.
 - **At a glance.** A dashboard widget with pages cached, recent clears and any problems.
 - **Cache everything, or only some.** Never cache checkouts and accounts, or only cache the sections you choose.
 - **For developers.** An event at every stage, `craft.speedy.tag()`, an API and console commands.

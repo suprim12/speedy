@@ -82,6 +82,9 @@ class Settings extends Model
     /** Rebuild cached pages in the background when project config changes are applied, such as by `craft up` in a deploy. */
     public bool $rebuildAfterDeploy = true;
 
+    /** Count the database queries of pages Speedy rebuilds, and list the ones that run the same query again and again (N+1 queries). Visitors’ requests aren’t counted. */
+    public bool $queryReport = true;
+
     /** How many pages are rebuilt at once. */
     public int $warmConcurrency = 2;
 

@@ -184,6 +184,10 @@ class Insights extends Component
         if ($stalled) {
             $add('error', Craft::t('speedy', 'Speedy’s queue jobs have waited {minutes} minutes, so the queue isn’t running. Pages are cleared straight away until it is, and rebuilt on their next visit. Run the queue with a cron job or `php craft queue/listen`.', ['minutes' => intdiv($stalled, 60)]));
         }
+        $slow = $settings->queryReport ? count($plugin->queries->report()) : 0;
+        if ($slow) {
+            $add('hint', Craft::t('speedy', '{count, plural, =1{# page runs} other{# pages run}} the same database query again and again, usually in a loop. See [Repeated queries](#speedy-queries).', ['count' => $slow]));
+        }
         $failed = $this->failedJobs();
         if ($failed) {
             $add('error', Craft::t('speedy', '{count, plural, =1{# Speedy queue job has} other{# Speedy queue jobs have}} failed. See Utilities → Queue Manager.', ['count' => $failed]));
@@ -268,6 +272,13 @@ class Insights extends Component
         $lines[] = '## Recent clears';
         foreach ($plugin->log->recent(15) as $entry) {
             $lines[] = '- ' . date('Y-m-d H:i', (int)$entry['time']) . ' · ' . $entry['count'] . ' · ' . $entry['reason'];
+        }
+        $lines[] = '';
+        $lines[] = '## Repeated queries';
+        foreach (array_slice($plugin->queries->report(), 0, 10) as $page) {
+            foreach ($page['repeated'] as $repeat) {
+                $lines[] = '- ' . $page['url'] . ' · ' . $repeat['count'] . '× of ' . $page['queries'] . ' queries' . ($repeat['at'] ? ' · ' . $repeat['at'] : '');
+            }
         }
         $lines[] = '';
         $lines[] = '## Plugins';
