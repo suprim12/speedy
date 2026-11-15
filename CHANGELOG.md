@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- A dashboard widget with the pages cached, recent clears, the CDN and any problems.
 - **Only cache**: cache just the pages that match, such as `news*`, with `/` for the homepage. Empty caches every page, as before.
 - Cached pages are rebuilt in the background when a deploy applies project config changes. Turn it off with `rebuildAfterDeploy`.
 - After clearing everything, the homepage and top pages are rebuilt first, using the sitemap’s priorities.

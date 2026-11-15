@@ -283,6 +283,10 @@ class Plugin extends BasePlugin
             $event->types[] = SpeedyUtility::class;
         });
 
+        Event::on(\craft\services\Dashboard::class, \craft\services\Dashboard::EVENT_REGISTER_WIDGET_TYPES, function(RegisterComponentTypesEvent $event) {
+            $event->types[] = \suprim\speedy\widgets\SpeedyWidget::class;
+        });
+
         // A “Speedy Cache” line in each element’s details, like its status and dates.
         Event::on(Element::class, Element::EVENT_DEFINE_METADATA, function(DefineMetadataEvent $event) {
             /** @var ElementInterface $element */

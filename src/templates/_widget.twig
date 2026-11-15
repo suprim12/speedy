@@ -1,0 +1,58 @@
+{# Dashboard widget: pages cached, recent clears and the CDN. #}
+<div class="speedy-widget">
+	<div class="speedy-widget__stats">
+		<div>
+			<div class="speedy-widget__big">{{ stats.pages|number }}</div>
+			<div class="light">{{ 'pages cached'|t('speedy') }} · {{ (stats.bytes / 1048576)|number_format(1) }} MB</div>
+		</div>
+		<div>
+			<div class="speedy-widget__state">
+				<span class="status {{ settings.isEnabled() ? 'green' : 'disabled' }}" aria-hidden="true"></span>{{ settings.isEnabled() ? 'Caching on'|t('speedy') : 'Caching off'|t('speedy') }}
+			</div>
+			<div class="light">
+				{% if configured|length %}
+					{{ 'Clearing {cdns}'|t('speedy', { cdns: configured|map(c => cdnNames[c])|join(', ') }) }}
+				{% elseif detected %}
+					{{ 'Behind {cdn}, not cleared'|t('speedy', { cdn: cdnNames[detected] }) }}
+				{% else %}
+					{{ 'No CDN'|t('speedy') }}
+				{% endif %}
+			</div>
+		</div>
+	</div>
+
+	{% for problem in problems %}
+		<p class="error speedy-widget__problem">{{ problem.message|md(inlineOnly=true) }}</p>
+	{% endfor %}
+	{% for cdn, last in cdnLast|filter(l => l.error) %}
+		<p class="error speedy-widget__problem">{{ 'The last {cdn} clear failed: {result}'|t('speedy', { cdn: cdnNames[cdn] ?? cdn, result: last.result }) }}</p>
+	{% endfor %}
+
+	<h3 class="speedy-widget__heading">{{ 'Recent clears'|t('speedy') }}</h3>
+	{% if log|length %}
+		<ul class="speedy-widget__log">
+			{% for entry in log %}
+				<li>
+					<span>{{ entry.reason }}</span>
+					<span class="light nowrap">{{ entry.count ? '{count, plural, =1{# page} other{# pages}}'|t('speedy', { count: entry.count }) ~ ' · ' }}{{ entry.time|timestamp('short') }}</span>
+				</li>
+			{% endfor %}
+		</ul>
+	{% else %}
+		<p class="light">{{ 'Nothing cleared yet.'|t('speedy') }}</p>
+	{% endif %}
+
+	<p class="speedy-widget__more"><a href="{{ url('utilities/speedy') }}">{{ 'Open Speedy Cache utility'|t('speedy') }}</a></p>
+</div>
+
+{% css %}
+.speedy-widget__stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.speedy-widget__big { font-size: 24px; font-weight: 600; line-height: 1.2; }
+.speedy-widget__state { font-weight: 600; line-height: 1.2; padding-top: 6px; margin-bottom: 4px; }
+.speedy-widget__problem { margin: 0 0 8px; }
+.speedy-widget__heading { margin: 14px 0 6px; font-size: 13px; }
+.speedy-widget__log { list-style: none; margin: 0; padding: 0; }
+.speedy-widget__log li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 1px solid var(--hairline-color, #e3e5e8); }
+.speedy-widget__log li > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.speedy-widget__more { margin: 10px 0 0; }
+{% endcss %}
