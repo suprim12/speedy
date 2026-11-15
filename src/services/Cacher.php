@@ -282,7 +282,9 @@ class Cacher extends Component
 
         try {
             $html = $this->prepareHtml((string)$response->content);
-            $url = UrlHelper::siteUrl(Craft::$app->getRequest()->getFullPath());
+            // The address as requested, without the query string. (Building it from the site’s base URL would
+            // repeat a subfolder such as /de/ on multi-site.)
+            $url = strtok(Craft::$app->getRequest()->getAbsoluteUrl(), '?');
             $event = new CachePageEvent(['key' => $this->_key, 'url' => $url, 'html' => $html, 'tags' => $tags, 'expires' => $expires]);
             if ($this->hasEventHandlers(self::EVENT_BEFORE_CACHE)) {
                 $this->trigger(self::EVENT_BEFORE_CACHE, $event);

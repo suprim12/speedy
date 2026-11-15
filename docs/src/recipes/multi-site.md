@@ -4,7 +4,9 @@
 
 Pages are saved by host and path, such as `example.com/news` and `example.de/nachrichten`, so sites never mix, whether they use different domains or folders like `/de/`.
 
-Clearing works across sites: saving an entry clears its page in every site it appears in. With `warm` set to `'sitemap'`, each site’s sitemap is read.
+Clearing works across sites: saving an entry clears its page in every site it appears in, and rebuilds each one in the background. With `warm` set to `'sitemap'`, each site’s sitemap is read. Dynamic parts render in the site they were placed in.
+
+Tested with a second site in a subfolder (`/de/`) sharing a section with the primary site.
 
 The server rules work for any number of domains, as they use the request’s host.
 

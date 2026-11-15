@@ -131,6 +131,8 @@ class PagesTest extends TestCase
         $key = Plugin::getInstance()->storage->key(parse_url(self::$base, PHP_URL_HOST), '/' . self::$prefix . '/ttl');
         $expires = Plugin::getInstance()->storage->meta((string)$key)['expires'] ?? 0;
         $this->assertEqualsWithDelta(time() + 120, $expires, 10);
+        // The stored address is the one requested, which rebuilds and CDN clearing use.
+        $this->assertSame(self::$base . '/' . self::$prefix . '/ttl', Plugin::getInstance()->storage->meta((string)$key)['url'] ?? null);
     }
 
     /**
