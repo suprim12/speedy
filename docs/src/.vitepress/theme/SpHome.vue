@@ -272,7 +272,7 @@ php craft plugin/install speedy</code></pre>
           </div>
           <div class="sh-step" data-step="2">
             <p class="sh-step__say">Add your CDN, if you have one.</p>
-            <p class="sh-step__note">A Cloudflare token or CloudFront key in Settings → Plugins → Speedy Cache.</p>
+            <p class="sh-step__note">Cloudflare, CloudFront, Fastly, Bunny or Varnish, on the CDN tab in Settings → Plugins → Speedy Cache.</p>
           </div>
         </div>
         <div class="sh-frame" aria-hidden="true">
@@ -296,7 +296,7 @@ if (-f $document_root$speedy_page) <span class="t-k">{</span>
 
 <span class="t-k">$</span> curl -I https://example.com/
 <span class="sh-ok">x-speedy: STATIC</span>   <span class="sh-dim">1 ms, no PHP</span></code></pre>
-            <img class="sh-frame__slide" :class="{ 'is-on': step === 2 }" :src="withBase('/images/settings.jpg')" width="1600" height="1600" alt="" loading="lazy">
+            <img class="sh-frame__slide sh-frame__slide--light" :class="{ 'is-on': step === 2 }" :src="withBase('/images/settings-cdn.jpg')" width="1600" height="1438" alt="" loading="lazy">
           </div>
         </div>
       </div>
