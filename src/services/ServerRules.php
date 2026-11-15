@@ -41,7 +41,7 @@ class ServerRules extends Component
         set \$speedy_page "$path/\$host\$uri/index.html";
         if (\$request_method !~ ^(GET|HEAD)$) { set \$speedy_page ""; }
         if (\$args != "") { set \$speedy_page ""; }
-        if (\$http_cookie ~* "_identity|_commerce_cart") { set \$speedy_page ""; }
+        if (\$http_cookie ~* "_identity|_commerce_cart|speedy_state") { set \$speedy_page ""; }
         if (\$http_x_speedy_warm != "") { set \$speedy_page ""; }
         if (-f \$document_root\$speedy_page) { rewrite ^ \$speedy_page last; }
 
@@ -64,7 +64,7 @@ class ServerRules extends Component
         # In web/.htaccess, after “RewriteEngine On” and before Craft’s rules:
         RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
         RewriteCond %{QUERY_STRING} ^$
-        RewriteCond %{HTTP_COOKIE} !(_identity|_commerce_cart) [NC]
+        RewriteCond %{HTTP_COOKIE} !(_identity|_commerce_cart|speedy_state) [NC]
         RewriteCond %{HTTP:X-Speedy-Warm} ^$
         RewriteCond %{DOCUMENT_ROOT}$path/%{HTTP_HOST}%{REQUEST_URI}/index.html -s
         RewriteRule .* $path/%{HTTP_HOST}%{REQUEST_URI}/index.html [L,E=SPEEDY:1]

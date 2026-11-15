@@ -12,6 +12,7 @@
 - Pages clear when scheduled content goes live or expires.
 - Forms keep working on cached pages: CSRF tokens are refreshed automatically.
 - Logged-in visitors, Commerce carts, pages that set cookies and pages with query strings aren’t cached.
+- Multi-page forms and flash messages are safe: visitors with something in their session get their own pages, never a cached step or someone else’s message.
 - Cloudflare and CloudFront: detected automatically and cleared when pages change, with CloudFront paths batched into wildcards and a monthly counter.
 - CDNs are told not to keep pages that Speedy can’t clear from them.
 - Warming from the sitemap or a list of URLs.

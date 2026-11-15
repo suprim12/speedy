@@ -26,6 +26,9 @@ class Cacher extends Component
     /** Response header showing what Speedy did: HIT, MISS or SKIP. */
     public const HEADER = 'X-Speedy';
 
+    /** Set while a visitor has something in their session, such as a form step or a flash message. */
+    public const STATE_COOKIE = 'speedy_state';
+
     /** Placeholder for the CSRF token in cached pages; the refresh script replaces it. */
     public const CSRF_PLACEHOLDER = '__SPEEDY_CSRF__';
 
@@ -53,6 +56,8 @@ class Cacher extends Component
         if (!$request instanceof Request) {
             return;
         }
+
+        Craft::$app->on(\yii\base\Application::EVENT_AFTER_REQUEST, fn() => $this->markState());
 
         $this->_warming = $this->isWarmRequest($request);
         $this->_key = $this->cacheKey($request);
@@ -106,6 +111,7 @@ class Cacher extends Component
             $request->getIsPreview() || $request->getToken() !== null => 'preview',
             $this->hasCookie($request, '_identity') || !Craft::$app->getUser()->getIsGuest() => 'logged in',
             $settings->skipWhenCart && $this->hasCookie($request, '_commerce_cart') => 'cart',
+            $this->hasCookie($request, self::STATE_COOKIE) => 'session',
             default => null,
         };
         if ($reason === null && $settings->queryStrings === 'skip' && $this->remainingParams($request)) {
@@ -213,6 +219,7 @@ class Cacher extends Component
             !is_string($response->content) || $response->content === '' => 'empty',
             strlen((string)$response->content) > 5 * 1024 * 1024 => 'too large',
             $this->isPrivate($response) => 'private',
+            $this->sessionHasState() => 'session',
             $this->setsCookies($response) => 'sets a cookie',
             !Craft::$app->getUser()->getIsGuest() => 'logged in',
             $request instanceof Request && Plugin::getInstance()->getSettings()->skipWhenCart && $this->hasCookie($request, '_commerce_cart') => 'cart',
@@ -243,7 +250,7 @@ class Cacher extends Component
     private function setsCookies(Response $response): bool
     {
         $request = Craft::$app->getRequest();
-        $harmless = [$request->csrfParam, Craft::$app->getConfig()->getGeneral()->phpSessionName];
+        $harmless = [$request->csrfParam, Craft::$app->getConfig()->getGeneral()->phpSessionName, self::STATE_COOKIE];
         foreach ($response->getCookies() as $cookie) {
             if (!in_array($cookie->name, $harmless, true)) {
                 return true;
@@ -270,6 +277,53 @@ class Cacher extends Component
         $script = '<script>(function(){var p=' . json_encode(self::CSRF_PLACEHOLDER) . ';fetch(' . json_encode(UrlHelper::actionUrl('speedy/csrf')) . ',{headers:{Accept:"application/json"},credentials:"same-origin"}).then(function(r){return r.json()}).then(function(d){document.querySelectorAll("input[value=\'"+p+"\']").forEach(function(i){i.value=d.token});document.querySelectorAll("meta[content=\'"+p+"\']").forEach(function(m){m.content=d.token});window.csrfTokenValue=d.token})})();</script>';
 
         return str_contains($html, '</body>') ? substr_replace($html, $script . '</body>', strrpos($html, '</body>'), 7) : $html . $script;
+    }
+
+    /**
+     * Pages built from session data, such as the second step of a multi-page form or a “Thanks” flash message,
+     * differ per visitor. While a visitor has session data, a cookie tells Speedy and the web server rules to
+     * build their pages fresh; it’s removed once the session is empty again.
+     */
+    private function markState(): void
+    {
+        $request = Craft::$app->getRequest();
+        $session = Craft::$app->getSession();
+        $marked = $this->hasCookie($request, self::STATE_COOKIE);
+        if (!$session->getIsActive()) {
+            if (!$marked || !$this->hasCookie($request, Craft::$app->getConfig()->getGeneral()->phpSessionName)) {
+                return;
+            }
+            $session->open();
+        }
+        $hasState = $this->sessionHasState();
+        if ($hasState === $marked) {
+            return;
+        }
+        $cookies = Craft::$app->getResponse()->getCookies();
+        if ($hasState) {
+            $cookies->add(new \yii\web\Cookie(['name' => self::STATE_COOKIE, 'value' => '1', 'httpOnly' => true, 'secure' => $request->getIsSecureConnection(), 'sameSite' => \yii\web\Cookie::SAME_SITE_LAX]));
+        } else {
+            $cookies->remove(new \yii\web\Cookie(['name' => self::STATE_COOKIE]), true);
+        }
+    }
+
+    /**
+     * Whether this visitor’s session holds anything, such as a form step or a flash message.
+     */
+    private function sessionHasState(): bool
+    {
+        $session = Craft::$app->getSession();
+        if (!$session->getIsActive()) {
+            return false;
+        }
+        // Flash messages are stored as their own keys; the flash key only counts them.
+        foreach ($_SESSION ?? [] as $name => $value) {
+            if ($name !== $session->flashParam && $value !== null) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function isWarmRequest(Request $request): bool

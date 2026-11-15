@@ -15,7 +15,8 @@ Everything is in files, not the database:
 ## Personal data
 
 - **Only pages for logged-out visitors are cached,** so cached pages show what any visitor would see.
-- **Pages that might be personal aren’t cached:** pages for logged-in visitors or visitors with a cart, pages that set cookies, and pages marked private.
+- **Pages that might be personal aren’t cached:** pages for logged-in visitors, visitors with a cart or with something in their session, pages that set cookies, and pages marked private.
+- **One cookie, only when needed:** `speedy_state` is set while a visitor’s session holds something, such as a form step, so they get their own pages. It contains no personal data, is removed once the session is empty, and is strictly necessary for the site to work, so it needs no consent.
 - **CSRF tokens are never stored.** Each visitor gets their own as the page loads.
 - **The log** contains entry titles and page URLs, never visitor information.
 

@@ -15,6 +15,7 @@ The header says why, after `SKIP`:
 | `logged in` | You’re logged in to Craft | Test in a private window |
 | `cart` | The visitor has a Commerce cart | Expected. Set `skipWhenCart` to `false` if your pages show nothing from the cart |
 | `query string` | The URL has `?something=` | Expected, as query strings usually change the page. Tracking parameters like `utm_source` are ignored |
+| `session` | The visitor has something in their session, such as a form step or a flash message | Expected. It clears once the session is empty. See [What isn’t cached](/guides/not-cached#multi-page-forms-and-flash-messages) |
 | `never cache` | The URL matches **Never cache** | Check the patterns in the settings |
 | `sets a cookie` | The page sets a cookie, so it may be personal | Find what sets it, or move it to a page that isn’t cached |
 | `private` | The template or a plugin sent `Cache-Control: private` or `no-store` | Remove it if the page isn’t personal |
