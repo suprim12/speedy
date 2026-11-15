@@ -1,0 +1,62 @@
+/* Brand: a lightning yellow on near-black. Links on light pages use a deep amber that stays readable. */
+:root {
+  --sp-brand: #ffd43b;
+  --vp-c-brand-1: #8a5a00;
+  --vp-c-brand-2: #6f4800;
+  --vp-c-brand-3: #8a5a00;
+  --vp-c-brand-soft: rgba(255, 212, 59, 0.22);
+  --vp-button-brand-bg: #14161f;
+  --vp-button-brand-text: #ffd43b;
+  --vp-button-brand-hover-bg: #262a38;
+  --vp-button-brand-hover-text: #ffe066;
+  --vp-button-brand-active-bg: #000;
+  --sp-mat: #efede8;
+}
+
+.dark {
+  --vp-c-brand-1: #ffd43b;
+  --vp-c-brand-2: #ffe066;
+  --vp-c-brand-3: #e6bb1f;
+  --vp-c-brand-soft: rgba(255, 212, 59, 0.14);
+  --vp-button-brand-bg: #ffd43b;
+  --vp-button-brand-text: #14161f;
+  --vp-button-brand-hover-bg: #ffe066;
+  --vp-button-brand-hover-text: #14161f;
+  --sp-mat: #1e2029;
+}
+
+/* Screenshots sit on a soft mat so they read as pictures of the control panel. */
+.vp-doc img {
+  display: block;
+  margin: 24px 0;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--sp-mat);
+}
+
+/* ---------- Home (SpHome.vue) ---------- */
+
+/* Entrances: parts rise in once as they reach the screen; only when the script runs. */
+@media (prefers-reduced-motion: no-preference) {
+  .sp-motion .sh [data-reveal] {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  .sp-motion .sh [data-reveal].is-in {
+    opacity: 1;
+    transform: none;
+  }
+
+  .sh-cells > :nth-child(3n + 2) { transition-delay: 0.08s; }
+  .sh-cells > :nth-child(3n) { transition-delay: 0.16s; }
+}
+
+/* The home page runs edge to edge under the nav. */
+@media (min-width: 960px) {
+  .VPContent:has(.sh) { padding-top: var(--vp-nav-height); }
+}
+.Layout:has(.sh) .VPNavBar .divider-line { display: none; }
+.Layout:has(.sh) .VPNav .divider { display: none; }
+.Layout:has(.sh) .VPNav { font-family: 'Clash Grotesk', var(--vp-font-family-base); }

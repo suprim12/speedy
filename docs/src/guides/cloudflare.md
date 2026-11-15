@@ -1,0 +1,35 @@
+# Cloudflare
+
+If your site is behind Cloudflare, Speedy can let Cloudflare keep your pages too, at its edge close to visitors, and clear them when content changes.
+
+Speedy detects Cloudflare from its `CF-Ray` header and says so in **Settings → Plugins → Speedy Cache** and on the utility page.
+
+## Without a token
+
+Speedy still works: pages are cached on your server. Speedy tells Cloudflare not to keep HTML pages (`Cache-Control: no-cache, s-maxage=0`), so Cloudflare never shows a page Speedy can’t clear. Images, CSS and JavaScript are cached by Cloudflare as usual.
+
+## With a token
+
+1. In Cloudflare, go to **My Profile → API Tokens → Create Token → Create Custom Token**.
+2. Give it one permission: **Zone → Cache Purge → Purge**.
+3. Under **Zone Resources**, choose **Include → Specific zone →** your domain.
+4. Copy the token. Then copy the **Zone ID** from the domain’s **Overview** page.
+5. Add both to `.env`:
+   ```bash
+   CLOUDFLARE_TOKEN="…"
+   CLOUDFLARE_ZONE_ID="…"
+   ```
+6. In **Settings → Plugins → Speedy Cache**, enter `$CLOUDFLARE_TOKEN` and `$CLOUDFLARE_ZONE_ID`, and save.
+7. On the utility page, click **Test Cloudflare**.
+
+Cached pages are now sent with `Cache-Control: public, s-maxage=31536000, max-age=0`: Cloudflare keeps them, browsers check back each time, and Speedy clears Cloudflare whenever a page changes.
+
+## Make Cloudflare keep HTML
+
+By default, Cloudflare only caches files like images. To cache pages, add a **Cache Rule** for your domain: **Eligible for cache**, and **Edge TTL → Use cache-control header if present**. Exclude `/admin*` and `/actions*`.
+
+## How clearing works
+
+- Changed pages are cleared by URL, 30 at a time.
+- **Clear all pages** clears everything in Cloudflare too.
+- Results show on the utility page, and failures in the log.
