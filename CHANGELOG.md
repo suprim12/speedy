@@ -1,5 +1,10 @@
 # Release Notes for Speedy Cache
 
+## Unreleased
+
+### Fixed
+- The “queue hasn’t run” alert no longer shows when the control panel is opened after a quiet spell, on sites where the control panel runs the queue. It now shows only if the queue still hasn’t run ten minutes later.
+
 ## 1.0.0 - 2026-11-15
 
 ### Added

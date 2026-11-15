@@ -179,7 +179,7 @@ class Insights extends Component
                 $add('error', Craft::t('speedy', '{plugin} is enabled too. Two page caches fight: it marks pages as not cacheable, so Speedy can’t cache them. Use one.', ['plugin' => $other->name]));
             }
         }
-        $stalled = $this->queueStalledFor();
+        $stalled = $this->queueStuckFor();
         if ($stalled) {
             $add('error', Craft::t('speedy', 'Speedy’s queue jobs have waited {minutes} minutes, so the queue isn’t running. Pages are cleared straight away until it is, and rebuilt on their next visit. Run the queue with a cron job or `php craft queue/listen`.', ['minutes' => intdiv($stalled, 60)]));
         }
@@ -319,6 +319,33 @@ class Insights extends Component
 
             return $age > self::STALL_AFTER ? $age : 0;
         }, 60);
+    }
+
+    /**
+     * How long, in seconds, the queue has been stuck, for telling people about it.
+     *
+     * When the control panel runs the queue (`runQueueAutomatically`), jobs wait while nobody has it open, which is normal on
+     * a quiet site. The wait then counts from when the control panel was opened, so it only shows if the queue still doesn’t run.
+     */
+    public function queueStuckFor(): int
+    {
+        $stalled = $this->queueStalledFor();
+        if (!$stalled || !Craft::$app->getConfig()->getGeneral()->runQueueAutomatically || !Craft::$app->getRequest()->getIsCpRequest()) {
+            return $stalled;
+        }
+
+        // When this visit to the control panel started: a gap of more than ten minutes starts a new one.
+        $now = time();
+        $cache = Craft::$app->getCache();
+        $visit = $cache->get('speedy:cpVisit');
+        if (!is_array($visit) || $now - (int)$visit['last'] > self::STALL_AFTER) {
+            $visit = ['since' => $now, 'last' => $now];
+        }
+        $visit['last'] = $now;
+        $cache->set('speedy:cpVisit', $visit, 86400);
+        $waited = min($stalled, $now - (int)$visit['since']);
+
+        return $waited > self::STALL_AFTER ? $waited : 0;
     }
 
     private function failedJobs(): int

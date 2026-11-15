@@ -305,7 +305,7 @@ class Plugin extends BasePlugin
             if (!Craft::$app->getUser()->checkPermission('utility:speedy')) {
                 return;
             }
-            $stalled = $this->insights->queueStalledFor();
+            $stalled = $this->insights->queueStuckFor();
             if ($stalled) {
                 $event->alerts[] = Craft::t('speedy', 'The queue hasn’t run for {minutes} minutes. Speedy Cache is clearing pages without it until it does. <a href="{url}">Details</a>', [
                     'minutes' => intdiv($stalled, 60),

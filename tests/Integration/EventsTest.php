@@ -8,7 +8,6 @@ use suprim\speedy\purgers\BasePurger;
 use suprim\speedy\services\Cdn;
 use suprim\speedy\services\Clearer;
 use suprim\speedy\tests\TestCase;
-use yii\base\Event;
 
 class EventsTest extends TestCase
 {

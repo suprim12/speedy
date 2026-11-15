@@ -6,6 +6,7 @@ use Craft;
 use craft\db\Query;
 use craft\events\InvalidateElementCachesEvent;
 use craft\events\RegisterComponentTypesEvent;
+use craft\helpers\Queue;
 use suprim\speedy\events\BeforeClearEvent;
 use suprim\speedy\events\InvalidateEvent;
 use suprim\speedy\events\PurgeEvent;
@@ -32,6 +33,7 @@ class HooksTest extends TestCase
             Craft::$app->getDb()->createCommand()->delete('{{%queue}}', ['id' => $id])->execute();
         }
         Craft::$app->getCache()->delete('speedy:queueStalled');
+        Craft::$app->getCache()->delete('speedy:cpVisit');
         parent::tearDown();
     }
 
@@ -166,6 +168,40 @@ class HooksTest extends TestCase
         }), 'A stuck queue doesn’t get more.');
         $this->assertFalse($storage->exists('example.com/a'), 'The page was cleared straight away.');
         $this->assertStringContainsString('isn’t running', implode(' ', array_column($this->plugin()->insights->checks(), 'message')));
+    }
+
+    public function testAQuietControlPanelIsntAStuckQueue(): void
+    {
+        $general = Craft::$app->getConfig()->getGeneral();
+        $auto = $general->runQueueAutomatically;
+        $consoleRequest = Craft::$app->getRequest();
+        $cpRequest = new \craft\web\Request();
+        $cpRequest->setIsCpRequest(true);
+        Craft::$app->set('request', $cpRequest);
+        try {
+            // A Speedy job that has waited an hour.
+            Queue::push(new ClearJob(['tags' => ['element::1']]));
+            $this->jobIds[] = (int)(new Query())->from('{{%queue}}')->where(['like', 'description', 'Speedy Cache: clearing'])->max('id');
+            Craft::$app->getDb()->createCommand()->update('{{%queue}}', ['timePushed' => time() - 3600], ['id' => end($this->jobIds)])->execute();
+            Craft::$app->getCache()->delete('speedy:queueStalled');
+            $insights = $this->plugin()->insights;
+
+            $general->runQueueAutomatically = true;
+            $this->assertGreaterThan(3000, $insights->queueStalledFor(), 'Pages still clear without the queue.');
+            $this->assertSame(0, $insights->queueStuckFor(), 'The control panel has only just been opened, so it hasn’t had the chance to run the queue.');
+
+            Craft::$app->getCache()->set('speedy:cpVisit', ['since' => time() - 900, 'last' => time() - 60], 86400);
+            $this->assertGreaterThan(800, $insights->queueStuckFor(), 'Still waiting after fifteen minutes in the control panel.');
+
+            Craft::$app->getCache()->set('speedy:cpVisit', ['since' => time() - 7200, 'last' => time() - 3000], 86400);
+            $this->assertSame(0, $insights->queueStuckFor(), 'A visit after a quiet spell starts again.');
+
+            $general->runQueueAutomatically = false;
+            $this->assertGreaterThan(3000, $insights->queueStuckFor(), 'With a queue runner, the wait counts from the job.');
+        } finally {
+            $general->runQueueAutomatically = $auto;
+            Craft::$app->set('request', $consoleRequest);
+        }
     }
 
     public function testCountsQueryVersionsOfAPage(): void
