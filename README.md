@@ -4,6 +4,8 @@
 
 Full-page caching that works with your templates as they are, keeps your database clean, and clears Cloudflare, CloudFront, Fastly, Bunny and Varnish when content changes.
 
+<img src="https://plugins.speedy.suprim.com.au/images/how-it-works.svg" alt="Saving an entry clears the 3 pages that show it; the next request is served as a static file" width="720">
+
 ## Features
 
 - **Static pages, no database tables.** Pages are saved as HTML files. What each page depends on is stored next to it, so the database never grows.
@@ -19,10 +21,6 @@ Full-page caching that works with your templates as they are, keeps your databas
 - **Scheduled content.** Pages clear when a post goes live or expires, including the listings it appears on.
 - **See why.** A plain-English log: “Saved entry ‘Summer Sale’ → 12 pages cleared”.
 - **For developers.** An event at every stage, `craft.speedy.tag()`, an API and console commands.
-
-![Recent clears, with the reason and the pages](https://plugins.speedy.suprim.com.au/images/log.jpg)
-
-![Each entry shows whether its page is cached](https://plugins.speedy.suprim.com.au/images/entry-status.jpg)
 
 ## Requirements
 
