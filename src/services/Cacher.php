@@ -209,12 +209,29 @@ class Cacher extends Component
             !str_contains(strtolower((string)$headers->get('Content-Type', 'text/html')), 'text/html') && $response->format !== Response::FORMAT_HTML => 'not html',
             !is_string($response->content) || $response->content === '' => 'empty',
             strlen((string)$response->content) > 5 * 1024 * 1024 => 'too large',
-            str_contains(strtolower((string)$headers->get('Cache-Control')), 'private') || str_contains(strtolower((string)$headers->get('Cache-Control')), 'no-store') => 'private',
+            $this->isPrivate($response) => 'private',
             $this->setsCookies($response) => 'sets a cookie',
             !Craft::$app->getUser()->getIsGuest() => 'logged in',
             $request instanceof Request && Plugin::getInstance()->getSettings()->skipWhenCart && $this->hasCookie($request, '_commerce_cart') => 'cart',
             default => null,
         };
+    }
+
+    /**
+     * Whether the response asks not to be cached. Craft sends `no-cache, no-store, must-revalidate` whenever a page
+     * shows a CSRF token, so that the token isn’t cached; Speedy replaces the token, so that case is cacheable.
+     */
+    private function isPrivate(Response $response): bool
+    {
+        $cacheControl = strtolower(trim((string)$response->getHeaders()->get('Cache-Control')));
+        if (!str_contains($cacheControl, 'private') && !str_contains($cacheControl, 'no-store')) {
+            return false;
+        }
+        $request = Craft::$app->getRequest();
+        $craftCsrfHeader = $cacheControl === 'no-cache, no-store, must-revalidate';
+        $showsToken = $request->enableCsrfValidation && is_string($response->content) && str_contains($response->content, $request->getCsrfToken());
+
+        return !($craftCsrfHeader && $showsToken && Plugin::getInstance()->getSettings()->refreshCsrf);
     }
 
     /**

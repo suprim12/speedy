@@ -57,7 +57,7 @@
 	</div>
 
 	{% for cdn, last in cdnLast %}
-		<p class="{{ last.error ? 'error' : 'light' }}">{{ cdnNames[cdn] ?? cdn }}: {{ last.result }} · {{ last.time|timestamp }}</p>
+		<p class="{{ last.error ? 'error' : 'light' }}">{{ cdnNames[cdn] ?? cdn }}: {{ last.result }} · {{ last.time|datetime('short') }}</p>
 	{% endfor %}
 
 	<h2>{{ 'Recent clears'|t('speedy') }}</h2>
@@ -67,7 +67,7 @@
 			<tbody>
 				{% for entry in log %}
 					<tr>
-						<td class="nowrap">{{ entry.time|timestamp }}</td>
+						<td class="nowrap">{{ entry.time|datetime('short') }}</td>
 						<td>
 							{{ entry.reason }}
 							{% if entry.urls|length %}
@@ -88,7 +88,7 @@
 	{% if not webPath %}<p class="warning with-icon">{{ 'The cache folder isn’t inside the web root, so the web server can’t serve it. Set cachePath to a folder in @webroot.'|t('speedy') }}</p>{% endif %}
 	<details><summary>{{ 'Nginx'|t('speedy') }}</summary><pre class="speedy-code"><code>{{ nginx }}</code></pre></details>
 	<details><summary>{{ 'Apache'|t('speedy') }}</summary><pre class="speedy-code"><code>{{ apache }}</code></pre></details>
-	{% if state.lastExpire ?? false %}<p class="light">{{ 'Scheduled changes last checked {time}.'|t('speedy', { time: state.lastExpire|timestamp }) }}</p>{% endif %}
+	{% if state.lastExpire ?? false %}<p class="light">{{ 'Scheduled changes last checked {time}.'|t('speedy', { time: state.lastExpire|datetime('short') }) }}</p>{% endif %}
 </div>
 
 {% css %}

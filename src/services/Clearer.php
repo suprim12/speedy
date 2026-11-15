@@ -13,6 +13,7 @@ use Craft;
 use craft\base\Component;
 use craft\base\ElementInterface;
 use craft\events\InvalidateElementCachesEvent;
+use craft\helpers\ElementHelper;
 use craft\helpers\Queue;
 use suprim\speedy\jobs\ClearJob;
 use suprim\speedy\jobs\ExpireJob;
@@ -26,8 +27,11 @@ class Clearer extends Component
     /** @var array<string, true> Tags waiting to be cleared at the end of the request or bulk operation. */
     private array $_pending = [];
 
-    /** @var string[] What changed, for the log. */
+    /** @var string[] What changed, for the log (the first few). */
     private array $_reasons = [];
+
+    /** @var array<string, true> The elements that changed, once each (an entry saves once per site), for “and 12 more”. */
+    private array $_changed = [];
 
     private bool $_clearAll = false;
     private int $_bulkDepth = 0;
@@ -37,6 +41,10 @@ class Clearer extends Component
      */
     public function onInvalidate(InvalidateElementCachesEvent $event): void
     {
+        // Drafts, autosaves and revisions never appear on the live site.
+        if ($event->element instanceof ElementInterface && ElementHelper::isDraftOrRevision($event->element)) {
+            return;
+        }
         $tags = $event->tags;
         // Drafts and revisions never appear on the live site.
         $tags = array_filter($tags, fn($t) => !str_ends_with($t, '::drafts') && !str_ends_with($t, '::revisions'));
@@ -49,10 +57,15 @@ class Clearer extends Component
         foreach ($tags as $tag) {
             $this->_pending[$tag] = true;
         }
-        if ($event->element instanceof ElementInterface && count($this->_reasons) < 5) {
-            $this->_reasons[] = $this->describe($event->element);
-        } elseif (!$event->element && count($this->_reasons) < 5) {
-            $this->_reasons[] = Craft::t('speedy', 'Caches cleared for {tags}', ['tags' => implode(', ', array_slice($tags, 0, 3))]);
+        $id = $event->element instanceof ElementInterface ? (string)($event->element->getCanonicalId() ?? $event->element->id) : implode(',', $tags);
+        if (isset($this->_changed[$id])) {
+            return;
+        }
+        $this->_changed[$id] = true;
+        if (count($this->_reasons) < 3) {
+            $this->_reasons[] = $event->element instanceof ElementInterface
+                ? $this->describe($event->element)
+                : Craft::t('speedy', 'Caches cleared for {tags}', ['tags' => implode(', ', array_slice($tags, 0, 3))]);
         }
     }
 
@@ -75,7 +88,11 @@ class Clearer extends Component
         if ($this->_bulkDepth > 0 || (!$this->_pending && !$this->_clearAll)) {
             return;
         }
-        $reason = $this->_reasons ? implode('; ', array_unique($this->_reasons)) : Craft::t('speedy', 'Content changed');
+        $reasons = array_values(array_unique($this->_reasons));
+        $reason = $reasons ? implode('; ', $reasons) : Craft::t('speedy', 'Content changed');
+        if (count($this->_changed) > count($reasons)) {
+            $reason .= ' ' . Craft::t('speedy', 'and {count} more', ['count' => count($this->_changed) - count($reasons)]);
+        }
         $job = new ClearJob([
             'tags' => array_keys($this->_pending),
             'all' => $this->_clearAll,
@@ -83,6 +100,7 @@ class Clearer extends Component
         ]);
         $this->_pending = [];
         $this->_reasons = [];
+        $this->_changed = [];
         $this->_clearAll = false;
         Queue::push($job, 1024);
     }
