@@ -1,6 +1,6 @@
 # Release Notes for Speedy Cache
 
-## 1.0.0 - Unreleased
+## 1.0.0 - 2026-11-15
 
 ### Added
 - Full-page caching of logged-out GET pages as static HTML files, with no database tables.
