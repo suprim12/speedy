@@ -79,20 +79,38 @@ class ServerRules extends Component
         $cacheControl = Plugin::getInstance()->cdn->cacheControl();
         $cookies = $this->cookiePattern();
 
+        $dir = ltrim($path, '/');
+
         return <<<APACHE
         # Speedy Cache: serve cached pages without PHP.
         # In web/.htaccess, after “RewriteEngine On” and before Craft’s rules:
-        RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
-        RewriteCond %{QUERY_STRING} ^$
-        RewriteCond %{HTTP_COOKIE} !($cookies) [NC]
-        RewriteCond %{HTTP:X-Requested-With} ^$
-        RewriteCond %{HTTP:HX-Request} ^$
-        RewriteCond %{HTTP:X-Up-Target} ^$
-        RewriteCond %{HTTP:X-Speedy-Warm} ^$
+
+        # The cache folder can’t be opened directly, only through the rules below.
+        RewriteCond %{ENV:REDIRECT_STATUS} ^$
+        RewriteRule ^$dir/ - [F]
+        RewriteRule ^$dir/.+\.html\.gz$ - [T=text/html,E=no-gzip:1,E=SPEEDY_GZ:1,L]
+
+        # Requests that must reach Craft skip the next two rules.
+        RewriteCond %{REQUEST_METHOD} !^(GET|HEAD)$ [OR]
+        RewriteCond %{QUERY_STRING} !^$ [OR]
+        RewriteCond %{HTTP_COOKIE} ($cookies) [NC,OR]
+        RewriteCond %{HTTP:X-Requested-With} !^$ [OR]
+        RewriteCond %{HTTP:HX-Request} !^$ [OR]
+        RewriteCond %{HTTP:X-Up-Target} !^$ [OR]
+        RewriteCond %{HTTP:X-Speedy-Warm} !^$
+        RewriteRule .* - [S=2]
+
+        # The compressed copy, for browsers that accept it, or the page itself.
+        RewriteCond %{HTTP:Accept-Encoding} gzip
+        RewriteCond %{DOCUMENT_ROOT}$path/%{HTTP_HOST}%{REQUEST_URI}/index.html.gz -s
+        RewriteRule .* $path/%{HTTP_HOST}%{REQUEST_URI}/index.html.gz [L,E=SPEEDY:1]
         RewriteCond %{DOCUMENT_ROOT}$path/%{HTTP_HOST}%{REQUEST_URI}/index.html -s
         RewriteRule .* $path/%{HTTP_HOST}%{REQUEST_URI}/index.html [L,E=SPEEDY:1]
+
         Header set X-Speedy "STATIC" env=REDIRECT_SPEEDY
         Header set Cache-Control "$cacheControl" env=REDIRECT_SPEEDY
+        Header set Vary "Accept-Encoding" env=REDIRECT_SPEEDY
+        Header set Content-Encoding "gzip" env=SPEEDY_GZ
         APACHE;
     }
 
