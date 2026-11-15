@@ -23,7 +23,7 @@ use yii\web\Response;
  *   POST actions/speedy/api/clear  urls[]=…     those pages
  *   POST actions/speedy/api/rebuild             every page, keeping old copies until the new ones are ready
  *
- * Send the key in an `Authorization: Bearer …` header.
+ * Send the key in an `Authorization: Bearer …` header, or as a `key` field in the POST body. Never in the URL.
  */
 class ApiController extends Controller
 {
@@ -43,6 +43,10 @@ class ApiController extends Controller
             throw new NotFoundHttpException();
         }
         $given = (string)preg_replace('/^Bearer\s+/i', '', (string)$this->request->getHeaders()->get('Authorization'));
+        if ($given === '') {
+            // For senders that can't set headers, such as some webhooks. Never from the query string, which ends up in logs.
+            $given = (string)$this->request->getBodyParam('key', '');
+        }
         if ($given === '' || !hash_equals($key, $given)) {
             throw new ForbiddenHttpException('Invalid API key.');
         }

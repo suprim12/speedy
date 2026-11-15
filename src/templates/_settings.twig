@@ -154,7 +154,7 @@
 <div id="advanced" class="hidden">
 {{ forms.autosuggestField({
 	label: 'API key'|t('speedy'),
-	instructions: 'Lets a deploy pipeline or another system clear and rebuild pages over HTTP. At least 16 characters; best kept in .env, such as $SPEEDY_API_KEY. Leave blank to turn the API off.'|t('speedy'),
+	instructions: 'Lets a deploy pipeline or another system clear and rebuild pages over HTTP. At least 16 characters; best kept in .env, such as $SPEEDY_API_KEY. Send it in an `Authorization: Bearer` header or as a `key` field in the POST body, never in the URL. Leave blank to turn the API off.'|t('speedy'),
 	id: 'apiKey',
 	name: 'apiKey',
 	value: settings.apiKey,

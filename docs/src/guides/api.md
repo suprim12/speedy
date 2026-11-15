@@ -15,7 +15,7 @@ Without a key, the API answers 404. The Advanced tab shows a ready-to-copy reque
 
 ## Requests
 
-Send `POST` requests with the key in an `Authorization` header. The answers are JSON.
+Send `POST` requests with the key in an `Authorization: Bearer` header, or as a `key` field in the body for senders that can’t set headers (`-d "key=…"`). The key is never read from the URL, where it would end up in access logs. The answers are JSON.
 
 ```bash
 # Clear every page
