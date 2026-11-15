@@ -1,4 +1,8 @@
 {
+  "framework": null,
+  "installCommand": "npm ci",
+  "buildCommand": "npm run docs:build",
+  "outputDirectory": "src/.vitepress/dist",
   "cleanUrls": true,
   "trailingSlash": false
 }
