@@ -168,7 +168,7 @@
 {% if settings.getApiKey() %}
 	<div class="field">
 		<div class="heading"><label>{{ 'Example'|t('speedy') }}</label></div>
-		<div class="instructions"><p>{{ 'Clears every page. See the docs for clearing some pages or rebuilding.'|t('speedy') }} <a href="https://speedy.suprim.com.au/guides/api" target="_blank" rel="noopener">{{ 'API docs'|t('speedy') }}</a></p></div>
+		<div class="instructions"><p>{{ 'Clears every page. See the docs for clearing some pages or rebuilding.'|t('speedy') }} <a href="https://plugins.speedy.suprim.com.au/guides/api" target="_blank" rel="noopener">{{ 'API docs'|t('speedy') }}</a></p></div>
 		<pre class="speedy-code"><code>curl -X POST {{ siteUrl(craft.app.config.general.actionTrigger ~ '/speedy/api/clear') }} \
   -H "Authorization: Bearer $SPEEDY_API_KEY"</code></pre>
 	</div>
@@ -176,7 +176,7 @@
 
 <hr>
 <h3>{{ 'Set in config/speedy.php'|t('speedy') }}</h3>
-<p class="speedy-intro">{{ 'Less common options, with the values in use now.'|t('speedy') }} <a href="https://speedy.suprim.com.au/getting-started/configuration" target="_blank" rel="noopener">{{ 'All options'|t('speedy') }}</a></p>
+<p class="speedy-intro">{{ 'Less common options, with the values in use now.'|t('speedy') }} <a href="https://plugins.speedy.suprim.com.au/getting-started/configuration" target="_blank" rel="noopener">{{ 'All options'|t('speedy') }}</a></p>
 <table class="data fullwidth speedy-config">
 	<thead><tr><th scope="col">{{ 'Option'|t('speedy') }}</th><th scope="col">{{ 'Value'|t('speedy') }}</th><th scope="col">{{ 'What it does'|t('speedy') }}</th></tr></thead>
 	<tbody>

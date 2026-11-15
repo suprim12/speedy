@@ -13,7 +13,7 @@
     "email": "support@suprim.com.au",
     "issues": "https://github.com/suprim12/speedy/issues?state=open",
     "source": "https://github.com/suprim12/speedy",
-    "docs": "https://speedy.suprim.com.au/",
+    "docs": "https://plugins.speedy.suprim.com.au/",
     "rss": "https://github.com/suprim12/speedy/releases.atom"
   },
   "require": {
@@ -37,7 +37,7 @@
     "class": "suprim\\speedy\\Plugin",
     "developerUrl": "https://suprim.com.au",
     "developerEmail": "support@suprim.com.au",
-    "documentationUrl": "https://speedy.suprim.com.au/",
+    "documentationUrl": "https://plugins.speedy.suprim.com.au/",
     "changelogUrl": "https://raw.githubusercontent.com/suprim12/speedy/main/CHANGELOG.md"
   },
   "scripts": {
