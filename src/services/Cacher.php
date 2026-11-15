@@ -183,6 +183,9 @@ class Cacher extends Component
 
         try {
             $html = $this->prepareHtml((string)$response->content);
+            if ($settings->cacheComment) {
+                $html .= "\n<!-- Cached by Speedy Cache on " . date('c') . ' -->';
+            }
             $url = UrlHelper::siteUrl(Craft::$app->getRequest()->getFullPath());
             Plugin::getInstance()->storage->write($this->_key, $html, $url, $tags, $expires);
             if ($expires !== null) {

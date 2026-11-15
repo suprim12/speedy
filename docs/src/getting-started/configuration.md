@@ -42,6 +42,7 @@ return [
 | `sitemap` | `'sitemap.xml'` | The sitemap to read for `warm`, relative to each site |
 | `warmConcurrency` | `2` | How many pages are built at once |
 | `defaultTtl` | `null` | A maximum age for every page, in seconds ([Live data](/recipes/live-data)) |
+| `cacheComment` | `true` | Add `<!-- Cached by Speedy Cache on … -->` to the end of cached pages |
 | `cachePath` | `'@webroot/speedy'` | Where pages are saved. Must be in the web root for [server serving](/getting-started/server-rules) |
 | `dataPath` | `'@storage/speedy'` | Where Speedy keeps tags, the log and CDN details |
 | `cloudflareToken`, `cloudflareZoneId` | | [Cloudflare](/guides/cloudflare) |

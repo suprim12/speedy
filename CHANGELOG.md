@@ -17,4 +17,5 @@
 - Warming from the sitemap or a list of URLs.
 - Utilities → Speedy Cache, with stats, clear actions, a server check, CDN tests and a log of what was cleared and why.
 - `craft.speedy.skip()` and `craft.speedy.ttl()` for templates.
+- Cached pages end with a comment saying when they were cached (`cacheComment`).
 - Console commands: `speedy/clear`, `speedy/warm`, `speedy/expire`, `speedy/status` and `speedy/server-rules`.

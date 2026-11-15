@@ -77,6 +77,9 @@ class Settings extends Model
     /** A maximum age for every page, in seconds, for sites showing data from outside Craft. Null for none. */
     public ?int $defaultTtl = null;
 
+    /** Add a comment to the end of cached pages saying when they were cached. */
+    public bool $cacheComment = true;
+
     /**
      * @return string[]
      */

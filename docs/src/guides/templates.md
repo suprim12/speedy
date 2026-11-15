@@ -58,3 +58,11 @@ Look at the `X-Speedy` response header in your browser’s dev tools:
 | `WARM` | Built by Speedy’s warming |
 | `SKIP <reason>` | Not cached, and why |
 | `STATIC` | Served by the web server, without PHP |
+
+Cached copies also end with a comment saying when they were cached, which you can see with **View Source** even when a CDN removes the header:
+
+```html
+<!-- Cached by Speedy Cache on 2026-11-15T16:02:20+11:00 -->
+```
+
+Turn it off with `cacheComment` set to `false`.
