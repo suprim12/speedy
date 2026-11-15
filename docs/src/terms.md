@@ -25,7 +25,7 @@ The [licence text](https://github.com/suprim12/speedy/blob/main/LICENSE.md) is w
 Speedy Cache is sold through the [Craft Plugin Store](https://plugins.craftcms.com), run by Pixel & Tonic, under their [terms of service](https://craftcms.com/terms-of-service). They handle payment, invoices, renewals and refunds.
 
 - A purchase includes a year of updates. After that, you can keep using the version you have, or renew in the Plugin Store for more updates. (The licence itself doesn’t include updates or support; they come with the purchase.)
-- Prices are shown in the Plugin Store.
+- There’s one edition with every feature: no free version and no Pro upgrade. Prices are shown in the Plugin Store.
 
 ## Support
 
