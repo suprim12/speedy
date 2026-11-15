@@ -77,7 +77,7 @@ export default defineConfig({
     ],
 
     footer: {
-      message: 'A Craft CMS plugin by <a href="https://suprim.com.au" target="_blank">Suprim</a>',
+      message: `A Craft CMS plugin by <a href="https://suprim.com.au" target="_blank">Suprim</a> · <a href="${base}privacy">Privacy policy</a> · <a href="${base}terms">Licence and terms</a>`,
     },
 
     search: {
