@@ -2,6 +2,8 @@
 
 Besides [Cloudflare](/guides/cloudflare) and [CloudFront](/guides/cloudfront), Speedy clears Fastly, Bunny and Varnish. Add their details in **Settings → Plugins → Speedy Cache → CDN**, ideally as environment variables. Once they’re set, cached pages are sent with `Cache-Control: public, s-maxage=…`, so the CDN keeps them, and Speedy clears changed pages from it. **Test** buttons appear on the utility page.
 
+![The CDN tab: a card each for Cloudflare, CloudFront, Fastly, Bunny and Varnish](/images/settings-cdn.jpg)
+
 ## Fastly
 
 1. In Fastly, create an API token with **purge_select** and **purge_all** scope for your service.

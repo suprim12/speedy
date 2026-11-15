@@ -40,13 +40,19 @@ Every cached page, sorted by URL, with a search box. For each page:
 
 ## On each entry
 
+![The details panel of an entry: Page cache, Cached, 26 seconds ago, shown on 3 cached pages](/images/entry-status.jpg)
+
 The details panel of entries, categories, products and other elements with pages shows a **Page cache** line: whether its page is cached and when, or why it isn’t (caching off, or a **Never cache** pattern), and how many cached pages show it.
 
 ## Clear from an element index
 
+![The actions menu of the entries index, with Clear cached pages](/images/element-action.jpg)
+
 Select entries, categories or Commerce products, and choose **Clear cached pages** from the actions menu. It clears every cached page that shows them. It needs the **Utilities → Speedy Cache** permission.
 
 ## Support report
+
+![The support report: versions, caching settings, CDN, checks, recent clears and plugins](/images/report.jpg)
 
 **Copy support report** copies a plain-text summary to paste into a support email: versions, settings, CDN status, checks, recent clears and installed plugins. Keys and tokens only appear as “set”.
 

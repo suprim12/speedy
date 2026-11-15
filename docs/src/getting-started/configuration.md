@@ -8,6 +8,8 @@ The settings page (**Settings → Plugins → Speedy Cache**) has three tabs:
 
 ![Speedy Cache settings, General tab: a status strip, Cache pages, Never cache, When content changes and After clearing everything](/images/settings.jpg)
 
+![The Advanced tab: cache storage, the API key and the options set in config/speedy.php](/images/settings-advanced.jpg)
+
 Everything else goes in `config/speedy.php`. Settings in the file override the settings page, which then shows the field as locked with a note saying so.
 
 ```php
