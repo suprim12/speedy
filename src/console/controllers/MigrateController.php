@@ -18,12 +18,12 @@ use suprim\speedy\services\BlitzImport;
 use yii\console\ExitCode;
 
 /**
- * Reads Blitz’s settings and templates and shows what each becomes in Speedy, for switching over.
+ * Reads another page cache’s settings and templates and shows what each becomes in Speedy, for switching over.
  *
- *   php craft speedy/import-blitz           show the settings and template changes
- *   php craft speedy/import-blitz --apply   also save the settings to Speedy
+ *   php craft speedy/migrate           show the settings and template changes
+ *   php craft speedy/migrate --apply   also save the settings to Speedy
  */
-class ImportBlitzController extends Controller
+class MigrateController extends Controller
 {
     public $defaultAction = 'index';
 

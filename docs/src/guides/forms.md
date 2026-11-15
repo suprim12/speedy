@@ -30,11 +30,11 @@ Craft’s <code v-pre>{{ csrfInput({ async: true }) }}</code> works too: Craft f
 
 Set `refreshCsrf` to `false` in `config/speedy.php`. Pages with CSRF tokens are then not cached, as Craft marks them `no-store`.
 
-## Formie
+## Form plugins
 
-Formie keeps each visitor’s progress through a form, and its “Thanks” message, on the server, linked to the visitor’s session. So:
+Some form plugins keep each visitor’s progress through a form, and its “Thanks” message, on the server, linked to the visitor’s session. So:
 
-- **Pages that show a Formie form aren’t cached** (`X-Speedy: SKIP session`). A cached copy could show one visitor’s step or message to someone else.
+- **Pages that show such a form aren’t cached** (`X-Speedy: SKIP session`). A cached copy could show one visitor’s step or message to someone else.
 - **Seeing a form doesn’t affect other pages.** The visitor still gets cached copies of every other page.
 - **After submitting,** the visitor gets fresh pages until the confirmation has been shown.
 
@@ -47,7 +47,7 @@ To cache a page that has a form on it, such as a newsletter sign-up in the foote
 
 ```twig
 {# templates/_partials/newsletter.twig #}
-{{ craft.formie.renderForm('newsletter') }}
+{# Render the form here the way your form plugin does. #}
 ```
 
-Formie’s scripts and styles come with the form, and its validation and multi-page steps work as usual. See [Personal content on a cached page](/guides/templates#personal-content-on-a-cached-page).
+The form’s scripts and styles come with it, and its validation and multi-page steps work as usual. See [Personal content on a cached page](/guides/templates#personal-content-on-a-cached-page).

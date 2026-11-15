@@ -33,7 +33,7 @@ php craft my-module/import-rates
 php craft speedy/clear --url=https://example.com/rates
 ```
 
-Imports into Craft entries, such as Feed Me, clear pages by themselves.
+Imports into Craft entries, such as from an import plugin, clear pages by themselves.
 
 ## Commerce stock
 

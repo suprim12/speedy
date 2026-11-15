@@ -45,7 +45,7 @@ export default defineConfig({
           { text: 'What Isn’t Cached', link: '/guides/not-cached' },
           { text: 'Forms and CSRF', link: '/guides/forms' },
           { text: 'JavaScript and Other Plugins', link: '/guides/compatibility' },
-          { text: 'Switching from Blitz', link: '/guides/switching' },
+          { text: 'Switching from Another Cache', link: '/guides/switching' },
           { text: 'Cloudflare', link: '/guides/cloudflare' },
           { text: 'CloudFront', link: '/guides/cloudfront' },
           { text: 'Fastly, Bunny and Varnish', link: '/guides/other-cdns' },

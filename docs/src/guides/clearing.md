@@ -55,7 +55,7 @@ Replacing an asset’s file keeps its address, so a CDN would keep sending the o
 
 ## Imports and bulk saves
 
-Saves are collected and cleared together: a Feed Me import or `resave/entries` of thousands of entries queues one clear job, after the import finishes.
+Saves are collected and cleared together: an import or `resave/entries` of thousands of entries queues one clear job, after the import finishes.
 
 ## Everything at once
 

@@ -13,7 +13,7 @@
 - Forms keep working on cached pages: CSRF tokens are refreshed automatically.
 - Logged-in visitors, Commerce carts, pages that set cookies and pages with query strings aren’t cached.
 - Pages are only saved from requests without cookies of their own, so a made-up cookie can’t end up in the copy everyone gets. Analytics cookies are ignored, and more can be added with `ignoredCookies`.
-- Saving SEOmatic’s settings rebuilds every cached page in the background.
+- Saving a supported SEO plugin’s site-wide settings rebuilds every cached page in the background.
 - Saving without changes doesn’t clear pages, including control panel saves that send every field, and nor does saving a disabled entry that stays disabled.
 - Commerce stock changes clear the pages that show the product, from orders, control panel edits and transfers.
 - Replacing an asset’s file clears the old file and its transforms from the CDN.
@@ -24,7 +24,7 @@
 - `ignoredElementTypes` for element types whose changes never clear pages.
 - Craft’s pagination parameter is cached when `pageTrigger` uses a query string, such as `'?page='`.
 - At most `maxQueryPages` query string versions of a page are kept, 100 by default.
-- `speedy/import-blitz` shows what Blitz’s settings and template calls become in Speedy, and can save the settings.
+- `speedy/migrate` shows what another page cache plugin’s settings and template calls become in Speedy, and can save the settings.
 - The cache folder can’t be opened directly on Apache, even without the server rules.
 - Clearing a page removes its empty folders.
 - Multi-page forms and flash messages are safe: visitors with something in their session get their own pages, never a cached step or someone else’s message.
@@ -45,7 +45,7 @@
 - Checks and tips on the utility page: failed jobs, CDN errors, unwritable folders, pages that clear on every save, and more.
 - A Page cache line in the details of entries and other elements: cached or not, when, and how many cached pages show it.
 - A “Clear cached pages” action for entries, categories and Commerce products.
-- Works with Formie: pages showing a form aren’t cached, and seeing a form doesn’t stop the visitor getting cached copies of other pages.
+- Works with form plugins that keep progress in the session: pages showing such a form aren’t cached, and seeing one doesn’t stop the visitor getting cached copies of other pages.
 - When many visitors ask for the same uncached page at once, one request builds it and the others wait for that copy.
 - Clearing everything is instant however many pages there are; old files are deleted in the background.
 - Rebuild all pages, from the utility page or `speedy/clear --rebuild`, keeping the old copies until the new ones are ready.
