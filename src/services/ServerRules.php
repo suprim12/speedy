@@ -31,17 +31,35 @@ class ServerRules extends Component
         return str_starts_with($root, $webroot . '/') ? substr($root, strlen($webroot)) : null;
     }
 
+    /**
+     * Cookies that mean a visitor gets pages built for them, as a regular expression.
+     */
+    private function cookiePattern(): string
+    {
+        $settings = Plugin::getInstance()->getSettings();
+        $names = ['_identity', Cacher::STATE_COOKIE, ...$settings->skipCookies];
+        if ($settings->skipWhenCart) {
+            $names[] = '_commerce_cart';
+        }
+
+        return implode('|', array_map(fn($n) => preg_quote((string)$n, '/'), array_filter($names)));
+    }
+
     public function nginx(): string
     {
         $path = $this->webPath() ?? '/speedy';
         $cacheControl = Plugin::getInstance()->cdn->cacheControl();
+        $cookies = $this->cookiePattern();
 
         return <<<NGINX
         # Speedy Cache: serve cached pages without PHP. Add to the server block, before “location /”.
         set \$speedy_page "$path/\$host\$uri/index.html";
         if (\$request_method !~ ^(GET|HEAD)$) { set \$speedy_page ""; }
         if (\$args != "") { set \$speedy_page ""; }
-        if (\$http_cookie ~* "_identity|_commerce_cart|speedy_state") { set \$speedy_page ""; }
+        if (\$http_cookie ~* "$cookies") { set \$speedy_page ""; }
+        if (\$http_x_requested_with != "") { set \$speedy_page ""; }
+        if (\$http_hx_request != "") { set \$speedy_page ""; }
+        if (\$http_x_up_target != "") { set \$speedy_page ""; }
         if (\$http_x_speedy_warm != "") { set \$speedy_page ""; }
         if (-f \$document_root\$speedy_page) { rewrite ^ \$speedy_page last; }
 
@@ -58,13 +76,17 @@ class ServerRules extends Component
     {
         $path = $this->webPath() ?? '/speedy';
         $cacheControl = Plugin::getInstance()->cdn->cacheControl();
+        $cookies = $this->cookiePattern();
 
         return <<<APACHE
         # Speedy Cache: serve cached pages without PHP.
         # In web/.htaccess, after “RewriteEngine On” and before Craft’s rules:
         RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
         RewriteCond %{QUERY_STRING} ^$
-        RewriteCond %{HTTP_COOKIE} !(_identity|_commerce_cart|speedy_state) [NC]
+        RewriteCond %{HTTP_COOKIE} !($cookies) [NC]
+        RewriteCond %{HTTP:X-Requested-With} ^$
+        RewriteCond %{HTTP:HX-Request} ^$
+        RewriteCond %{HTTP:X-Up-Target} ^$
         RewriteCond %{HTTP:X-Speedy-Warm} ^$
         RewriteCond %{DOCUMENT_ROOT}$path/%{HTTP_HOST}%{REQUEST_URI}/index.html -s
         RewriteRule .* $path/%{HTTP_HOST}%{REQUEST_URI}/index.html [L,E=SPEEDY:1]

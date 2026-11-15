@@ -11,6 +11,7 @@ namespace suprim\speedy\services;
 
 use Craft;
 use craft\base\Component;
+use craft\helpers\App;
 use craft\helpers\UrlHelper;
 use craft\web\Request;
 use craft\web\Response;
@@ -28,6 +29,15 @@ class Cacher extends Component
 
     /** Set while a visitor has something in their session, such as a form step or a flash message. */
     public const STATE_COOKIE = 'speedy_state';
+
+    /** Query parameter that makes warming requests miss CDN caches. */
+    public const WARM_PARAM = 'speedy-warm';
+
+    /** Response headers saved with a page and sent again when PHP serves it. */
+    private const KEPT_HEADERS = ['X-Robots-Tag', 'Content-Language', 'Link', 'Content-Security-Policy', 'Referrer-Policy', 'Permissions-Policy', 'X-Frame-Options', 'X-Content-Type-Options'];
+
+    /** Request headers sent by Ajax libraries, whose requests often get a partial page at the same URL. */
+    private const AJAX_HEADERS = ['X-Requested-With', 'HX-Request', 'X-Up-Target'];
 
     /** Placeholder for the CSRF token in cached pages; the refresh script replaces it. */
     public const CSRF_PLACEHOLDER = '__SPEEDY_CSRF__';
@@ -47,6 +57,9 @@ class Cacher extends Component
     /** Whether this request is rebuilding a page for Speedy itself (warming). */
     private bool $_warming = false;
 
+    /** @var string[]|false|null The sites’ hosts, or false when a site answers on any host. */
+    private array|false|null $_siteHosts = null;
+
     /**
      * Called once per site request, early: serves a cached copy, or starts recording what the page uses.
      */
@@ -57,12 +70,15 @@ class Cacher extends Component
             return;
         }
 
-        Craft::$app->on(\yii\base\Application::EVENT_AFTER_REQUEST, fn() => $this->markState());
-
         $this->_warming = $this->isWarmRequest($request);
         $this->_key = $this->cacheKey($request);
         if ($this->_key === null) {
-            Craft::$app->getResponse()->getHeaders()->set(self::HEADER, 'SKIP ' . $this->_skipReason);
+            $headers = Craft::$app->getResponse()->getHeaders();
+            $headers->set(self::HEADER, 'SKIP ' . $this->_skipReason);
+            if ($this->_skipReason !== 'disabled') {
+                // Tell CDNs not to keep it, in case they cache everything. A template can still set its own.
+                $headers->set('Cache-Control', 'private, no-cache');
+            }
             return;
         }
 
@@ -112,6 +128,9 @@ class Cacher extends Component
             $this->hasCookie($request, '_identity') || !Craft::$app->getUser()->getIsGuest() => 'logged in',
             $settings->skipWhenCart && $this->hasCookie($request, '_commerce_cart') => 'cart',
             $this->hasCookie($request, self::STATE_COOKIE) => 'session',
+            $this->hasCookieContaining($settings->skipCookies) => 'cookie',
+            $this->isAjax($request) => 'ajax',
+            !$this->isSiteHost((string)$request->getHostName()) => 'unknown host',
             default => null,
         };
         if ($reason === null && $settings->queryStrings === 'skip' && $this->remainingParams($request)) {
@@ -155,6 +174,9 @@ class Cacher extends Component
         $response->content = (string)file_get_contents($file);
         $headers = $response->getHeaders();
         $headers->set('Content-Type', 'text/html; charset=UTF-8');
+        foreach ($meta['headers'] ?? [] as $name => $value) {
+            $headers->set($name, $value);
+        }
         $headers->set(self::HEADER, 'HIT');
         $headers->set('Cache-Control', Plugin::getInstance()->cdn->cacheControl());
         Craft::$app->end(0, $response);
@@ -178,7 +200,11 @@ class Cacher extends Component
 
         $reason = $this->uncacheableReason($response);
         if ($reason !== null) {
-            $response->getHeaders()->set(self::HEADER, 'SKIP ' . $reason);
+            $headers = $response->getHeaders();
+            $headers->set(self::HEADER, 'SKIP ' . $reason);
+            if (!$headers->has('Cache-Control')) {
+                $headers->set('Cache-Control', 'private, no-cache');
+            }
             return;
         }
 
@@ -193,18 +219,19 @@ class Cacher extends Component
                 $html .= "\n<!-- Cached by Speedy Cache on " . date('c') . ' -->';
             }
             $url = UrlHelper::siteUrl(Craft::$app->getRequest()->getFullPath());
-            Plugin::getInstance()->storage->write($this->_key, $html, $url, $tags, $expires);
+            Plugin::getInstance()->storage->write($this->_key, $html, $url, $tags, $expires, $this->keptHeaders($response));
             if ($expires !== null) {
                 Plugin::getInstance()->clearer->scheduleExpiry($expires);
             }
         } catch (Throwable $e) {
-            Craft::warning('Couldn’t cache ' . $this->_key . ': ' . $e->getMessage(), 'speedy');
+            Craft::error('Couldn’t cache ' . $this->_key . ': ' . $e->getMessage(), 'speedy');
             $response->getHeaders()->set(self::HEADER, 'SKIP error');
             return;
         }
 
         $response->getHeaders()->set(self::HEADER, $this->_warming ? 'WARM' : 'MISS');
-        $response->getHeaders()->set('Cache-Control', Plugin::getInstance()->cdn->cacheControl());
+        // A warming request has a one-off URL, which CDNs mustn’t keep.
+        $response->getHeaders()->set('Cache-Control', $this->_warming ? 'no-store' : Plugin::getInstance()->cdn->cacheControl());
     }
 
     private function uncacheableReason(Response $response): ?string
@@ -219,6 +246,7 @@ class Cacher extends Component
             !is_string($response->content) || $response->content === '' => 'empty',
             strlen((string)$response->content) > 5 * 1024 * 1024 => 'too large',
             $this->isPrivate($response) => 'private',
+            $this->varies($response) => 'vary',
             $this->sessionHasState() => 'session',
             $this->setsCookies($response) => 'sets a cookie',
             !Craft::$app->getUser()->getIsGuest() => 'logged in',
@@ -284,9 +312,12 @@ class Cacher extends Component
      * differ per visitor. While a visitor has session data, a cookie tells Speedy and the web server rules to
      * build their pages fresh; it’s removed once the session is empty again.
      */
-    private function markState(): void
+    public function markState(): void
     {
         $request = Craft::$app->getRequest();
+        if (!$request instanceof Request) {
+            return;
+        }
         $session = Craft::$app->getSession();
         $marked = $this->hasCookie($request, self::STATE_COOKIE);
         if (!$session->getIsActive()) {
@@ -316,10 +347,91 @@ class Cacher extends Component
         if (!$session->getIsActive()) {
             return false;
         }
-        // Flash messages are stored as their own keys; the flash key only counts them.
+        // Flash messages are stored as their own keys; the flash key only counts them. The CSRF token is kept in
+        // the session when Craft’s enableCsrfCookie is off, and Speedy refreshes it on cached pages anyway.
+        $ignored = [$session->flashParam, Craft::$app->getRequest()->csrfParam];
         foreach ($_SESSION ?? [] as $name => $value) {
-            if ($name !== $session->flashParam && $value !== null) {
+            if (!in_array($name, $ignored, true) && $value !== null) {
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether the response varies by something other than compression, such as `Vary: User-Agent` or `Vary: Cookie`.
+     */
+    private function varies(Response $response): bool
+    {
+        $vary = array_map('trim', explode(',', strtolower((string)$response->getHeaders()->get('Vary'))));
+
+        return (bool)array_diff(array_filter($vary), ['accept-encoding']);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function keptHeaders(Response $response): array
+    {
+        $kept = [];
+        foreach (self::KEPT_HEADERS as $name) {
+            $value = $response->getHeaders()->get($name);
+            if (is_string($value) && $value !== '') {
+                $kept[$name] = $value;
+            }
+        }
+
+        return $kept;
+    }
+
+    private function isAjax(Request $request): bool
+    {
+        foreach (self::AJAX_HEADERS as $name) {
+            if ($request->getHeaders()->has($name)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether the host belongs to a site, so a forged Host header can’t fill the disk with copies.
+     * Sites whose base URL is `@web` answer on any host, so any host is accepted then.
+     */
+    private function isSiteHost(string $host): bool
+    {
+        $hosts = $this->_siteHosts;
+        if ($hosts === null) {
+            $hosts = [];
+            foreach (Craft::$app->getSites()->getAllSites() as $site) {
+                $raw = (string)App::parseEnv((string)$site->getBaseUrl(false));
+                if ($raw === '' || str_contains($raw, '@web')) {
+                    $hosts = false;
+                    break;
+                }
+                $siteHost = parse_url((string)Craft::getAlias($raw), PHP_URL_HOST);
+                if ($siteHost) {
+                    $hosts[] = strtolower($siteHost);
+                }
+            }
+            $this->_siteHosts = $hosts;
+        }
+
+        return $hosts === false || in_array(strtolower($host), $hosts, true);
+    }
+
+    /**
+     * @param string[] $parts
+     */
+    private function hasCookieContaining(array $parts): bool
+    {
+        foreach (array_keys($_COOKIE) as $name) {
+            foreach ($parts as $part) {
+                if ($part !== '' && str_contains((string)$name, $part)) {
+                    return true;
+                }
             }
         }
 
@@ -355,7 +467,7 @@ class Cacher extends Component
         $params = array_keys($request->getQueryParams());
         $pathParam = Craft::$app->getConfig()->getGeneral()->pathParam;
 
-        return array_values(array_filter($params, fn($p) => $p !== $pathParam && !$this->matchesAny((string)$p, $ignored)));
+        return array_values(array_filter($params, fn($p) => $p !== $pathParam && !($this->_warming && $p === self::WARM_PARAM) && !$this->matchesAny((string)$p, $ignored)));
     }
 
     /**

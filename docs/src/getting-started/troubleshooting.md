@@ -16,6 +16,10 @@ The header says why, after `SKIP`:
 | `cart` | The visitor has a Commerce cart | Expected. Set `skipWhenCart` to `false` if your pages show nothing from the cart |
 | `query string` | The URL has `?something=` | Expected, as query strings usually change the page. Tracking parameters like `utm_source` are ignored |
 | `session` | The visitor has something in their session, such as a form step or a flash message | Expected. It clears once the session is empty. See [What isn’t cached](/guides/not-cached#multi-page-forms-and-flash-messages) |
+| `ajax` | An htmx, Unpoly or `X-Requested-With` request | Expected |
+| `cookie` | The visitor has a cookie listed in `skipCookies` | Expected |
+| `vary` | The page sends `Vary` with something other than `Accept-Encoding` | Remove the header if the page is the same for everyone |
+| `unknown host` | The `Host` header isn’t one of your sites’ domains | Check the site’s base URL |
 | `never cache` | The URL matches **Never cache** | Check the patterns in the settings |
 | `sets a cookie` | The page sets a cookie, so it may be personal | Find what sets it, or move it to a page that isn’t cached |
 | `private` | The template or a plugin sent `Cache-Control: private` or `no-store` | Remove it if the page isn’t personal |
@@ -49,3 +53,14 @@ The rules aren’t being used yet:
 ## The cache folder is large
 
 Pages are plain HTML, typically 20–100 KB each. **Utilities → Speedy Cache** shows the total. Clear everything any time; pages are rebuilt as they’re visited.
+
+## Logs
+
+- **Recent clears** on the utility page and in `php craft speedy/status`: what was cleared, why, and which pages, plus pages that couldn’t be rebuilt and CDN errors. It keeps the last 1,000 entries.
+- **`storage/logs/speedy.log`**: warnings and errors, such as a page that couldn’t be saved, a CDN error or a sitemap that couldn’t be read. With `devMode` on, it also lists each page that couldn’t be rebuilt and why. Craft starts a new file each day and keeps five.
+
+Speedy never logs each visit, so the logs stay small however busy the site is.
+
+## Images load slowly on cached pages
+
+If image transforms are generated on first view, a cached page can keep links that create them. Set `generateTransformsBeforePageLoad` to `true` in `config/general.php`, so cached pages always link to finished images.

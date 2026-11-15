@@ -16,11 +16,13 @@ use craft\events\InvalidateElementCachesEvent;
 use craft\events\RegisterCacheOptionsEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\helpers\FileHelper;
+use craft\log\MonologTarget;
 use craft\services\Elements;
 use craft\services\Utilities;
 use craft\utilities\ClearCaches;
 use craft\web\Application as WebApplication;
 use craft\web\twig\variables\CraftVariable;
+use Psr\Log\LogLevel;
 use suprim\speedy\models\Settings;
 use suprim\speedy\services\Cacher;
 use suprim\speedy\services\Cdn;
@@ -80,11 +82,35 @@ class Plugin extends BasePlugin
         $this->registerClearing();
         $this->registerControlPanel();
 
+        $this->registerLog();
+
         Craft::$app->onInit(function() {
-            if (Craft::$app instanceof WebApplication && Craft::$app->getRequest()->getIsSiteRequest()) {
+            if (!Craft::$app instanceof WebApplication) {
+                return;
+            }
+            // Control panel requests too, so logging in marks the visitor before they see the site.
+            Craft::$app->on(WebApplication::EVENT_AFTER_REQUEST, fn() => $this->cacher->markState());
+            if (Craft::$app->getRequest()->getIsSiteRequest()) {
                 $this->cacher->handleRequest();
             }
         });
+    }
+
+    /**
+     * Speedy’s warnings and errors also go to storage/logs/speedy.log, one file a day, keeping the last five.
+     * Details, such as each page that couldn’t be rebuilt, are only logged in devMode.
+     */
+    private function registerLog(): void
+    {
+        $dispatcher = Craft::getLogger()->dispatcher;
+        $dispatcher->targets['speedy'] = new MonologTarget([
+            'name' => 'speedy',
+            'categories' => ['speedy'],
+            'level' => Craft::$app->getConfig()->getGeneral()->devMode ? LogLevel::INFO : LogLevel::WARNING,
+            'maxFiles' => 5,
+            'logContext' => false,
+            'allowLineBreaks' => false,
+        ]);
     }
 
     protected function createSettingsModel(): ?Model
@@ -96,6 +122,7 @@ class Plugin extends BasePlugin
     {
         return Craft::$app->getView()->renderTemplate('speedy/_settings', [
             'settings' => $this->getSettings(),
+            'overrides' => array_keys(Craft::$app->getConfig()->getConfigFromFile('speedy')),
             'detected' => $this->cdn->detected(),
         ]);
     }

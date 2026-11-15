@@ -7,6 +7,10 @@ Speedy only caches pages it can be sure are the same for everyone.
 | Visitors who are logged in | They may see personal content, and editors need to see changes straight away |
 | Visitors with a Commerce cart | Headers often show the cart. Set `skipWhenCart` to `false` if yours don’t |
 | Visitors with something in their session | Such as the second step of a multi-page form, or a “Thanks for your message” flash. See below |
+| Ajax requests | Libraries like htmx and Unpoly, and `X-Requested-With` requests, often get part of a page at the same URL |
+| Cookies you list in `skipCookies` | Such as a consent banner rendered on the server. See below |
+| Pages that send `Vary` | `Vary: User-Agent` or `Vary: Cookie` means the page differs per visitor. `Vary: Accept-Encoding` is fine |
+| Hosts that aren’t a site’s | A request with someone else’s domain in its `Host` header. Sites whose base URL is `@web` accept any host |
 | URLs with a query string | `?q=`, `?page=` and filters usually change the page. Tracking parameters (`utm_*`, `gclid`, `fbclid`…) are ignored |
 | URLs matching **Never cache** | Such as `checkout/*` or `account*` |
 | Pages that set a cookie | A cookie usually means something personal. Craft’s CSRF and session cookies are fine |
@@ -42,6 +46,25 @@ So while a visitor’s session holds anything, Speedy:
 - removes the cookie once the session is empty again, such as when the form is finished.
 
 Everyone else keeps getting cached pages. Forms that move between steps with Ajax don’t use the session this way and need nothing.
+
+## Cookies that change pages
+
+If a template reads a cookie, such as a consent banner that’s only shown until accepted, a cached copy would show one visitor’s choice to everyone. List those cookies, and visitors who have them get pages built for them:
+
+```php
+// config/speedy.php
+'skipCookies' => ['cookie_consent', 'currency'],
+```
+
+Names are matched by part, and the [server rules](/getting-started/server-rules) include them, so copy the rules again after changing this. Better still, render the banner for everyone and hide it with JavaScript when the cookie is set; then every page can be cached.
+
+## Pages that differ by device or location
+
+Pages that change with the browser (`craft.app.request.isMobileBrowser`) or the visitor’s location can’t be told apart by URL. Use CSS or JavaScript for the differences, or add `{% do craft.speedy.skip() %}` to those templates.
+
+## Response headers
+
+Headers your templates or plugins send, such as `X-Robots-Tag`, `Link`, `Content-Language` and `Content-Security-Policy`, are saved with the page and sent again when PHP serves it. Pages served by the web server get the headers in your server configuration instead.
 
 ## Pagination
 

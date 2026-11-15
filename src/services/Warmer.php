@@ -62,14 +62,21 @@ class Warmer extends Component
 
         $requests = function() use ($urls) {
             foreach ($urls as $url) {
-                yield $url => new PsrRequest('GET', $url, ['X-Speedy-Warm' => $this->secret(), 'User-Agent' => 'SpeedyCache/1.0 (warming)']);
+                // A one-off query string makes CDNs pass the request on, rather than answer with their old copy.
+                $warmUrl = $url . (str_contains($url, '?') ? '&' : '?') . Cacher::WARM_PARAM . '=' . bin2hex(random_bytes(4));
+                yield $url => new PsrRequest('GET', $warmUrl, ['X-Speedy-Warm' => $this->secret(), 'User-Agent' => 'SpeedyCache/1.0 (warming)']);
             }
         };
         $pool = new Pool($client, $requests(), [
             'concurrency' => max(1, $plugin->getSettings()->warmConcurrency),
             'fulfilled' => function(ResponseInterface $response, string $url) use (&$built, &$failed, &$done, $total, $progress) {
                 $state = $response->getHeaderLine(Cacher::HEADER);
-                $state === 'WARM' || $state === 'MISS' ? $built[] = $url : $failed[] = $url;
+                if ($state === 'WARM' || $state === 'MISS') {
+                    $built[] = $url;
+                } else {
+                    $failed[] = $url;
+                    Craft::info("Couldn’t build $url: status {$response->getStatusCode()}" . ($state !== '' ? ", $state" : ''), 'speedy');
+                }
                 $done++;
                 if ($progress) {
                     $progress($done, $total);
@@ -77,6 +84,7 @@ class Warmer extends Component
             },
             'rejected' => function($reason, string $url) use (&$failed, &$done, $total, $progress) {
                 $failed[] = $url;
+                Craft::warning("Couldn’t request $url: " . ($reason instanceof Throwable ? $reason->getMessage() : 'no response'), 'speedy');
                 $done++;
                 if ($progress) {
                     $progress($done, $total);
@@ -93,6 +101,9 @@ class Warmer extends Component
                 if ($key) {
                     $plugin->storage->delete($key);
                 }
+            }
+            if ($failed) {
+                $plugin->log->add(Craft::t('speedy', 'Couldn’t rebuild, so removed'), count($failed), $failed);
             }
             $plugin->cdn->purgeUrls(array_merge($built, $failed));
         }

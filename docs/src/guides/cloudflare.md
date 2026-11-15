@@ -26,7 +26,7 @@ Cached pages are now sent with `Cache-Control: public, s-maxage=31536000, max-ag
 
 ## Make Cloudflare keep HTML
 
-By default, Cloudflare only caches files like images. To cache pages, add a **Cache Rule** for your domain: **Eligible for cache**, and **Edge TTL → Use cache-control header if present**. Exclude `/admin*` and `/actions*`.
+By default, Cloudflare only caches files like images. To cache pages, add a **Cache Rule** for your domain: **Eligible for cache**, and **Edge TTL → Use cache-control header if present**. Exclude `/admin*` and `/actions*`, and add **Bypass cache** when the `Cookie` header contains `_identity`, `_commerce_cart` or `speedy_state`, so logged-in visitors, carts and multi-step forms get their own pages.
 
 ## How clearing works
 

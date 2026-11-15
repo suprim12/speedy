@@ -1,10 +1,10 @@
 # Configuration
 
-The settings page (**Settings → Plugins → Speedy Cache**) has the essentials: caching on or off, URLs to never cache, and your CDN details.
+The settings page (**Settings → Plugins → Speedy Cache**) has the essentials: caching on or off, URLs to never cache, what happens when content changes, what to rebuild after clearing everything, and your CDN details.
 
-![Speedy Cache settings: Cache pages, Never cache, and fields for the Cloudflare token and zone ID, CloudFront distribution ID and AWS keys](/images/settings.jpg)
+![Speedy Cache settings: Cache pages, Never cache, When content changes, After clearing everything, and fields for the Cloudflare token and zone ID, CloudFront distribution ID and AWS keys](/images/settings.jpg)
 
-Everything else goes in `config/speedy.php`. Settings in the file override the settings page.
+Everything else goes in `config/speedy.php`. Settings in the file override the settings page, which then shows the field as locked with a note saying so.
 
 ```php
 <?php
@@ -36,6 +36,7 @@ return [
 | `queryStrings` | `'skip'` | `'skip'`: pages with a query string aren’t cached. `'ignore'`: they’re cached without it, for sites that never use query strings for content |
 | `ignoredParams` | `utm_*`, `gclid`, `fbclid`… | Tracking parameters that never stop a page being cached |
 | `skipWhenCart` | `true` | Don’t cache for visitors with a Commerce cart |
+| `skipCookies` | `[]` | Cookies that mean a visitor sees their own version of pages, matched by part of the name, such as `['cookie_consent']` ([What isn’t cached](/guides/not-cached#cookies-that-change-pages)) |
 | `refreshCsrf` | `true` | Refresh CSRF tokens on cached pages ([Forms](/guides/forms)) |
 | `rebuildCleared` | `true` | Rebuild cleared pages in the background before replacing them ([Warming](/guides/warming)) |
 | `warm` | `false` | Pages to build after a full clear: `'sitemap'` or a list of URLs |

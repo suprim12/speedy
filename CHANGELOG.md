@@ -19,4 +19,11 @@
 - Utilities → Speedy Cache, with stats, clear actions, a server check, CDN tests and a log of what was cleared and why.
 - `craft.speedy.skip()` and `craft.speedy.ttl()` for templates.
 - Cached pages end with a comment saying when they were cached (`cacheComment`).
+- Ajax requests (htmx, Unpoly, `X-Requested-With`), pages that send `Vary`, and cookies listed in `skipCookies` aren’t cached or served from the cache.
+- Response headers such as `X-Robots-Tag`, `Link` and `Content-Security-Policy` are kept with cached pages.
+- Pages that aren’t cached are sent as `private`, so CDNs never keep them.
+- Only the sites’ own domains are cached, so a forged `Host` header can’t fill the disk.
+- Background rebuilds reach your server even when a CDN keeps pages.
+- Settings page: what happens when content changes and after clearing everything, with a note on settings set in `config/speedy.php`.
+- Warnings and errors are written to `storage/logs/speedy.log`, rotated daily.
 - Console commands: `speedy/clear`, `speedy/warm`, `speedy/expire`, `speedy/status` and `speedy/server-rules`.

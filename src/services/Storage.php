@@ -65,7 +65,7 @@ class Storage extends Component
     }
 
     /**
-     * @return array{url: string, tags: string[], expires: ?int, created: int}|null
+     * @return array{url: string, tags: string[], expires: ?int, created: int, headers?: array<string, string>}|null
      */
     public function meta(string $key): ?array
     {
@@ -82,10 +82,11 @@ class Storage extends Component
      * Saves a page and records what it depends on.
      *
      * @param string[] $tags
+     * @param array<string, string> $headers Response headers to send again when PHP serves the page.
      */
-    public function write(string $key, string $html, string $url, array $tags, ?int $expires): void
+    public function write(string $key, string $html, string $url, array $tags, ?int $expires, array $headers = []): void
     {
-        $meta = ['url' => $url, 'tags' => array_values($tags), 'expires' => $expires, 'created' => time()];
+        $meta = ['url' => $url, 'tags' => array_values($tags), 'expires' => $expires, 'created' => time(), 'headers' => $headers];
 
         $this->atomicWrite($this->htmlFile($key), $html);
         $this->atomicWrite($this->metaFile($key), Json::encode($meta));

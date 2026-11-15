@@ -34,6 +34,11 @@ Speedy still caches on your server, and tells CloudFront not to keep HTML pages 
 
 Make sure your CloudFront cache policy respects the origin’s `Cache-Control` header, so pages are kept for as long as Speedy says.
 
+Two more settings in the cache policy:
+
+- **Query strings: All.** Speedy’s background rebuilds add a one-off query string to reach your server. If CloudFront ignores query strings, rebuilds get its old copy, and Speedy removes those pages instead of rebuilding them.
+- **Visitors with their own pages.** CloudFront can’t skip its cache by part of a cookie name, so logged-in visitors and visitors part-way through a multi-page form may get the public copy from CloudFront. Pages Speedy doesn’t cache are sent as `private`, so CloudFront never keeps them. Use Ajax for multi-page forms, or a separate behaviour with caching off for paths like `/account*`.
+
 ## Keeping it free
 
 CloudFront includes 1,000 invalidation paths a month, then charges per path. Speedy:

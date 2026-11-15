@@ -1,19 +1,55 @@
 {% import '_includes/forms' as forms %}
 
+{% macro configWarning(setting) -%}
+	{{ 'This is being overridden by the {setting} setting in config/speedy.php.'|t('speedy', { setting: '<code>' ~ setting ~ '</code>' })|raw }}
+{%- endmacro %}
+{% from _self import configWarning %}
+
 {{ forms.lightswitchField({
 	label: 'Cache pages'|t('speedy'),
-	instructions: 'Turn this off to stop caching, or set `enabled` in config/speedy.php per environment.'|t('speedy'),
+	instructions: 'Turn this off to stop caching, such as on dev.'|t('speedy'),
 	name: 'enabled',
-	on: settings.enabled,
+	on: settings.isEnabled(),
+	disabled: 'enabled' in overrides,
+	warning: 'enabled' in overrides ? configWarning('enabled'),
 }) }}
 
 {{ forms.textareaField({
 	label: 'Never cache'|t('speedy'),
 	instructions: 'One URL path per line. `*` matches anything, such as `checkout/*` or `account*`.'|t('speedy'),
 	name: 'neverCache',
-	value: settings.neverCache|join("\n"),
+	value: settings.getNeverCache()|join("\n"),
 	rows: 4,
 	class: 'code',
+	disabled: 'neverCache' in overrides,
+	warning: 'neverCache' in overrides ? configWarning('neverCache'),
+}) }}
+
+{{ forms.selectField({
+	label: 'When content changes'|t('speedy'),
+	instructions: 'Rebuilding keeps the old copy until the new one is ready, so nobody waits.'|t('speedy'),
+	name: 'rebuildCleared',
+	options: [
+		{ label: 'Rebuild the changed pages in the background'|t('speedy'), value: '1' },
+		{ label: 'Remove the changed pages; the next visitor rebuilds them'|t('speedy'), value: '' },
+	],
+	value: settings.rebuildCleared ? '1' : '',
+	disabled: 'rebuildCleared' in overrides,
+	warning: 'rebuildCleared' in overrides ? configWarning('rebuildCleared'),
+}) }}
+
+{% set warmIsList = settings.warm is iterable %}
+{{ forms.selectField({
+	label: 'After clearing everything'|t('speedy'),
+	instructions: 'Such as after a deploy. A list of pages to warm can be set in config/speedy.php.'|t('speedy'),
+	name: 'warm',
+	options: [
+		{ label: 'Rebuild every page in the sitemap'|t('speedy'), value: 'sitemap' },
+		{ label: 'Wait for visitors'|t('speedy'), value: '' },
+	]|merge(warmIsList ? [{ label: 'Rebuild the pages listed in config/speedy.php'|t('speedy'), value: 'list' }] : []),
+	value: warmIsList ? 'list' : (settings.warm == 'sitemap' ? 'sitemap' : ''),
+	disabled: 'warm' in overrides,
+	warning: 'warm' in overrides ? configWarning('warm'),
 }) }}
 
 <hr>
@@ -30,6 +66,8 @@
 	name: 'cloudflareToken',
 	value: settings.cloudflareToken,
 	suggestEnvVars: true,
+	disabled: 'cloudflareToken' in overrides,
+	warning: 'cloudflareToken' in overrides ? configWarning('cloudflareToken'),
 }) }}
 {{ forms.autosuggestField({
 	label: 'Cloudflare zone ID'|t('speedy'),
@@ -37,12 +75,16 @@
 	name: 'cloudflareZoneId',
 	value: settings.cloudflareZoneId,
 	suggestEnvVars: true,
+	disabled: 'cloudflareZoneId' in overrides,
+	warning: 'cloudflareZoneId' in overrides ? configWarning('cloudflareZoneId'),
 }) }}
 {{ forms.autosuggestField({
 	label: 'CloudFront distribution ID'|t('speedy'),
 	name: 'cloudfrontDistributionId',
 	value: settings.cloudfrontDistributionId,
 	suggestEnvVars: true,
+	disabled: 'cloudfrontDistributionId' in overrides,
+	warning: 'cloudfrontDistributionId' in overrides ? configWarning('cloudfrontDistributionId'),
 }) }}
 {{ forms.autosuggestField({
 	label: 'AWS access key ID'|t('speedy'),
@@ -50,6 +92,8 @@
 	name: 'awsAccessKeyId',
 	value: settings.awsAccessKeyId,
 	suggestEnvVars: true,
+	disabled: 'awsAccessKeyId' in overrides,
+	warning: 'awsAccessKeyId' in overrides ? configWarning('awsAccessKeyId'),
 }) }}
 {{ forms.autosuggestField({
 	label: 'AWS secret access key'|t('speedy'),
@@ -57,6 +101,8 @@
 	name: 'awsSecretAccessKey',
 	value: settings.awsSecretAccessKey,
 	suggestEnvVars: true,
+	disabled: 'awsSecretAccessKey' in overrides,
+	warning: 'awsSecretAccessKey' in overrides ? configWarning('awsSecretAccessKey'),
 }) }}
 
-<p class="light">{{ 'Warming, query strings and other options are in config/speedy.php. Status and actions are in Utilities → Speedy Cache.'|t('speedy') }}</p>
+<p class="light">{{ 'Query strings, cookies and other options are in config/speedy.php. Status and actions are in Utilities → Speedy Cache.'|t('speedy') }}</p>

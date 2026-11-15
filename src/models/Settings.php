@@ -62,6 +62,9 @@ class Settings extends Model
     /** @var string[] Query parameters that never stop a page being cached, and are ignored. */
     public array $ignoredParams = ['utm_*', 'gclid', 'fbclid', 'msclkid', 'mc_cid', 'mc_eid', '_ga', '_gl'];
 
+    /** @var string[] Cookies that mean a visitor sees their own version of pages, such as a consent banner rendered on the server. Matched by part of the name. */
+    public array $skipCookies = [];
+
     /** Don’t cache pages for visitors who have a Commerce cart. */
     public bool $skipWhenCart = true;
 
@@ -88,6 +91,22 @@ class Settings extends Model
         $patterns = is_string($this->neverCache) ? preg_split('/\R/', $this->neverCache) : $this->neverCache;
 
         return array_values(array_filter(array_map('trim', $patterns ?: []), fn($p) => $p !== ''));
+    }
+
+    public function setAttributes($values, $safeOnly = true): void
+    {
+        // From the settings page: an empty choice means off, and “list” keeps the list from the config file.
+        if (array_key_exists('warm', $values)) {
+            if ($values['warm'] === '') {
+                $values['warm'] = false;
+            } elseif ($values['warm'] === 'list') {
+                unset($values['warm']);
+            }
+        }
+        if (isset($values['rebuildCleared']) && is_string($values['rebuildCleared'])) {
+            $values['rebuildCleared'] = $values['rebuildCleared'] === '1';
+        }
+        parent::setAttributes($values, $safeOnly);
     }
 
     public function isEnabled(): bool
