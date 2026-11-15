@@ -11,15 +11,17 @@ Full-page caching that works with your templates as they are, keeps your databas
 - **Static pages, no database tables.** Pages are saved as HTML files. What each page depends on is stored next to it, so the database never grows.
 - **Served without PHP.** Generated Nginx and Apache rules let the web server send cached pages directly, in a millisecond or two. A live check confirms it works.
 - **Smart clearing.** Uses Craft’s own cache tags: saving an entry clears the pages that show it and the pages that list its section, and nothing else.
-- **Never a slow first visit.** Cleared pages are rebuilt in the background before the old copy is replaced.
+- **Never a slow first visit.** Cleared pages are rebuilt in the background before the old copy is replaced, and again after a deploy changes project config. After clearing everything, the homepage and top pages come first.
 - **Safe by default.** Logged-in visitors, carts, form steps, flash messages and pages that set cookies are never cached, and a made-up cookie can’t reach the copy everyone gets. Drafts, autosaves and saves that change nothing never clear live pages.
 - **Query strings, your way.** Not cached unless you list them, such as `page`, with a cap per page so the disk can’t fill.
 - **Commerce stock.** Orders, control panel edits and transfers clear the product’s pages.
 - **Keeps working when the queue stops.** Pages are cleared straight away, with a control panel alert, until it runs again.
 - **Forms just work.** CSRF tokens on cached pages are refreshed automatically, with no template changes.
-- **Cloudflare, CloudFront, Fastly, Bunny and Varnish built in.** Cleared when pages change, and other plugins can add more. CloudFront paths are batched into wildcards to stay in the free tier.
+- **Cloudflare, CloudFront, Fastly, Bunny and Varnish built in.** Cleared when pages change, with a Cloudflare zone for each domain, and other plugins can add more. CloudFront paths are batched into wildcards to stay in the free tier.
 - **Scheduled content.** Pages clear when a post goes live or expires, including the listings it appears on.
 - **See why.** A plain-English log: “Saved entry ‘Summer Sale’ → 12 pages cleared”.
+- **At a glance.** A dashboard widget with pages cached, recent clears and any problems.
+- **Cache everything, or only some.** Never cache checkouts and accounts, or only cache the sections you choose.
 - **For developers.** An event at every stage, `craft.speedy.tag()`, an API and console commands.
 
 ## Requirements

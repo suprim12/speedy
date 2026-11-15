@@ -28,8 +28,22 @@ Cached pages are now sent with `Cache-Control: public, s-maxage=31536000, max-ag
 
 By default, Cloudflare only caches files like images. To cache pages, add a **Cache Rule** for your domain: **Eligible for cache**, and **Edge TTL → Use cache-control header if present**. Exclude `/admin*` and `/actions*`, and add **Bypass cache** when the `Cookie` header contains `_identity`, `_commerce_cart` or `speedy_state`, so logged-in visitors, carts and multi-step forms get their own pages.
 
+## Several domains
+
+A multi-site install on several domains has a Cloudflare zone for each. Give Speedy each domain’s zone ID in `config/speedy.php`, and one token that can clear them all (under **Zone Resources**, include each zone, or **All zones**):
+
+```php
+'cloudflareToken' => '$CLOUDFLARE_TOKEN',
+'cloudflareZones' => [
+    'example.com' => '$CLOUDFLARE_ZONE_COM',
+    'example.de' => '$CLOUDFLARE_ZONE_DE',
+],
+```
+
+Each page is cleared from its own domain’s zone. A domain covers its subdomains, so `example.com` covers `www.example.com`. Pages on other domains use the **Zone ID** from the settings page, if there is one, and are otherwise left alone.
+
 ## How clearing works
 
-- Changed pages are cleared by URL, 30 at a time.
-- **Clear all pages** clears everything in Cloudflare too.
+- Changed pages are cleared by URL, 30 at a time, from their domain’s zone.
+- **Clear all pages** clears everything in Cloudflare too, in every zone.
 - Results show on the utility page, and failures in the log.

@@ -44,7 +44,7 @@ Check a page with `curl -I`: `X-Speedy: STATIC` means the web server sent it wit
 
 | Setting elsewhere | Speedy |
 |---|---|
-| Included URI patterns | Speedy caches every page except **Never cache** |
+| Included URI patterns | **Only cache**, as wildcards: `news/*`, with `/` for the homepage |
 | Excluded URI patterns | `neverCache`, as wildcards: `checkout/*` |
 | Query strings cached as unique pages | `cachedParams`, the parameters that make a page of their own |
 | Query strings cached as the same page | `queryStrings` set to `'ignore'` |
@@ -53,7 +53,7 @@ Check a page with `curl -I`: `X-Speedy: STATIC` means the web server sent it wit
 | Cache duration | `defaultTtl` |
 | Element types that aren’t cached | `ignoredElementTypes` |
 | Refreshing when saved unchanged | `ignoreUnchangedSaves`, the other way round |
-| Cloudflare | **CDN** tab: an API token and zone ID |
+| Cloudflare | **CDN** tab: an API token and zone ID, and `cloudflareZones` for a zone for each site |
 | Generator concurrency and basic auth | `warmConcurrency`, `warmUsername`, `warmPassword` |
 | Craft cache storage | **Cache storage**: Craft cache |
 | API key | `apiKey` |

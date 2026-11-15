@@ -8,7 +8,7 @@ Clearing works across sites: saving an entry clears its page in every site it ap
 
 Tested with a second site in a subfolder (`/de/`) sharing a section with the primary site.
 
-The server rules work for any number of domains, as they use the request’s host.
+The server rules work for any number of domains, as they use the request’s host. With Cloudflare, give each domain its own zone with [`cloudflareZones`](/guides/cloudflare#several-domains).
 
 ## Several web servers
 

@@ -27,6 +27,8 @@ When every page is cleared, from the utility page, the command line or a deploy,
 'warm' => ['/', '/shop', '/about', 'https://example.de/'],
 ```
 
+The homepage is rebuilt first, then the pages the sitemap gives the highest priority, then the shortest paths, such as `/news` before `/news/a-story`. Visitors get the most visited pages fast while the rest are still building. A list in `config/speedy.php` is warmed in its own order.
+
 Then:
 
 - **Clear all pages** queues a warm job;

@@ -1,6 +1,12 @@
 # Clear on Deploy
 
-A deploy can change templates, and templates aren’t content, so Speedy can’t tell which pages they affect. Clear everything after each deploy, after project config is applied:
+When `php craft up` applies project config changes, such as a new field or a changed section, Speedy rebuilds every cached page in the background on its own. Visitors keep getting the old pages until the new ones are ready. Turn it off with `rebuildAfterDeploy`:
+
+```php
+'rebuildAfterDeploy' => false,
+```
+
+A deploy can also change templates, and templates aren’t content, so Speedy can’t tell which pages they affect. If a deploy changes templates but not project config, clear everything after it:
 
 ```bash
 php craft up

@@ -59,9 +59,6 @@
 		disabled: 'onlyCache' in overrides,
 		warning: 'onlyCache' in overrides ? configWarning('onlyCache'),
 	}) }}
-</div>
-
-<div class="flex-fields">
 	{{ forms.selectField({
 		label: 'When content changes'|t('speedy'),
 		instructions: 'Rebuilding keeps the old copy until the new one is ready, so nobody waits.'|t('speedy'),

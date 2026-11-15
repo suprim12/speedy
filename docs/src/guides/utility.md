@@ -68,6 +68,10 @@ Each line names what changed: “Saved entry ‘Summer Sale’ → 3 pages”, �
 
 The rules for your web server, ready to copy.
 
+## Dashboard widget
+
+Add **Speedy Cache** to your dashboard (**Dashboard → New widget**) for the same at a glance: pages cached, whether caching is on, the CDN Speedy clears, any problems and the last few clears. It needs the same permission as the utility.
+
 ## Craft’s caches utility
 
 **Utilities → Caches** has a **Speedy Cache pages** option, which clears all pages along with Craft’s other caches.

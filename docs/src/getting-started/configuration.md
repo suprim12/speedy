@@ -2,7 +2,7 @@
 
 The settings page (**Settings → Plugins → Speedy Cache**) has three tabs:
 
-- **General:** caching on or off, URLs to never cache, what happens when content changes, and what to rebuild after clearing everything.
+- **General:** caching on or off, URLs to never cache or to only cache, what happens when content changes, and what to rebuild after clearing everything.
 - **CDN:** your Cloudflare and CloudFront details, and whether Speedy has seen your site behind either.
 - **Advanced:** the [API](/guides/api) key, with a button to generate one, and the options below that are only set in `config/speedy.php`, with the values in use now.
 
@@ -39,6 +39,7 @@ return [
 |---|---|---|
 | `enabled` | `true` | Whether pages are cached |
 | `neverCache` | `[]` | URL paths never cached, such as `checkout/*`. On the settings page, one per line |
+| `onlyCache` | `[]` | URL paths to cache, when only some pages should be, such as `['/', 'news*']`. `/` is the homepage. Empty caches every page ([What isn’t cached](/guides/not-cached#caching-only-some-pages)) |
 | `queryStrings` | `'skip'` | `'skip'`: pages with a query string aren’t cached. `'ignore'`: they’re cached without it, for sites that never use query strings for content |
 | `cachedParams` | `[]` | Query parameters that make a page of their own, such as `['page', 'category']` ([Pagination and filters](/guides/not-cached#pagination-and-filters)) |
 | `maxQueryPages` | `100` | The most query string versions of one page to keep ([Pagination and filters](/guides/not-cached#pagination-and-filters)) |
@@ -51,6 +52,7 @@ return [
 | `ignoredCookies` | `[]` | Cookies that never change pages, as well as the built-in analytics ones. Pages are only saved from requests without other cookies ([What isn’t cached](/guides/not-cached#made-up-cookies-can-t-reach-the-shared-copy)) |
 | `refreshCsrf` | `true` | Refresh CSRF tokens on cached pages ([Forms](/guides/forms)) |
 | `rebuildCleared` | `true` | Rebuild cleared pages in the background before replacing them ([Warming](/guides/warming)) |
+| `rebuildAfterDeploy` | `true` | Rebuild cached pages in the background when a deploy applies project config changes ([Deploy script](/recipes/deploy)) |
 | `warm` | `false` | Pages to build after a full clear: `'sitemap'` or a list of URLs |
 | `sitemap` | `'sitemap.xml'` | The sitemap to read for `warm`, relative to each site |
 | `warmConcurrency` | `2` | How many pages are built at once |
@@ -61,6 +63,7 @@ return [
 | `cachePath` | `'@webroot/speedy'` | Where pages are saved. Must be in the web root for [server serving](/getting-started/server-rules) |
 | `dataPath` | `'@storage/speedy'` | Where Speedy keeps tags, the log and CDN details |
 | `cloudflareToken`, `cloudflareZoneId` | | [Cloudflare](/guides/cloudflare) |
+| `cloudflareZones` | `[]` | A Cloudflare zone ID for each domain, such as `['example.com' => '$CF_ZONE_COM']` ([Several zones](/guides/cloudflare#several-domains)) |
 | `cloudfrontDistributionId`, `awsAccessKeyId`, `awsSecretAccessKey` | | [CloudFront](/guides/cloudfront). The keys fall back to `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` |
 | `fastlyToken`, `fastlyServiceId`, `bunnyApiKey`, `bunnyPullZoneId`, `varnishUrls` | | [Fastly, Bunny and Varnish](/guides/other-cdns) |
 | `warmUsername`, `warmPassword` | | For rebuilding pages on a site behind basic authentication, such as staging. Use environment variables |

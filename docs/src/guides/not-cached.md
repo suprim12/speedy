@@ -35,6 +35,20 @@ Add URL paths on the settings page, one per line, or in `config/speedy.php`. `*`
 ],
 ```
 
+## Caching only some pages
+
+To cache a few sections and leave the rest alone, list them in **Only cache** on the settings page, or in `config/speedy.php`. `/` is the homepage:
+
+```php
+'onlyCache' => [
+    '/',
+    'news*',
+    'about',
+],
+```
+
+Pages that don’t match aren’t cached, and **Never cache** still applies to the ones that do. Leave it empty to cache every page.
+
 ## Multi-page forms and flash messages
 
 Some pages depend on what a visitor did a moment ago: a multi-page form that reloads the page for each step remembers the step in the visitor’s session, and a “Thanks for your message” notice is a flash message kept there too. Cached, one visitor’s step or message would be shown to everyone, and other visitors would be stuck on the cached step.
