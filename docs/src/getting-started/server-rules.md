@@ -24,7 +24,10 @@ Add the rules to your site’s `server { … }` block, before `location / { … 
 set $speedy_page "/speedy/$host$uri/index.html";
 if ($request_method !~ ^(GET|HEAD)$) { set $speedy_page ""; }
 if ($args != "") { set $speedy_page ""; }
-if ($http_cookie ~* "_identity|_commerce_cart") { set $speedy_page ""; }
+if ($http_cookie ~* "_identity|speedy_state|_commerce_cart") { set $speedy_page ""; }
+if ($http_x_requested_with != "") { set $speedy_page ""; }
+if ($http_hx_request != "") { set $speedy_page ""; }
+if ($http_x_up_target != "") { set $speedy_page ""; }
 if ($http_x_speedy_warm != "") { set $speedy_page ""; }
 if (-f $document_root$speedy_page) { rewrite ^ $speedy_page last; }
 
@@ -40,7 +43,8 @@ Then test and reload Nginx: `sudo nginx -t && sudo systemctl reload nginx`.
 
 What the rules do:
 
-- Only GET requests without a query string, from visitors who aren’t logged in and have no cart, get the cached file.
+- Only GET requests without a query string get the cached file, from visitors who aren’t logged in, have no cart and have nothing in their session (`speedy_state`), and not Ajax requests (`X-Requested-With`, `HX-Request`, `X-Up-Target`).
+- Cookies you list in `skipCookies` are added to the cookie line.
 - Speedy’s own rebuild requests (`X-Speedy-Warm`) always reach Craft.
 - `internal` stops anyone opening the cache folder directly.
 - Everything else goes to Craft as usual, which still serves cached pages through PHP.
@@ -53,7 +57,10 @@ Add the rules to `web/.htaccess`, after `RewriteEngine On` and before Craft’s 
 # Speedy Cache: serve cached pages without PHP.
 RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
 RewriteCond %{QUERY_STRING} ^$
-RewriteCond %{HTTP_COOKIE} !(_identity|_commerce_cart) [NC]
+RewriteCond %{HTTP_COOKIE} !(_identity|speedy_state|_commerce_cart) [NC]
+RewriteCond %{HTTP:X-Requested-With} ^$
+RewriteCond %{HTTP:HX-Request} ^$
+RewriteCond %{HTTP:X-Up-Target} ^$
 RewriteCond %{HTTP:X-Speedy-Warm} ^$
 RewriteCond %{DOCUMENT_ROOT}/speedy/%{HTTP_HOST}%{REQUEST_URI}/index.html -s
 RewriteRule .* /speedy/%{HTTP_HOST}%{REQUEST_URI}/index.html [L,E=SPEEDY:1]

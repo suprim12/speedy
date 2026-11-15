@@ -116,6 +116,14 @@ class Cacher extends Component
     }
 
     /**
+     * Whether this request’s page is going to be cached, as far as is known while it’s being built.
+     */
+    public function willCache(): bool
+    {
+        return $this->_key !== null && $this->_collecting && !$this->_templateSkip;
+    }
+
+    /**
      * For templates: `{% do craft.speedy.skip() %}` stops this page being cached.
      */
     public function skip(): void

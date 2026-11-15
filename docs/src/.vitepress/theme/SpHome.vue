@@ -263,12 +263,12 @@ php craft plugin/install speedy</code></pre>
             <p class="sh-step__note">Pages are cached from the next visit. That’s it for most sites.</p>
           </div>
           <div class="sh-step" data-step="1">
-            <p class="sh-step__say">Add the server rules.</p>
+            <p class="sh-step__say">Add the server rules, if you can.</p>
             <div class="sh-call">
               <pre><code>php craft speedy/server-rules</code></pre>
               <button type="button" class="sh-copy" @click="copy(rulesCmd, 'rules')">{{ copied === 'rules' ? 'Copied' : 'Copy' }}</button>
             </div>
-            <p class="sh-step__note">Paste them into Nginx or Apache, and pages skip PHP entirely.</p>
+            <p class="sh-step__note">Optional. Pages are already cached. Paste the rules into Nginx or Apache and cached pages skip PHP too: 1 ms instead of 30.</p>
           </div>
           <div class="sh-step" data-step="2">
             <p class="sh-step__say">Add your CDN, if you have one.</p>
@@ -285,7 +285,17 @@ php craft plugin/install speedy</code></pre>
 <span class="sh-dim">x-speedy: MISS</span>
 <span class="t-k">$</span> curl -I https://example.com/
 <span class="sh-ok">x-speedy: HIT</span></code></pre>
-            <img class="sh-frame__slide sh-frame__slide--light" :class="{ 'is-on': step === 1 }" :src="withBase('/images/nginx-rules.jpg')" width="1400" height="486" alt="" loading="lazy">
+            <pre class="sh-frame__slide sh-frame__slide--term sh-frame__slide--rules" :class="{ 'is-on': step === 1 }"><code><span class="t-k">$</span> php craft speedy/server-rules
+<span class="sh-dim"># Serve cached pages without PHP</span>
+set $speedy_page "/speedy/$host$uri/index.html";
+<span class="sh-dim"># …skip visitors who are logged in, have a cart,
+# send a query string or an Ajax request…</span>
+if (-f $document_root$speedy_page) <span class="t-k">{</span>
+  rewrite ^ $speedy_page last;
+<span class="t-k">}</span>
+
+<span class="t-k">$</span> curl -I https://example.com/
+<span class="sh-ok">x-speedy: STATIC</span>   <span class="sh-dim">1 ms, no PHP</span></code></pre>
             <img class="sh-frame__slide" :class="{ 'is-on': step === 2 }" :src="withBase('/images/settings.jpg')" width="1600" height="1600" alt="" loading="lazy">
           </div>
         </div>
@@ -543,6 +553,8 @@ php craft plugin/install speedy</code></pre>
 }
 .sh-frame__slide--light { object-fit: contain; object-position: center; background: #f3f7fc; padding: 32px; box-sizing: border-box; }
 .sh-frame__slide.is-on { opacity: 1; transform: none; }
+.sh-frame__slide--rules { font-size: 15px; line-height: 1.7; }
+@media (max-width: 759px) { .sh-frame__slide--rules { font-size: 12px; padding: 24px; } }
 .sh-frame__slide--term {
   margin: 0; display: grid; align-content: center; padding: 48px; background: var(--soot); color: #e8e9ee;
   font: var(--s-body)/1.9 var(--vp-font-family-mono); white-space: pre-wrap;

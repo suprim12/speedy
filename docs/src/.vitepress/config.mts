@@ -51,6 +51,7 @@ export default defineConfig({
           { text: 'The Utility Page', link: '/guides/utility' },
           { text: 'Templates', link: '/guides/templates' },
           { text: 'Console Commands', link: '/guides/console' },
+          { text: 'API', link: '/guides/api' },
         ],
       },
       {

@@ -80,6 +80,9 @@ class Settings extends Model
     /** A maximum age for every page, in seconds, for sites showing data from outside Craft. Null for none. */
     public ?int $defaultTtl = null;
 
+    /** A key, at least 16 characters, for clearing and rebuilding over HTTP. Use an environment variable. Empty turns the API off. */
+    public string $apiKey = '';
+
     /** Add a comment to the end of cached pages saying when they were cached. */
     public bool $cacheComment = true;
 
@@ -107,6 +110,11 @@ class Settings extends Model
             $values['rebuildCleared'] = $values['rebuildCleared'] === '1';
         }
         parent::setAttributes($values, $safeOnly);
+    }
+
+    public function getApiKey(): string
+    {
+        return (string)App::parseEnv($this->apiKey);
     }
 
     public function isEnabled(): bool

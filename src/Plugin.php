@@ -33,6 +33,7 @@ use suprim\speedy\models\Settings;
 use suprim\speedy\services\Cacher;
 use suprim\speedy\services\Cdn;
 use suprim\speedy\services\Clearer;
+use suprim\speedy\services\Dynamic;
 use suprim\speedy\services\Insights;
 use suprim\speedy\services\Log;
 use suprim\speedy\services\ServerRules;
@@ -55,6 +56,7 @@ use yii\queue\Queue;
  * @property-read Log $log
  * @property-read ServerRules $serverRules
  * @property-read Insights $insights
+ * @property-read Dynamic $dynamic
  * @method Settings getSettings()
  */
 class Plugin extends BasePlugin
@@ -74,6 +76,7 @@ class Plugin extends BasePlugin
                 'log' => Log::class,
                 'serverRules' => ServerRules::class,
                 'insights' => Insights::class,
+                'dynamic' => Dynamic::class,
             ],
         ];
     }

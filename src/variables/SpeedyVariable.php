@@ -10,6 +10,7 @@
 namespace suprim\speedy\variables;
 
 use suprim\speedy\Plugin;
+use Twig\Markup;
 
 /**
  * `craft.speedy` in templates.
@@ -22,6 +23,18 @@ class SpeedyVariable
     public function skip(): void
     {
         Plugin::getInstance()->cacher->skip();
+    }
+
+    /**
+     * A part of the page rendered for each visitor, such as a cart count, loaded after the cached page:
+     * `{{ craft.speedy.dynamic('_partials/cart') }}`.
+     *
+     * @param array<string, mixed> $variables
+     * @param array{placeholder?: string} $options
+     */
+    public function dynamic(string $template, array $variables = [], array $options = []): Markup
+    {
+        return Plugin::getInstance()->dynamic->include($template, $variables, $options);
     }
 
     /**

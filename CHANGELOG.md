@@ -34,4 +34,6 @@
 - When many visitors ask for the same uncached page at once, one request builds it and the others wait for that copy.
 - Clearing everything is instant however many pages there are; old files are deleted in the background.
 - Rebuild all pages, from the utility page or `speedy/clear --rebuild`, keeping the old copies until the new ones are ready.
+- `craft.speedy.dynamic()` for parts of a cached page built for each visitor, such as a cart count or a form, loaded in one request with their scripts.
+- An API for clearing and rebuilding pages over HTTP with a key.
 - Console commands: `speedy/clear`, `speedy/warm`, `speedy/expire`, `speedy/status` and `speedy/server-rules`.

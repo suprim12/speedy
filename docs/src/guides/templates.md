@@ -30,22 +30,26 @@ The page is cleared and rebuilt after 600 seconds. Use it for pages showing data
 
 ## Personal content on a cached page
 
-A cached page is the same for everyone, so a greeting or cart count can’t be in it. Load those after the page, from a template that isn’t cached:
+A cached page is the same for everyone, so a cart count, a “Hi, Alex” or a form can’t be in it. Put those parts in their own template and include them with `craft.speedy.dynamic()`:
 
 ```twig
-{# templates/_header.twig #}
-<span id="cart-count"></span>
-<script>
-  fetch('/cart-count').then(r => r.text()).then(n => {
-    document.getElementById('cart-count').textContent = n;
-  });
-</script>
+<header>
+  {{ craft.speedy.dynamic('_partials/cart-count') }}
+</header>
 ```
 
 ```twig
-{# templates/cart-count.twig, with 'cart-count' in Never cache #}
-{{ craft.commerce.carts.cart.totalQty }}
+{# templates/_partials/cart-count.twig #}
+<a href="/cart">Cart ({{ craft.commerce.carts.cart.totalQty }})</a>
 ```
+
+The page is cached as usual. Where the include goes, the cached copy has an empty placeholder, and a small script fetches every part on the page in one request and puts it in place, running any scripts the part needs.
+
+- **Variables:** `craft.speedy.dynamic('_partials/greeting', { size: 'small' })`. Use plain values; they’re visible in the page source, so never secrets.
+- **Placeholder:** `craft.speedy.dynamic('_partials/cart-count', {}, { placeholder: 'Cart' })` shows something until the part arrives.
+- **Pages that aren’t cached,** such as for logged-in visitors, render the part in place, with no extra request.
+- **Only templates you include can be fetched.** Each placeholder carries a signed token, so visitors can’t ask for any other template.
+- Elements a part shows don’t clear the page it’s on, since the part is always built fresh.
 
 ## Is this page cached?
 

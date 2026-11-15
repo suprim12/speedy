@@ -38,4 +38,16 @@ Formie keeps each visitor’s progress through a form, and its “Thanks” mess
 - **Seeing a form doesn’t affect other pages.** The visitor still gets cached copies of every other page.
 - **After submitting,** the visitor gets fresh pages until the confirmation has been shown.
 
-To cache a page that has a form on it, such as a newsletter sign-up in the footer, load the form with JavaScript from a page in **Never cache**, or use Formie’s Ajax submission with the form on its own page.
+To cache a page that has a form on it, such as a newsletter sign-up in the footer, include the form with `craft.speedy.dynamic()`. The page is cached, and the form, its steps and its messages are built for each visitor:
+
+```twig
+{# In the footer #}
+{{ craft.speedy.dynamic('_partials/newsletter') }}
+```
+
+```twig
+{# templates/_partials/newsletter.twig #}
+{{ craft.formie.renderForm('newsletter') }}
+```
+
+Formie’s scripts and styles come with the form, and its validation and multi-page steps work as usual. See [Personal content on a cached page](/guides/templates#personal-content-on-a-cached-page).
