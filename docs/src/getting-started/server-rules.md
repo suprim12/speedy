@@ -88,6 +88,8 @@ Header set Content-Encoding "gzip" env=SPEEDY_GZ
 
 `mod_rewrite` and `mod_headers` must be enabled. Like the nginx rules, they send the compressed copy to browsers that accept it, and refuse direct requests to the cache folder. Tested on Apache 2.4.
 
+Speedy also keeps a small `.htaccess` in `web/speedy/` that refuses direct requests, so the folder is closed on Apache even before you add the rules. Leave it in place.
+
 ## Check it
 
 In **Utilities → Speedy Cache**, click **Check server serving**. Speedy loads your homepage twice and tells you who sent the second copy:

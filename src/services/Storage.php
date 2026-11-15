@@ -104,6 +104,7 @@ class Storage extends Component
         }
 
         $file = $this->htmlFile($key);
+        $this->protectCacheFolder();
         // Compressed copies, so the web server (gzip_static) and PHP send them without compressing each time.
         $this->atomicWrite("$file.gz", (string)gzencode($html, 9));
         if (function_exists('brotli_compress')) {
@@ -135,6 +136,8 @@ class Storage extends Component
         @unlink("$file.gz");
         @unlink("$file.br");
         @unlink($this->metaFile($key));
+        $this->removeEmptyFolders(dirname($file), $this->cacheRoot());
+        $this->removeEmptyFolders(dirname($this->metaFile($key)), $this->dataRoot() . '/meta');
 
         return $meta['url'] ?? null;
     }
@@ -453,12 +456,51 @@ class Storage extends Component
         return is_array($lines) ? $lines : [];
     }
 
+    /**
+     * Removes the folder and its parents while they’re empty, up to the root, so cleared pages leave nothing behind.
+     * A folder that still holds another page, or gets one meanwhile, is left alone.
+     */
+    private function removeEmptyFolders(string $dir, string $root): void
+    {
+        while (str_starts_with($dir, $root . '/') && @rmdir($dir)) {
+            $dir = dirname($dir);
+        }
+    }
+
+    /**
+     * Stops visitors opening the cache folder directly on Apache, while the server rules still send pages from it.
+     * Only rewrites are used, which every Craft site already allows in .htaccess files. Nginx ignores the file; its
+     * rules mark the folder `internal`.
+     */
+    private function protectCacheFolder(): void
+    {
+        $file = $this->cacheRoot() . '/.htaccess';
+        if (is_file($file)) {
+            return;
+        }
+        $this->atomicWrite($file, <<<APACHE
+# Speedy Cache: pages here are only sent through the site’s rewrite rules, not opened directly.
+# Rewrite rules here replace the site’s for this folder, so compressed pages are marked here too.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{ENV:REDIRECT_STATUS} ^$
+    RewriteRule ^ - [F]
+    RewriteRule \.html\.gz$ - [T=text/html,E=no-gzip:1,E=SPEEDY_GZ:1,L]
+</IfModule>
+
+APACHE);
+    }
+
     private function atomicWrite(string $file, string $contents): void
     {
-        FileHelper::createDirectory(dirname($file));
         $tmp = $file . '.' . bin2hex(random_bytes(4)) . '.tmp';
         try {
-            file_put_contents($tmp, $contents);
+            // A folder can be removed by a page being cleared at the same moment, so make it again if so.
+            FileHelper::createDirectory(dirname($file));
+            if (@file_put_contents($tmp, $contents) === false) {
+                FileHelper::createDirectory(dirname($file));
+                file_put_contents($tmp, $contents);
+            }
             rename($tmp, $file);
         } catch (Throwable $e) {
             @unlink($tmp);

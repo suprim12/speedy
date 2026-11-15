@@ -25,6 +25,31 @@ class FileStorageTest extends TestCase
         $this->assertFileDoesNotExist("$this->tmp/web/example.com/news/index.html.gz");
     }
 
+    public function testDeletingAPageLeavesNoEmptyFolders(): void
+    {
+        $storage = $this->plugin()->storage;
+        $storage->write('example.com/blog', 'blog', 'https://example.com/blog', [], null);
+        $storage->write('example.com/blog/2026/hello', 'post', 'https://example.com/blog/2026/hello', [], null);
+
+        $storage->delete('example.com/blog/2026/hello');
+        $this->assertDirectoryDoesNotExist("$this->tmp/web/example.com/blog/2026");
+        $this->assertDirectoryDoesNotExist("$this->tmp/data/meta/example.com/blog/2026");
+        $this->assertTrue($storage->exists('example.com/blog'), 'A parent page is kept.');
+
+        $storage->delete('example.com/blog');
+        $this->assertDirectoryDoesNotExist("$this->tmp/web/example.com");
+        $this->assertDirectoryExists("$this->tmp/web", 'The cache folder itself stays.');
+    }
+
+    public function testTheCacheFolderCantBeOpenedDirectlyOnApache(): void
+    {
+        $this->plugin()->storage->write('example.com/news', 'news', 'https://example.com/news', [], null);
+        $htaccess = (string)file_get_contents("$this->tmp/web/.htaccess");
+
+        $this->assertStringContainsString('RewriteCond %{ENV:REDIRECT_STATUS} ^$', $htaccess);
+        $this->assertStringContainsString('SPEEDY_GZ', $htaccess, 'Compressed pages are still marked, as this file replaces the site’s rules here.');
+    }
+
     public function testHomepageAndSubpagesDontClash(): void
     {
         $storage = $this->plugin()->storage;

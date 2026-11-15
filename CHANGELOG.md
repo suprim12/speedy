@@ -14,6 +14,8 @@
 - Logged-in visitors, Commerce carts, pages that set cookies and pages with query strings aren’t cached.
 - Pages are only saved from requests without cookies of their own, so a made-up cookie can’t end up in the copy everyone gets. Analytics cookies are ignored, and more can be added with `ignoredCookies`.
 - Saving SEOmatic’s settings rebuilds every cached page in the background.
+- The cache folder can’t be opened directly on Apache, even without the server rules.
+- Clearing a page removes its empty folders.
 - Multi-page forms and flash messages are safe: visitors with something in their session get their own pages, never a cached step or someone else’s message.
 - Cloudflare and CloudFront: detected automatically and cleared when pages change, with CloudFront paths batched into wildcards and a monthly counter.
 - CDNs are told not to keep pages that Speedy can’t clear from them.
