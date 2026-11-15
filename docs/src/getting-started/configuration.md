@@ -1,8 +1,12 @@
 # Configuration
 
-The settings page (**Settings → Plugins → Speedy Cache**) has the essentials: caching on or off, URLs to never cache, what happens when content changes, what to rebuild after clearing everything, and your CDN details.
+The settings page (**Settings → Plugins → Speedy Cache**) has three tabs:
 
-![Speedy Cache settings: Cache pages, Never cache, When content changes, After clearing everything, and fields for the Cloudflare token and zone ID, CloudFront distribution ID and AWS keys](/images/settings.jpg)
+- **General:** caching on or off, URLs to never cache, what happens when content changes, and what to rebuild after clearing everything.
+- **CDN:** your Cloudflare and CloudFront details, and whether Speedy has seen your site behind either.
+- **Config file:** the options below that are only set in `config/speedy.php`, with the values in use now.
+
+![Speedy Cache settings, General tab: a status strip, Cache pages, Never cache, When content changes and After clearing everything](/images/settings.jpg)
 
 Everything else goes in `config/speedy.php`. Settings in the file override the settings page, which then shows the field as locked with a note saying so.
 

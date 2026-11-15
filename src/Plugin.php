@@ -130,6 +130,69 @@ class Plugin extends BasePlugin
         return new Settings();
     }
 
+    public function getSettingsResponse(): mixed
+    {
+        return $this->tabbedSettingsResponse(false);
+    }
+
+    public function getReadOnlySettingsResponse(): mixed
+    {
+        return $this->tabbedSettingsResponse(true);
+    }
+
+    /**
+     * Craft’s own plugin settings page, with tabs.
+     */
+    private function tabbedSettingsResponse(bool $readOnly): mixed
+    {
+        $html = Craft::$app->getView()->namespaceInputs(
+            fn() => $readOnly ? (string)Html::disableInputs(fn() => $this->settingsHtml()) : (string)$this->settingsHtml(),
+            'settings',
+        );
+        /** @var \craft\web\Controller $controller */
+        $controller = Craft::$app->controller;
+
+        return $controller->renderTemplate('speedy/_settings/page', [
+            'plugin' => $this,
+            'settingsHtml' => $html,
+            'readOnly' => $readOnly,
+        ]);
+    }
+
+    /**
+     * The options that are only set in config/speedy.php, with their values, for the Config file tab.
+     *
+     * @return array<int, array{name: string, value: string, info: string}>
+     */
+    private function configRows(): array
+    {
+        $s = $this->getSettings();
+        $show = fn($v) => match (true) {
+            is_bool($v) => $v ? 'true' : 'false',
+            $v === null => 'null',
+            is_array($v) => $v ? implode(', ', $v) : '[]',
+            default => (string)$v,
+        };
+        $rows = [
+            ['queryStrings', $s->queryStrings, Craft::t('speedy', 'skip: pages with a query string aren’t cached. ignore: they’re cached without it.')],
+            ['ignoredParams', $s->ignoredParams, Craft::t('speedy', 'Tracking parameters that never stop a page being cached.')],
+            ['skipCookies', $s->skipCookies, Craft::t('speedy', 'Cookies that mean a visitor sees their own pages, such as a consent banner.')],
+            ['skipWhenCart', $s->skipWhenCart, Craft::t('speedy', 'Don’t cache for visitors with a Commerce cart.')],
+            ['refreshCsrf', $s->refreshCsrf, Craft::t('speedy', 'Refresh CSRF tokens on cached pages, so forms work.')],
+            ['defaultTtl', $s->defaultTtl, Craft::t('speedy', 'A maximum age for every page, in seconds.')],
+            ['warmConcurrency', $s->warmConcurrency, Craft::t('speedy', 'How many pages are rebuilt at once.')],
+            ['sitemap', $s->sitemap, Craft::t('speedy', 'The sitemap read when rebuilding everything.')],
+            ['cacheComment', $s->cacheComment, Craft::t('speedy', 'Add a “Cached by Speedy Cache” comment to cached pages.')],
+            ['apiKey', $s->getApiKey() !== '' ? Craft::t('speedy', 'set') : Craft::t('speedy', 'not set'), Craft::t('speedy', 'For clearing and rebuilding over HTTP.')],
+            ['cdnMaxAge', $s->cdnMaxAge, Craft::t('speedy', 'How long a CDN keeps pages, in seconds.')],
+            ['wildcardThreshold', $s->wildcardThreshold, Craft::t('speedy', 'CloudFront: more paths than this are grouped into wildcards.')],
+            ['cachePath', $s->cachePath, Craft::t('speedy', 'Where pages are saved.')],
+            ['dataPath', $s->dataPath, Craft::t('speedy', 'Where Speedy keeps tags, the log and CDN details.')],
+        ];
+
+        return array_map(fn($r) => ['name' => $r[0], 'value' => $show($r[1]), 'info' => $r[2]], $rows);
+    }
+
     protected function settingsHtml(): ?string
     {
         return Craft::$app->getView()->renderTemplate('speedy/_settings', [
@@ -139,6 +202,7 @@ class Plugin extends BasePlugin
             'configured' => $this->cdn->configured(),
             'cdnLast' => $this->cdn->lastResults(),
             'stats' => $this->storage->stats(),
+            'configRows' => $this->configRows(),
         ]);
     }
 

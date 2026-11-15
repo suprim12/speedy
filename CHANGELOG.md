@@ -24,7 +24,7 @@
 - Pages that aren’t cached are sent as `private`, so CDNs never keep them.
 - Only the sites’ own domains are cached, so a forged `Host` header can’t fill the disk.
 - Background rebuilds reach your server even when a CDN keeps pages.
-- Settings page: what happens when content changes and after clearing everything, with a note on settings set in `config/speedy.php`.
+- Settings page with General, CDN and Config file tabs: what happens when content changes and after clearing everything, a card for each CDN, the values of options set in `config/speedy.php`, and a note on any setting the file overrides.
 - Warnings and errors are written to `storage/logs/speedy.log`, rotated daily.
 - A list of cached pages on the utility page, searchable, with what each page depends on in plain words and a Clear button.
 - Checks and tips on the utility page: failed jobs, CDN errors, unwritable folders, pages that clear on every save, and more.

@@ -8,6 +8,7 @@
 {% set cdnNames = { cloudflare: 'Cloudflare', cloudfront: 'CloudFront' } %}
 {% set warmIsList = settings.warm is iterable %}
 
+<div id="general">
 {# Status ------------------------------------------------------------------- #}
 <div class="speedy-status">
 	<div class="speedy-status__item">
@@ -24,8 +25,6 @@
 </div>
 
 {# Caching ------------------------------------------------------------------ #}
-<h2 class="speedy-h">{{ 'Caching'|t('speedy') }}</h2>
-
 {{ forms.lightswitchField({
 	label: 'Cache pages'|t('speedy'),
 	instructions: 'Turn this off to stop caching, such as on dev.'|t('speedy'),
@@ -76,9 +75,10 @@
 	}) }}
 </div>
 
+</div>
+
 {# CDN ---------------------------------------------------------------------- #}
-<hr>
-<h2 class="speedy-h">{{ 'CDN'|t('speedy') }}</h2>
+<div id="cdn" class="hidden">
 <p class="speedy-intro">{{ 'Optional. With these set, your CDN keeps pages too and Speedy clears them when content changes. Without them, the CDN is told not to keep pages, so it never shows old ones. Use environment variables, such as $CLOUDFLARE_TOKEN.'|t('speedy') }}</p>
 
 <div class="speedy-cdns">
@@ -147,15 +147,38 @@
 	{% endfor %}
 </div>
 
-<hr>
-<p class="light">{{ 'Query strings, cookies, the API key and other options are in config/speedy.php.'|t('speedy') }} <a href="https://speedy.suprim.com.au/getting-started/configuration" target="_blank" rel="noopener">{{ 'All options'|t('speedy') }}</a></p>
+</div>
+
+{# Config file -------------------------------------------------------------- #}
+<div id="config" class="hidden">
+<p class="speedy-intro">{{ 'Less common options are set in config/speedy.php. These are the values in use now.'|t('speedy') }} <a href="https://speedy.suprim.com.au/getting-started/configuration" target="_blank" rel="noopener">{{ 'All options'|t('speedy') }}</a></p>
+<table class="data fullwidth speedy-config">
+	<thead><tr><th scope="col">{{ 'Option'|t('speedy') }}</th><th scope="col">{{ 'Value'|t('speedy') }}</th><th scope="col">{{ 'What it does'|t('speedy') }}</th></tr></thead>
+	<tbody>
+		{% for row in configRows %}
+			<tr>
+				<td class="nowrap"><code>{{ row.name }}</code>{% if row.name in overrides %} <span class="speedy-pill speedy-pill--seen">{{ 'set in file'|t('speedy') }}</span>{% endif %}</td>
+				<td><code>{{ row.value }}</code></td>
+				<td class="light">{{ row.info }}</td>
+			</tr>
+		{% endfor %}
+	</tbody>
+</table>
+<pre class="speedy-code"><code>// config/speedy.php
+return [
+    'skipCookies' => ['cookie_consent'],
+    'defaultTtl' => 3600,
+    'apiKey' => '$SPEEDY_API_KEY',
+];</code></pre>
+</div>
 
 {% css %}
 .speedy-status { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; padding: 14px 18px; margin-bottom: 28px; border-radius: 8px; background: var(--gray-050, #f3f7fc); }
 .speedy-status__item { display: flex; align-items: baseline; gap: 8px; }
 .speedy-status__item .light { margin-left: 6px; }
 .speedy-status .btn { margin-left: auto; }
-.speedy-h { margin-bottom: 14px; }
+.speedy-config td { vertical-align: top; }
+.speedy-code { background: var(--gray-050, #f3f7fc); padding: 12px 14px; border-radius: 6px; font-size: 12px; margin-top: 20px; }
 .speedy-intro { max-width: 70ch; color: var(--light-text-color, #606d7b); margin-bottom: 20px; }
 .speedy-cdns { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
 .speedy-cdn { border: 1px solid var(--hairline-color, #e3e5e8); border-radius: 8px; padding: 18px 20px 20px; }
