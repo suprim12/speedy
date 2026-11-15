@@ -2,9 +2,9 @@
 
 An entry with a post date in the future, or an expiry date, changes the site at that moment without anyone saving anything. Speedy knows when.
 
-While a page is built, Craft notes the soonest moment any element on it goes live or expires. Speedy saves that time with the page, and clears and rebuilds the page when it comes.
+**Expiring.** While a page is built, Craft notes the soonest moment any element on it expires. Speedy saves that time with the page, and clears and rebuilds the page when it comes. A News entry that expires at 5 pm leaves `/news` at 5 pm.
 
-For example, `/news` lists News entries. An entry is scheduled for 9 am tomorrow, so `/news` is cleared at 9 am and rebuilt with it.
+**Going live.** An entry that isn’t live yet isn’t on any page, so no page knows about it. Speedy watches entries and Commerce products with future post dates instead, and when one goes live it clears the pages that list its section. An entry scheduled for 9 am tomorrow appears on `/news` at 9 am.
 
 If a visitor arrives in the moment between the page expiring and its rebuild, they get the old copy (`X-Speedy: STALE`) while the new one is built in the background, so nobody waits. After 10 minutes, an expired page is built fresh instead.
 

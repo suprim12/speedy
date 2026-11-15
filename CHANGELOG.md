@@ -9,7 +9,7 @@
 - One clear job per request, queue job or bulk operation, such as an import.
 - Drafts, autosaves and revisions never clear live pages.
 - Cleared pages are rebuilt in the background before the old copy is replaced.
-- Pages clear when scheduled content goes live or expires.
+- Pages clear when scheduled content goes live or expires, including the listing pages of entries and products with future post dates.
 - Forms keep working on cached pages: CSRF tokens are refreshed automatically.
 - Logged-in visitors, Commerce carts, pages that set cookies and pages with query strings aren’t cached.
 - Multi-page forms and flash messages are safe: visitors with something in their session get their own pages, never a cached step or someone else’s message.

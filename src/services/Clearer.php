@@ -61,6 +61,11 @@ class Clearer extends Component
         foreach ($tags as $tag) {
             $this->_pending[$tag] = true;
         }
+        // Saved with a future post date: check again when it goes live, to clear the pages that will list it.
+        $postDate = $event->element instanceof ElementInterface && property_exists($event->element, 'postDate') ? $event->element->postDate : null;
+        if ($postDate instanceof \DateTimeInterface && $postDate->getTimestamp() > time()) {
+            $this->scheduleExpiry($postDate->getTimestamp());
+        }
         $id = $event->element instanceof ElementInterface ? (string)($event->element->getCanonicalId() ?? $event->element->id) : implode(',', $tags);
         if (isset($this->_changed[$id])) {
             return;
@@ -219,18 +224,81 @@ class Clearer extends Component
      */
     public function clearExpired(): int
     {
-        $keys = Plugin::getInstance()->storage->takeExpired(time());
-        $count = $keys ? $this->clearKeys($keys, Craft::t('speedy', 'Scheduled content changed')) : 0;
         $plugin = Plugin::getInstance();
+        $now = time();
         $data = $plugin->storage->readData('state');
-        $data['lastExpire'] = time();
+        $since = (int)($data['lastExpire'] ?? $now - 3600);
+
+        $keys = $plugin->storage->takeExpired($now);
+        $count = $keys ? $this->clearKeys($keys, Craft::t('speedy', 'Scheduled content changed')) : 0;
+        $count += $this->clearWentLive($since, $now);
+
+        $data = $plugin->storage->readData('state');
+        $data['lastExpire'] = $now;
         unset($data['expireJobAt']);
         $plugin->storage->writeData('state', $data);
-        if (($next = $plugin->storage->nextExpiry()) !== null) {
-            $this->scheduleExpiry(max($next, time() + 60));
+        $next = array_filter([$plugin->storage->nextExpiry(), $this->nextPostDate()]);
+        if ($next) {
+            $this->scheduleExpiry(max(min($next), time() + 60));
         }
 
         return $count;
+    }
+
+    /**
+     * Entries and products whose post date passed since the last check: clears the pages that list their section,
+     * as those pages were cached before they went live. Craft only records expiry dates of what a page shows.
+     */
+    private function clearWentLive(int $since, int $now): int
+    {
+        $count = 0;
+        $range = ['and', '> ' . date(DATE_ATOM, $since), '<= ' . date(DATE_ATOM, $now)];
+        foreach ($this->postDatedTypes() as $class) {
+            foreach ($class::find()->site('*')->unique()->status('live')->postDate($range)->all() as $element) {
+                $tags = ["element::$element->id"];
+                foreach ($element->getCacheTags() as $tag) {
+                    $tags[] = str_starts_with($tag, 'element::') ? $tag : "element::$class::$tag";
+                }
+                $count += $this->clearTags($tags, Craft::t('speedy', '{type} “{title}” went live', [
+                    'type' => $element::displayName(),
+                    'title' => (string)$element,
+                ]));
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * When the next scheduled entry or product goes live, or null.
+     */
+    private function nextPostDate(): ?int
+    {
+        $next = null;
+        foreach ($this->postDatedTypes() as $class) {
+            $element = $class::find()->site('*')->unique()->status('pending')->orderBy(['postDate' => SORT_ASC])->one();
+            $date = $element->postDate ?? null;
+            if ($date instanceof \DateTimeInterface && ($next === null || $date->getTimestamp() < $next)) {
+                $next = $date->getTimestamp();
+            }
+        }
+
+        return $next;
+    }
+
+    /**
+     * Element types with post dates, which go live on their own.
+     *
+     * @return array<class-string<\craft\elements\Entry>|class-string>
+     */
+    private function postDatedTypes(): array
+    {
+        $types = [\craft\elements\Entry::class];
+        if (class_exists(\craft\commerce\elements\Product::class)) {
+            $types[] = \craft\commerce\elements\Product::class;
+        }
+
+        return $types;
     }
 
     /**
