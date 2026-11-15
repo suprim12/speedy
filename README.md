@@ -4,8 +4,6 @@
 
 Full-page caching that works with your templates as they are, keeps your database clean, and clears Cloudflare, CloudFront, Fastly, Bunny and Varnish when content changes.
 
-![Utilities → Speedy Cache: pages cached, recent clears and a server check](https://plugins.speedy.suprim.com.au/images/utility.jpg)
-
 ## Features
 
 - **Static pages, no database tables.** Pages are saved as HTML files. What each page depends on is stored next to it, so the database never grows.
@@ -25,8 +23,6 @@ Full-page caching that works with your templates as they are, keeps your databas
 ![Recent clears, with the reason and the pages](https://plugins.speedy.suprim.com.au/images/log.jpg)
 
 ![Each entry shows whether its page is cached](https://plugins.speedy.suprim.com.au/images/entry-status.jpg)
-
-![CDN settings](https://plugins.speedy.suprim.com.au/images/settings-cdn.jpg)
 
 ## Requirements
 
