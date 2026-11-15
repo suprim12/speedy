@@ -28,6 +28,7 @@ abstract class TestCase extends BaseTestCase
         $settings->rebuildCleared = false;
         $settings->enabled = true;
         $settings->cloudflareToken = $settings->cloudflareZoneId = $settings->cloudfrontDistributionId = '';
+        $settings->cloudflareZones = [];
     }
 
     protected function tearDown(): void

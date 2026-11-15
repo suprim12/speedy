@@ -24,11 +24,21 @@ class Settings extends Model
     /** @var string[]|string URL patterns that are never cached, such as `checkout/*`. `*` matches anything. One per line from the settings page. */
     public array|string $neverCache = [];
 
+    /** @var string[]|string URL patterns to cache, when only some pages should be, such as `news/*`. Empty caches every page. `*` matches anything; `/` is the homepage. */
+    public array|string $onlyCache = [];
+
     /** Cloudflare API token with the Zone → Cache Purge permission. Environment variables are supported. */
     public string $cloudflareToken = '';
 
     /** Cloudflare zone ID. */
     public string $cloudflareZoneId = '';
+
+    /**
+     * @var array<string, string> Cloudflare zone IDs by domain, for sites on several domains, such as
+     * `['example.com' => '$CF_ZONE_COM', 'example.de' => '$CF_ZONE_DE']`. A domain covers its subdomains, such as www.
+     * Other URLs use `cloudflareZoneId`.
+     */
+    public array $cloudflareZones = [];
 
     /** CloudFront distribution ID. */
     public string $cloudfrontDistributionId = '';
@@ -68,6 +78,9 @@ class Settings extends Model
 
     /** Whether cleared pages are rebuilt in the background, so visitors never wait for them. */
     public bool $rebuildCleared = true;
+
+    /** Rebuild cached pages in the background when project config changes are applied, such as by `craft up` in a deploy. */
+    public bool $rebuildAfterDeploy = true;
 
     /** How many pages are rebuilt at once. */
     public int $warmConcurrency = 2;
@@ -147,9 +160,26 @@ class Settings extends Model
      */
     public function getNeverCache(): array
     {
-        $patterns = is_string($this->neverCache) ? preg_split('/\R/', $this->neverCache) : $this->neverCache;
+        return $this->patterns($this->neverCache);
+    }
 
-        return array_values(array_filter(array_map('trim', $patterns ?: []), fn($p) => $p !== ''));
+    /**
+     * @return string[]
+     */
+    public function getOnlyCache(): array
+    {
+        return $this->patterns($this->onlyCache);
+    }
+
+    /**
+     * @param string[]|string $value
+     * @return string[]
+     */
+    private function patterns(array|string $value): array
+    {
+        $patterns = is_string($value) ? preg_split('/\R/', $value) : $value;
+
+        return array_values(array_filter(array_map(fn($p) => trim((string)$p), $patterns ?: []), fn($p) => $p !== ''));
     }
 
     public function setAttributes($values, $safeOnly = true): void
@@ -233,6 +263,28 @@ class Settings extends Model
     public function getCloudflareZoneId(): string
     {
         return (string)App::parseEnv($this->cloudflareZoneId);
+    }
+
+    /**
+     * Every Cloudflare zone ID, by domain, with `*` for `cloudflareZoneId`.
+     *
+     * @return array<string, string>
+     */
+    public function getCloudflareZones(): array
+    {
+        $zones = [];
+        foreach ($this->cloudflareZones as $domain => $zone) {
+            $zone = (string)App::parseEnv((string)$zone);
+            $domain = strtolower(trim((string)$domain, ". \t"));
+            if ($zone !== '' && $domain !== '') {
+                $zones[$domain] = $zone;
+            }
+        }
+        if ($this->getCloudflareZoneId() !== '') {
+            $zones['*'] = $this->getCloudflareZoneId();
+        }
+
+        return $zones;
     }
 
     public function getCloudfrontDistributionId(): string

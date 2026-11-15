@@ -116,11 +116,12 @@ class Insights extends Component
         if (!$settings->isEnabled()) {
             return ['state' => 'off', 'label' => Craft::t('speedy', 'Caching is off'), 'detail' => null, 'pages' => $pages];
         }
-        foreach ($settings->getNeverCache() as $pattern) {
-            $regex = '#^' . str_replace('\*', '.*', preg_quote(trim((string)$pattern, '/'), '#')) . '$#i';
-            if (preg_match($regex, $path)) {
-                return ['state' => 'never', 'label' => Craft::t('speedy', 'Never cached'), 'detail' => Craft::t('speedy', 'Matches {pattern}', ['pattern' => $pattern]), 'pages' => $pages];
-            }
+        $pattern = Cacher::matchingPattern($path, $settings->getNeverCache());
+        if ($pattern !== null) {
+            return ['state' => 'never', 'label' => Craft::t('speedy', 'Never cached'), 'detail' => Craft::t('speedy', 'Matches {pattern}', ['pattern' => $pattern]), 'pages' => $pages];
+        }
+        if ($settings->getOnlyCache() && Cacher::matchingPattern($path, $settings->getOnlyCache()) === null) {
+            return ['state' => 'never', 'label' => Craft::t('speedy', 'Never cached'), 'detail' => Craft::t('speedy', 'Not in Only cache'), 'pages' => $pages];
         }
         $key = $plugin->storage->key($parts['host'] ?? '', $path);
         $meta = $key ? $plugin->storage->meta($key) : null;
@@ -244,6 +245,7 @@ class Insights extends Component
             'Storage: ' . $settings->storage . ($plugin->storage->usesCache() ? ' (' . CacheStore::describe()['class'] . ')' : ''),
             'Pages cached: ' . $stats['pages'] . ' (' . round($stats['bytes'] / 1048576, 1) . ' MB)',
             'Never cache: ' . (implode(', ', $settings->getNeverCache()) ?: 'none'),
+            'Only cache: ' . (implode(', ', $settings->getOnlyCache()) ?: 'every page'),
             'Query strings: ' . $settings->queryStrings . '; skip with cart: ' . ($settings->skipWhenCart ? 'yes' : 'no') . '; skip cookies: ' . (implode(', ', $settings->skipCookies) ?: 'none'),
             'Rebuild changed pages: ' . ($settings->rebuildCleared ? 'yes' : 'no') . '; after clearing everything: ' . (is_array($settings->warm) ? count($settings->warm) . ' listed pages' : ($settings->warm ?: 'wait for visitors')),
             'Default TTL: ' . ($settings->defaultTtl ?? 'none') . '; rebuild auth: ' . ($settings->getWarmAuth() ? 'set' : 'not set') . '; API key: ' . $set($settings->getApiKey()),

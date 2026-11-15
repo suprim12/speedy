@@ -140,7 +140,8 @@ class Warmer extends Component
     }
 
     /**
-     * The pages to warm after everything is cleared: from the sitemap, or the list in the config file.
+     * The pages to warm after everything is cleared: from the sitemap, or the list in the config file. Important pages
+     * come first, so the homepage and top sections are ready before the rest.
      *
      * @return string[]
      */
@@ -153,19 +154,54 @@ class Warmer extends Component
         if ($warm !== 'sitemap') {
             return [];
         }
-        $urls = [];
+        $priorities = [];
         foreach (Craft::$app->getSites()->getAllSites() as $site) {
             if (!$site->hasUrls || !$site->getBaseUrl()) {
                 continue;
             }
-            $urls = array_merge($urls, $this->readSitemap(rtrim($site->getBaseUrl(), '/') . '/' . ltrim(Plugin::getInstance()->getSettings()->sitemap, '/')));
+            $priorities += $this->readSitemap(rtrim($site->getBaseUrl(), '/') . '/' . ltrim(Plugin::getInstance()->getSettings()->sitemap, '/'));
         }
 
-        return array_values(array_unique($urls));
+        return $this->importantFirst(array_keys($priorities), $priorities);
     }
 
     /**
+     * Puts important pages first: homepages, then by the sitemap’s priority, then the shortest paths, such as a
+     * section’s index before its entries. Otherwise the order is kept.
+     *
+     * @param string[] $urls
+     * @param array<string, float|null> $priorities Sitemap priorities, from 0 to 1, by URL.
      * @return string[]
+     */
+    public function importantFirst(array $urls, array $priorities = []): array
+    {
+        // Each site’s homepage, including sites in a folder such as /de/.
+        $homes = [];
+        foreach (Craft::$app->getSites()->getAllSites() as $site) {
+            if ($site->hasUrls && $site->getBaseUrl()) {
+                $homes[rtrim((string)$site->getBaseUrl(), '/')] = true;
+            }
+        }
+        $rank = [];
+        foreach (array_values($urls) as $i => $url) {
+            $path = trim((string)parse_url($url, PHP_URL_PATH), '/');
+            $home = $path === '' || isset($homes[rtrim($url, '/')]);
+            $rank[$url] = [
+                $home ? 0 : 1,
+                -($priorities[$url] ?? 0.5),
+                $home ? 0 : substr_count($path, '/') + 1,
+                $i,
+            ];
+        }
+        uksort($rank, fn($a, $b) => $rank[$a] <=> $rank[$b]);
+
+        return array_map('strval', array_keys($rank));
+    }
+
+    /**
+     * The URLs in a sitemap, with their priorities.
+     *
+     * @return array<string, float|null>
      */
     private function readSitemap(string $url, int $depth = 0): array
     {
@@ -179,6 +215,15 @@ class Warmer extends Component
             Craft::warning("Couldn’t read the sitemap $url: " . $e->getMessage(), 'speedy');
             return [];
         }
+
+        return $this->parseSitemap($body, $depth);
+    }
+
+    /**
+     * @return array<string, float|null>
+     */
+    public function parseSitemap(string $body, int $depth = 0): array
+    {
         $previous = libxml_use_internal_errors(true);
         $xml = simplexml_load_string($body);
         libxml_use_internal_errors($previous);
@@ -189,11 +234,15 @@ class Warmer extends Component
         // A sitemap index lists other sitemaps.
         foreach ($xml->sitemap ?? [] as $sitemap) {
             if ($depth < 2) {
-                $urls = array_merge($urls, $this->readSitemap((string)$sitemap->loc, $depth + 1));
+                $urls += $this->readSitemap((string)$sitemap->loc, $depth + 1);
             }
         }
         foreach ($xml->url ?? [] as $entry) {
-            $urls[] = (string)$entry->loc;
+            $loc = trim((string)$entry->loc);
+            if ($loc !== '' && !array_key_exists($loc, $urls)) {
+                $priority = trim((string)$entry->priority);
+                $urls[$loc] = is_numeric($priority) ? (float)$priority : null;
+            }
         }
 
         return $urls;

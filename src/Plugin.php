@@ -190,9 +190,11 @@ class Plugin extends BasePlugin
             ['skipWhenCart', $s->skipWhenCart, Craft::t('speedy', 'Don’t cache for visitors with a Commerce cart.')],
             ['refreshCsrf', $s->refreshCsrf, Craft::t('speedy', 'Refresh CSRF tokens on cached pages, so forms work.')],
             ['defaultTtl', $s->defaultTtl, Craft::t('speedy', 'A maximum age for every page, in seconds.')],
+            ['rebuildAfterDeploy', $s->rebuildAfterDeploy, Craft::t('speedy', 'Rebuild cached pages when a deploy applies project config changes.')],
             ['warmConcurrency', $s->warmConcurrency, Craft::t('speedy', 'How many pages are rebuilt at once.')],
             ['sitemap', $s->sitemap, Craft::t('speedy', 'The sitemap read when rebuilding everything.')],
             ['cacheComment', $s->cacheComment, Craft::t('speedy', 'Add a “Cached by Speedy Cache” comment to cached pages.')],
+            ['cloudflareZones', array_keys($s->cloudflareZones), Craft::t('speedy', 'Cloudflare zone IDs by domain, for sites on several domains.')],
             ['cdnMaxAge', $s->cdnMaxAge, Craft::t('speedy', 'How long a CDN keeps pages, in seconds.')],
             ['wildcardThreshold', $s->wildcardThreshold, Craft::t('speedy', 'CloudFront: more paths than this are grouped into wildcards.')],
             ['cachePath', $s->cachePath, Craft::t('speedy', 'Where pages are saved.')],
@@ -247,6 +249,13 @@ class Plugin extends BasePlugin
                 }
             });
         }
+
+        // A deploy that applies project config changes, such as a new field in a template’s section, rebuilds pages.
+        Event::on(\craft\services\ProjectConfig::class, \craft\services\ProjectConfig::EVENT_AFTER_APPLY_CHANGES, function() {
+            if ($this->getSettings()->rebuildAfterDeploy) {
+                $this->clearer->rebuildAllLater(Craft::t('speedy', 'Project config changes applied'));
+            }
+        });
 
         // Commerce changes stock without telling Craft that pages showing it changed: on orders, control panel
         // edits and transfers between locations.

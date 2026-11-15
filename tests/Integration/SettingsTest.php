@@ -3,6 +3,7 @@
 namespace suprim\speedy\tests\Integration;
 
 use suprim\speedy\models\Settings;
+use suprim\speedy\services\Cacher;
 use suprim\speedy\tests\TestCase;
 
 class SettingsTest extends TestCase
@@ -29,6 +30,20 @@ class SettingsTest extends TestCase
     {
         $settings = new Settings(['neverCache' => "checkout/*\n\naccount*\n"]);
         $this->assertSame(['checkout/*', 'account*'], $settings->getNeverCache());
+    }
+
+    public function testOnlyCacheMatchesPathsAndTheHomepage(): void
+    {
+        $settings = new Settings(['onlyCache' => "/\nnews*\n\nabout\n"]);
+        $this->assertSame(['/', 'news*', 'about'], $settings->getOnlyCache());
+        $this->assertSame([], (new Settings())->getOnlyCache(), 'Empty caches every page.');
+
+        $only = $settings->getOnlyCache();
+        $this->assertSame('/', Cacher::matchingPattern('', $only));
+        $this->assertSame('news*', Cacher::matchingPattern('/news/a-story', $only));
+        $this->assertSame('about', Cacher::matchingPattern('About/', $only));
+        $this->assertNull(Cacher::matchingPattern('contact', $only));
+        $this->assertNull(Cacher::matchingPattern('about/team', $only));
     }
 
     public function testOffOnTemporaryDisksUnlessUsingCraftsCache(): void

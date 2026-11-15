@@ -245,6 +245,9 @@ class Cacher extends Component
         if ($reason === null && $this->matchesAny($path, $settings->getNeverCache())) {
             $reason = 'never cache';
         }
+        if ($reason === null && ($only = $settings->getOnlyCache()) && !$this->matchesAny($path, $only)) {
+            $reason = 'not in only cache';
+        }
         if ($reason !== null) {
             $this->_skipReason = $reason;
             return null;
@@ -829,14 +832,24 @@ class Cacher extends Component
      */
     private function matchesAny(string $value, array $patterns): bool
     {
-        $value = trim($value, '/');
+        return self::matchingPattern($value, $patterns) !== null;
+    }
+
+    /**
+     * The first pattern a URL path matches, such as `news/*`, or null. `*` matches anything.
+     *
+     * @param string[] $patterns
+     */
+    public static function matchingPattern(string $path, array $patterns): ?string
+    {
+        $path = trim($path, '/');
         foreach ($patterns as $pattern) {
-            $regex = '#^' . str_replace('\*', '.*', preg_quote(trim((string)$pattern, '/'), '#')) . '$#i';
-            if (preg_match($regex, $value)) {
-                return true;
+            $regex = '#^' . str_replace('\\*', '.*', preg_quote(trim((string)$pattern, '/'), '#')) . '$#i';
+            if (preg_match($regex, $path)) {
+                return (string)$pattern;
             }
         }
 
-        return false;
+        return null;
     }
 }

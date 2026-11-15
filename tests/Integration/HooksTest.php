@@ -204,6 +204,27 @@ class HooksTest extends TestCase
         }
     }
 
+    public function testADeployRebuildsCachedPages(): void
+    {
+        $this->plugin()->storage->write('example.com/a', 'a', 'https://example.com/a', ['element::1'], null);
+        $rebuilds = fn() => array_map('intval', (new Query())->from('{{%queue}}')->where(['like', 'description', 'Speedy Cache: rebuilding'])->select('id')->column());
+        $before = $rebuilds();
+        $deploy = function() {
+            Craft::$app->getProjectConfig()->trigger(\craft\services\ProjectConfig::EVENT_AFTER_APPLY_CHANGES);
+            $this->plugin()->clearer->flush();
+        };
+
+        $deploy();
+        $new = array_diff($rebuilds(), $before);
+        $this->jobIds = array_merge($this->jobIds, $new);
+        $this->assertCount(1, $new, 'One rebuild job for the cached pages.');
+        $this->assertSame('Project config changes applied', $this->plugin()->log->recent(1)[0]['reason']);
+
+        $this->settings()->rebuildAfterDeploy = false;
+        $deploy();
+        $this->assertCount(0, array_diff($rebuilds(), $before, $new), 'Turned off, a deploy doesn’t rebuild.');
+    }
+
     public function testCountsQueryVersionsOfAPage(): void
     {
         $storage = $this->plugin()->storage;
@@ -219,6 +240,7 @@ class HooksTest extends TestCase
     {
         $mapped = (new BlitzImport())->map([
             'excludedUriPatterns' => [['siteId' => '', 'uriPattern' => 'checkout/.*'], ['siteId' => '', 'uriPattern' => '^(a|b)$']],
+            'includedUriPatterns' => [['siteId' => '', 'uriPattern' => '^$'], ['siteId' => '', 'uriPattern' => 'news/.*']],
             'queryStringCaching' => 1,
             'includedQueryStringParams' => [['siteId' => '', 'queryStringParam' => 'page']],
             'refreshMode' => 1,
@@ -227,6 +249,7 @@ class HooksTest extends TestCase
         ]);
 
         $this->assertSame(['checkout/*'], $mapped['settings']['neverCache']);
+        $this->assertSame(['/', 'news/*'], $mapped['settings']['onlyCache'], 'Its included pages, with the homepage as /.');
         $this->assertSame(['page'], $mapped['settings']['cachedParams']);
         $this->assertFalse($mapped['settings']['rebuildCleared']);
         $this->assertSame('$CF', $mapped['settings']['cloudflareToken']);

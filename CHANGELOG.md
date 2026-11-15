@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Added
+- **Only cache**: cache just the pages that match, such as `news*`, with `/` for the homepage. Empty caches every page, as before.
+- Cached pages are rebuilt in the background when a deploy applies project config changes. Turn it off with `rebuildAfterDeploy`.
+- After clearing everything, the homepage and top pages are rebuilt first, using the sitemap’s priorities.
+- A Cloudflare zone for each domain, with `cloudflareZones`, for sites on several domains.
+- Importing the other page cache’s settings brings over its included pages and its Cloudflare zone for each site.
+
 ### Fixed
 - The “queue hasn’t run” alert no longer shows when the control panel is opened after a quiet spell, on sites where the control panel runs the queue. It now shows only if the queue still hasn’t run ten minutes later.
 

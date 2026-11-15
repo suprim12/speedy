@@ -34,17 +34,32 @@
 	warning: 'enabled' in overrides ? configWarning('enabled'),
 }) }}
 
-{{ forms.textareaField({
-	label: 'Never cache'|t('speedy'),
-	instructions: 'One URL path per line. `*` matches anything.'|t('speedy'),
-	name: 'neverCache',
-	value: settings.getNeverCache()|join("\n"),
-	placeholder: "checkout/*\naccount*\nsearch",
-	rows: 4,
-	class: 'code',
-	disabled: 'neverCache' in overrides,
-	warning: 'neverCache' in overrides ? configWarning('neverCache'),
-}) }}
+<div class="flex-fields">
+	{{ forms.textareaField({
+		label: 'Never cache'|t('speedy'),
+		instructions: 'One URL path per line. `*` matches anything.'|t('speedy'),
+		fieldClass: 'width-50',
+		name: 'neverCache',
+		value: settings.getNeverCache()|join("\n"),
+		placeholder: "checkout/*\naccount*\nsearch",
+		rows: 4,
+		class: 'code',
+		disabled: 'neverCache' in overrides,
+		warning: 'neverCache' in overrides ? configWarning('neverCache'),
+	}) }}
+	{{ forms.textareaField({
+		label: 'Only cache'|t('speedy'),
+		instructions: 'Leave empty to cache every page. `/` is the homepage.'|t('speedy'),
+		fieldClass: 'width-50',
+		name: 'onlyCache',
+		value: settings.getOnlyCache()|join("\n"),
+		placeholder: "/\nnews*\nabout",
+		rows: 4,
+		class: 'code',
+		disabled: 'onlyCache' in overrides,
+		warning: 'onlyCache' in overrides ? configWarning('onlyCache'),
+	}) }}
+</div>
 
 <div class="flex-fields">
 	{{ forms.selectField({
@@ -108,7 +123,7 @@
 				}) }}
 				{{ forms.autosuggestField({
 					label: 'Zone ID'|t('speedy'),
-					instructions: 'On the domain’s overview page.'|t('speedy'),
+					instructions: settings.cloudflareZones ? 'For domains not in `cloudflareZones` in config/speedy.php: {domains}.'|t('speedy', { domains: settings.cloudflareZones|keys|join(', ') }) : 'On the domain’s overview page. For a zone per domain, use `cloudflareZones` in config/speedy.php.'|t('speedy'),
 					name: 'cloudflareZoneId',
 					value: settings.cloudflareZoneId,
 					suggestEnvVars: true,

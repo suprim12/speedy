@@ -43,6 +43,9 @@ class Cdn extends Component
     /** @var array<string, PurgerInterface>|null */
     private ?array $_purgers = null;
 
+    /** The HTTP client for Cloudflare, or null for Craft’s. Tests set it. */
+    public ?\GuzzleHttp\Client $cloudflareClient = null;
+
     /** @var array<int, string[]> Addresses of assets being replaced, by asset ID. */
     private array $_assetUrls = [];
 
@@ -125,7 +128,7 @@ class Cdn extends Component
     {
         $settings = Plugin::getInstance()->getSettings();
         $cdns = [];
-        if ($settings->getCloudflareToken() && $settings->getCloudflareZoneId()) {
+        if ($settings->getCloudflareToken() && $settings->getCloudflareZones()) {
             $cdns[] = self::CLOUDFLARE;
         }
         if ($settings->getCloudfrontDistributionId() && $settings->getAwsAccessKeyId() && $settings->getAwsSecretAccessKey()) {
@@ -369,25 +372,61 @@ class Cdn extends Component
     }
 
     /**
+     * The Cloudflare zone for a URL: the zone of its domain or a parent domain, or the default zone. Null when none.
+     */
+    public function cloudflareZoneFor(string $url): ?string
+    {
+        $zones = Plugin::getInstance()->getSettings()->getCloudflareZones();
+        $host = strtolower((string)parse_url($url, PHP_URL_HOST));
+        while ($host !== '') {
+            if (isset($zones[$host])) {
+                return $zones[$host];
+            }
+            $dot = strpos($host, '.');
+            $host = $dot === false ? '' : substr($host, $dot + 1);
+        }
+
+        return $zones['*'] ?? null;
+    }
+
+    /**
      * @param string[]|null $urls Null clears everything.
      */
     private function cloudflarePurge(?array $urls): string
     {
         $settings = Plugin::getInstance()->getSettings();
-        $client = Craft::createGuzzleClient(['timeout' => 20]);
-        $endpoint = 'https://api.cloudflare.com/client/v4/zones/' . rawurlencode($settings->getCloudflareZoneId()) . '/purge_cache';
+        $client = $this->cloudflareClient ?? Craft::createGuzzleClient(['timeout' => 20]);
+        $endpoint = fn(string $zone) => 'https://api.cloudflare.com/client/v4/zones/' . rawurlencode($zone) . '/purge_cache';
         $headers = ['Authorization' => 'Bearer ' . $settings->getCloudflareToken(), 'Content-Type' => 'application/json'];
 
         if ($urls === null) {
-            $client->post($endpoint, ['headers' => $headers, 'body' => Json::encode(['purge_everything' => true])]);
+            foreach (array_unique($settings->getCloudflareZones()) as $zone) {
+                $client->post($endpoint($zone), ['headers' => $headers, 'body' => Json::encode(['purge_everything' => true])]);
+            }
             return Craft::t('speedy', 'Cleared everything');
         }
+        $byZone = [];
+        $skipped = 0;
+        foreach ($urls as $url) {
+            $zone = $this->cloudflareZoneFor($url);
+            if ($zone === null) {
+                $skipped++;
+            } else {
+                $byZone[$zone][] = $url;
+            }
+        }
         // Cloudflare takes up to 30 URLs per request.
-        foreach (array_chunk($urls, 30) as $chunk) {
-            $client->post($endpoint, ['headers' => $headers, 'body' => Json::encode(['files' => $chunk])]);
+        foreach ($byZone as $zone => $zoneUrls) {
+            foreach (array_chunk($zoneUrls, 30) as $chunk) {
+                $client->post($endpoint((string)$zone), ['headers' => $headers, 'body' => Json::encode(['files' => $chunk])]);
+            }
+        }
+        $result = Craft::t('speedy', 'Cleared {count, plural, =1{# URL} other{# URLs}}', ['count' => count($urls) - $skipped]);
+        if ($skipped) {
+            $result .= ' · ' . Craft::t('speedy', '{count, plural, =1{# URL has} other{# URLs have}} no zone for its domain', ['count' => $skipped]);
         }
 
-        return Craft::t('speedy', 'Cleared {count, plural, =1{# URL} other{# URLs}}', ['count' => count($urls)]);
+        return $result;
     }
 
     /**

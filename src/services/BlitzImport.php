@@ -93,7 +93,20 @@ class BlitzImport extends Component
             return !in_array($pattern, ['', '.*', '.+', '*'], true);
         });
         if ($included) {
-            $notes[] = 'Included URI patterns: Speedy caches every page except those in neverCache, so add the pages you don’t want cached there.';
+            $only = [];
+            foreach ($included as $row) {
+                $pattern = is_array($row) ? ($row['uriPattern'] ?? $row[1] ?? '') : (string)$row;
+                $wildcard = $this->toWildcard((string)$pattern);
+                if ($wildcard === null) {
+                    $notes[] = "Included pattern “{$pattern}” is a regular expression; add it to onlyCache as wildcards (*) by hand.";
+                } else {
+                    // The homepage is `^$`.
+                    $only[] = $wildcard === '' ? '/' : $wildcard;
+                }
+            }
+            if ($only) {
+                $settings['onlyCache'] = array_values(array_unique($only));
+            }
         } elseif (array_key_exists('includedUriPatterns', $blitz) && !$blitz['includedUriPatterns']) {
             $notes[] = 'No included URI patterns were set, so nothing was being cached. Speedy caches every page.';
         }
@@ -180,11 +193,24 @@ class BlitzImport extends Component
             } else {
                 $notes[] = 'Cloudflare used a global API key and email. Speedy needs an API token with the Cache Purge permission.';
             }
-            $zones = array_values(array_filter(array_map(fn($z) => is_array($z) ? ($z['zoneId'] ?? '') : (string)$z, (array)($purgerSettings['zoneIds'] ?? []))));
+            // Zones by site UID.
+            $zones = array_filter(array_map(fn($z) => (string)(is_array($z) ? ($z['zoneId'] ?? '') : $z), (array)($purgerSettings['zoneIds'] ?? [])));
             if ($zones) {
-                $settings['cloudflareZoneId'] = (string)$zones[0];
-                if (count(array_unique($zones)) > 1) {
-                    $notes[] = 'Cloudflare had a zone per site. Speedy clears one zone; the first one was used.';
+                $settings['cloudflareZoneId'] = (string)reset($zones);
+            }
+            if (count(array_unique($zones)) > 1) {
+                $byDomain = [];
+                foreach ($zones as $siteUid => $zone) {
+                    $site = array_values(array_filter(Craft::$app->getSites()->getAllSites(true), fn($s) => $s->uid === (string)$siteUid))[0] ?? null;
+                    $host = $site ? parse_url((string)$site->getBaseUrl(), PHP_URL_HOST) : null;
+                    if ($host) {
+                        $byDomain[preg_replace('/^www\./', '', strtolower($host))] = $zone;
+                    } else {
+                        $notes[] = "Cloudflare zone $zone is for a site that isn’t here; add it to cloudflareZones by hand.";
+                    }
+                }
+                if ($byDomain) {
+                    $settings['cloudflareZones'] = $byDomain;
                 }
             }
         } elseif ($purger !== '' && !str_contains($purger, 'DummyPurger')) {
