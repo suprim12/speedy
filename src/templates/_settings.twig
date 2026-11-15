@@ -1,0 +1,62 @@
+{% import '_includes/forms' as forms %}
+
+{{ forms.lightswitchField({
+	label: 'Cache pages'|t('speedy'),
+	instructions: 'Turn this off to stop caching, or set `enabled` in config/speedy.php per environment.'|t('speedy'),
+	name: 'enabled',
+	on: settings.enabled,
+}) }}
+
+{{ forms.textareaField({
+	label: 'Never cache'|t('speedy'),
+	instructions: 'One URL path per line. `*` matches anything, such as `checkout/*` or `account*`.'|t('speedy'),
+	name: 'neverCache',
+	value: settings.neverCache|join("\n"),
+	rows: 4,
+	class: 'code',
+}) }}
+
+<hr>
+
+<h2>{{ 'CDN'|t('speedy') }}</h2>
+{% if detected %}
+	<p>{{ 'Your site was last seen behind {cdn}.'|t('speedy', { cdn: detected == 'cloudfront' ? 'CloudFront' : 'Cloudflare' }) }}</p>
+{% endif %}
+<p class="light">{{ 'Optional. With these set, Speedy lets your CDN keep pages too and clears it when content changes. Without them, the CDN is told not to keep pages, so it never shows old ones. Use environment variables, such as $CLOUDFLARE_TOKEN.'|t('speedy') }}</p>
+
+{{ forms.autosuggestField({
+	label: 'Cloudflare API token'|t('speedy'),
+	instructions: 'A token with only the Zone → Cache Purge permission.'|t('speedy'),
+	name: 'cloudflareToken',
+	value: settings.cloudflareToken,
+	suggestEnvVars: true,
+}) }}
+{{ forms.autosuggestField({
+	label: 'Cloudflare zone ID'|t('speedy'),
+	instructions: 'On the domain’s overview page in Cloudflare.'|t('speedy'),
+	name: 'cloudflareZoneId',
+	value: settings.cloudflareZoneId,
+	suggestEnvVars: true,
+}) }}
+{{ forms.autosuggestField({
+	label: 'CloudFront distribution ID'|t('speedy'),
+	name: 'cloudfrontDistributionId',
+	value: settings.cloudfrontDistributionId,
+	suggestEnvVars: true,
+}) }}
+{{ forms.autosuggestField({
+	label: 'AWS access key ID'|t('speedy'),
+	instructions: 'For a user allowed only cloudfront:CreateInvalidation. Leave blank to use AWS_ACCESS_KEY_ID.'|t('speedy'),
+	name: 'awsAccessKeyId',
+	value: settings.awsAccessKeyId,
+	suggestEnvVars: true,
+}) }}
+{{ forms.autosuggestField({
+	label: 'AWS secret access key'|t('speedy'),
+	instructions: 'Leave blank to use AWS_SECRET_ACCESS_KEY.'|t('speedy'),
+	name: 'awsSecretAccessKey',
+	value: settings.awsSecretAccessKey,
+	suggestEnvVars: true,
+}) }}
+
+<p class="light">{{ 'Warming, query strings and other options are in config/speedy.php. Status and actions are in Utilities → Speedy Cache.'|t('speedy') }}</p>

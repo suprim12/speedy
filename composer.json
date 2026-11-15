@@ -1,0 +1,53 @@
+{
+  "name": "suprim/speedy",
+  "description": "Speedy Cache: full-page caching for Craft CMS that keeps your database clean, works with your templates as they are, and clears CloudFront and Cloudflare.",
+  "type": "craft-plugin",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "suprim",
+      "homepage": "https://suprim.com.au"
+    }
+  ],
+  "support": {
+    "email": "support@suprim.com.au"
+  },
+  "require": {
+    "php": ">=8.2",
+    "craftcms/cms": "^5.6.0"
+  },
+  "require-dev": {
+    "craftcms/ecs": "dev-main",
+    "craftcms/phpstan": "dev-main",
+    "phpstan/phpstan": "^2.1"
+  },
+  "autoload": {
+    "psr-4": {
+      "suprim\\speedy\\": "src/"
+    }
+  },
+  "extra": {
+    "handle": "speedy",
+    "name": "Speedy Cache",
+    "developer": "suprim",
+    "class": "suprim\\speedy\\Plugin",
+    "developerUrl": "https://suprim.com.au",
+    "developerEmail": "support@suprim.com.au"
+  },
+  "scripts": {
+    "check-cs": "ecs check --ansi",
+    "fix-cs": "ecs check --ansi --fix",
+    "phpstan": "phpstan --memory-limit=1G"
+  },
+  "config": {
+    "sort-packages": true,
+    "platform": {
+      "php": "8.2"
+    },
+    "allow-plugins": {
+      "yiisoft/yii2-composer": true,
+      "craftcms/plugin-installer": true
+    }
+  },
+  "keywords": ["craft", "cms", "craftcms", "craft-plugin", "cache", "static cache", "full page cache", "performance", "cloudfront", "cloudflare", "cdn"]
+}

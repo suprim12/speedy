@@ -1,0 +1,102 @@
+{% set cdnNames = { cloudflare: 'Cloudflare', cloudfront: 'CloudFront' } %}
+<div class="speedy">
+	<div class="speedy-grid">
+		<div class="speedy-card">
+			<p class="light">{{ 'Caching'|t('speedy') }}</p>
+			<p class="speedy-big">{{ settings.isEnabled() ? 'On'|t('speedy') : 'Off'|t('speedy') }}</p>
+		</div>
+		<div class="speedy-card">
+			<p class="light">{{ 'Pages cached'|t('speedy') }}</p>
+			<p class="speedy-big">{{ stats.pages|number }}</p>
+			<p class="light">{{ (stats.bytes / 1048576)|number_format(1) }} MB</p>
+		</div>
+		<div class="speedy-card">
+			<p class="light">{{ 'CDN'|t('speedy') }}</p>
+			<p class="speedy-big">{{ detected ? cdnNames[detected] : 'None seen'|t('speedy') }}</p>
+			<p class="light">
+				{% if configured|length %}{{ 'Clearing: {cdns}'|t('speedy', { cdns: configured|map(c => cdnNames[c])|join(', ') }) }}
+				{% elseif detected %}{{ 'Add details in Settings to let it cache pages too.'|t('speedy') }}
+				{% else %}{{ 'Optional'|t('speedy') }}{% endif %}
+			</p>
+		</div>
+		{% if 'cloudfront' in configured %}
+			<div class="speedy-card">
+				<p class="light">{{ 'CloudFront paths this month'|t('speedy') }}</p>
+				<p class="speedy-big">{{ cloudfront.paths|number }}</p>
+				<p class="light">{{ 'The first 1,000 each month are free.'|t('speedy') }}</p>
+			</div>
+		{% endif %}
+	</div>
+
+	<div class="speedy-actions">
+		<form method="post">
+			{{ csrfInput() }}{{ actionInput('speedy/utility/clear-all') }}
+			<button type="submit" class="btn submit">{{ 'Clear all pages'|t('speedy') }}</button>
+		</form>
+		<form method="post" class="flex">
+			{{ csrfInput() }}{{ actionInput('speedy/utility/clear-url') }}
+			<input type="url" name="url" class="text" placeholder="https://…" aria-label="{{ 'URL to clear'|t('speedy') }}" required style="width: 320px;">
+			<button type="submit" class="btn">{{ 'Clear URL'|t('speedy') }}</button>
+		</form>
+		{% if settings.warm %}
+			<form method="post">
+				{{ csrfInput() }}{{ actionInput('speedy/utility/warm') }}
+				<button type="submit" class="btn">{{ 'Warm pages'|t('speedy') }}</button>
+			</form>
+		{% endif %}
+		<form method="post">
+			{{ csrfInput() }}{{ actionInput('speedy/utility/check-server') }}
+			<button type="submit" class="btn">{{ 'Check server serving'|t('speedy') }}</button>
+		</form>
+		{% for cdn in configured %}
+			<form method="post">
+				{{ csrfInput() }}{{ actionInput('speedy/utility/test-cdn') }}{{ hiddenInput('cdn', cdn) }}
+				<button type="submit" class="btn">{{ 'Test {cdn}'|t('speedy', { cdn: cdnNames[cdn] }) }}</button>
+			</form>
+		{% endfor %}
+	</div>
+
+	{% for cdn, last in cdnLast %}
+		<p class="{{ last.error ? 'error' : 'light' }}">{{ cdnNames[cdn] ?? cdn }}: {{ last.result }} · {{ last.time|timestamp }}</p>
+	{% endfor %}
+
+	<h2>{{ 'Recent clears'|t('speedy') }}</h2>
+	{% if log|length %}
+		<table class="data fullwidth">
+			<thead><tr><th scope="col">{{ 'When'|t('speedy') }}</th><th scope="col">{{ 'Why'|t('speedy') }}</th><th scope="col">{{ 'Pages'|t('speedy') }}</th></tr></thead>
+			<tbody>
+				{% for entry in log %}
+					<tr>
+						<td class="nowrap">{{ entry.time|timestamp }}</td>
+						<td>
+							{{ entry.reason }}
+							{% if entry.urls|length %}
+								<details><summary class="light">{{ 'Show URLs'|t('speedy') }}</summary><div class="speedy-urls">{% for url in entry.urls %}<div>{{ url }}</div>{% endfor %}</div></details>
+							{% endif %}
+						</td>
+						<td>{{ entry.count }}</td>
+					</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	{% else %}
+		<p class="zilch">{{ 'Nothing cleared yet.'|t('speedy') }}</p>
+	{% endif %}
+
+	<h2>{{ 'Serve pages without PHP'|t('speedy') }}</h2>
+	<p>{{ 'Cached pages work as they are. For the fastest pages, let the web server send them without starting PHP: add these rules, then use “Check server serving”.'|t('speedy') }}</p>
+	{% if not webPath %}<p class="warning with-icon">{{ 'The cache folder isn’t inside the web root, so the web server can’t serve it. Set cachePath to a folder in @webroot.'|t('speedy') }}</p>{% endif %}
+	<details><summary>{{ 'Nginx'|t('speedy') }}</summary><pre class="speedy-code"><code>{{ nginx }}</code></pre></details>
+	<details><summary>{{ 'Apache'|t('speedy') }}</summary><pre class="speedy-code"><code>{{ apache }}</code></pre></details>
+	{% if state.lastExpire ?? false %}<p class="light">{{ 'Scheduled changes last checked {time}.'|t('speedy', { time: state.lastExpire|timestamp }) }}</p>{% endif %}
+</div>
+
+{% css %}
+.speedy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.speedy-card { border: 1px solid var(--hairline-color, #e3e5e8); border-radius: 8px; padding: 14px 16px; }
+.speedy-big { font-size: 22px; font-weight: 600; margin: 4px 0; }
+.speedy-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+.speedy-actions .flex { gap: 8px; }
+.speedy-urls { font-size: 12px; color: var(--light-text-color, #606d7b); margin-top: 4px; }
+.speedy-code { background: #f3f7fc; padding: 12px 14px; border-radius: 6px; font-size: 12px; overflow-x: auto; white-space: pre; }
+{% endcss %}
