@@ -15,6 +15,7 @@ use craft\helpers\App;
 use craft\helpers\UrlHelper;
 use craft\web\Request;
 use craft\web\Response;
+use suprim\speedy\events\CachePageEvent;
 use suprim\speedy\Plugin;
 use Throwable;
 use yii\base\Event;
@@ -24,6 +25,9 @@ use yii\base\Event;
  */
 class Cacher extends Component
 {
+    /** Before a page is cached: set `isValid` to false to skip it, or change its HTML or tags. */
+    public const EVENT_BEFORE_CACHE = 'beforeCache';
+
     /** Response header showing what Speedy did: HIT, MISS or SKIP. */
     public const HEADER = 'X-Speedy';
 
@@ -278,11 +282,21 @@ class Cacher extends Component
 
         try {
             $html = $this->prepareHtml((string)$response->content);
+            $url = UrlHelper::siteUrl(Craft::$app->getRequest()->getFullPath());
+            $event = new CachePageEvent(['key' => $this->_key, 'url' => $url, 'html' => $html, 'tags' => $tags, 'expires' => $expires]);
+            if ($this->hasEventHandlers(self::EVENT_BEFORE_CACHE)) {
+                $this->trigger(self::EVENT_BEFORE_CACHE, $event);
+                if (!$event->isValid) {
+                    $response->getHeaders()->set(self::HEADER, 'SKIP event');
+                    return;
+                }
+            }
+            $html = $event->html;
             if ($settings->cacheComment) {
                 $html .= "\n<!-- Cached by Speedy Cache on " . date('c') . ' -->';
             }
-            $url = UrlHelper::siteUrl(Craft::$app->getRequest()->getFullPath());
-            Plugin::getInstance()->storage->write($this->_key, $html, $url, $tags, $expires, $this->keptHeaders($response));
+            $expires = $event->expires;
+            Plugin::getInstance()->storage->write($this->_key, $html, $url, $event->tags, $expires, $this->keptHeaders($response));
             if ($expires !== null) {
                 Plugin::getInstance()->clearer->scheduleExpiry($expires);
             }

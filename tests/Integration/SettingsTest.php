@@ -41,4 +41,27 @@ class SettingsTest extends TestCase
             putenv('CRAFT_EPHEMERAL');
         }
     }
+
+    public function testRebuildAuthFromEnvironment(): void
+    {
+        putenv('SPEEDY_TEST_USER=staging');
+        try {
+            $this->assertNull((new Settings())->getWarmAuth());
+            $this->assertSame(['staging', 'secret'], (new Settings(['warmUsername' => '$SPEEDY_TEST_USER', 'warmPassword' => 'secret']))->getWarmAuth());
+        } finally {
+            putenv('SPEEDY_TEST_USER');
+        }
+    }
+
+    public function testSupportReportHidesSecrets(): void
+    {
+        $this->settings()->cloudflareToken = 'super-secret-token';
+        $this->settings()->apiKey = 'another-secret-key-123';
+        $report = $this->plugin()->insights->report();
+
+        $this->assertStringContainsString('# Speedy Cache support report', $report);
+        $this->assertStringContainsString('API key: set', $report);
+        $this->assertStringNotContainsString('super-secret-token', $report);
+        $this->assertStringNotContainsString('another-secret-key-123', $report);
+    }
 }

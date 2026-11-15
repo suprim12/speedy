@@ -1,4 +1,3 @@
-{% set cdnNames = { cloudflare: 'Cloudflare', cloudfront: 'CloudFront' } %}
 <div class="speedy">
 	<div class="speedy-grid">
 		<div class="speedy-card">
@@ -150,6 +149,14 @@
 		<p class="zilch">{{ 'Nothing cleared yet.'|t('speedy') }}</p>
 	{% endif %}
 
+	<h2>{{ 'Support report'|t('speedy') }}</h2>
+	<p>{{ 'Versions, settings, checks and recent clears, to paste into a support email. Keys and tokens are only shown as “set”.'|t('speedy') }}</p>
+	<div class="flex speedy-report-actions">
+		<button type="button" class="btn" id="speedy-copy-report">{{ 'Copy support report'|t('speedy') }}</button>
+		<span class="light" id="speedy-copied" hidden>{{ 'Copied.'|t('speedy') }}</span>
+	</div>
+	<details><summary class="light">{{ 'Show the report'|t('speedy') }}</summary><pre class="speedy-code" id="speedy-report">{{ report }}</pre></details>
+
 	{% if settings.storage == 'craftCache' %}
 	<h2>{{ 'Serve pages without PHP'|t('speedy') }}</h2>
 	<p>{{ 'Pages are kept in Craft’s cache, so they’re sent by PHP. Server rules only work with files.'|t('speedy') }}</p>
@@ -180,4 +187,13 @@
 .speedy-deps { margin: 6px 0 0; padding-left: 18px; list-style: disc; font-size: 12px; }
 .speedy-pages td { vertical-align: top; }
 .speedy-pager { gap: 10px; margin-top: 12px; }
+.speedy-report-actions { gap: 10px; margin-bottom: 8px; }
 {% endcss %}
+
+{% js %}
+document.getElementById('speedy-copy-report')?.addEventListener('click', function () {
+	navigator.clipboard.writeText(document.getElementById('speedy-report').textContent).then(function () {
+		document.getElementById('speedy-copied').hidden = false;
+	});
+});
+{% endjs %}

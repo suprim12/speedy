@@ -39,6 +39,27 @@ class Settings extends Model
     /** AWS secret for CloudFront. Leave blank to use AWS_SECRET_ACCESS_KEY. */
     public string $awsSecretAccessKey = '';
 
+    /** Fastly API token with purge permission. */
+    public string $fastlyToken = '';
+
+    /** Fastly service ID. */
+    public string $fastlyServiceId = '';
+
+    /** Bunny account API key. */
+    public string $bunnyApiKey = '';
+
+    /** Bunny pull zone ID. */
+    public string $bunnyPullZoneId = '';
+
+    /** @var string[]|string Varnish servers to send PURGE and BAN requests to, such as `http://127.0.0.1:6081`. */
+    public array|string $varnishUrls = [];
+
+    /** Username for rebuild requests, when the site is behind basic authentication, such as on staging. */
+    public string $warmUsername = '';
+
+    /** Password for rebuild requests behind basic authentication. */
+    public string $warmPassword = '';
+
     /** @var string|string[]|false Pages to warm: `'sitemap'`, a list of URLs, or false. */
     public string|array|false $warm = false;
 
@@ -117,6 +138,48 @@ class Settings extends Model
             $values['rebuildCleared'] = $values['rebuildCleared'] === '1';
         }
         parent::setAttributes($values, $safeOnly);
+    }
+
+    public function getFastlyToken(): string
+    {
+        return (string)App::parseEnv($this->fastlyToken);
+    }
+
+    public function getFastlyServiceId(): string
+    {
+        return (string)App::parseEnv($this->fastlyServiceId);
+    }
+
+    public function getBunnyApiKey(): string
+    {
+        return (string)App::parseEnv($this->bunnyApiKey);
+    }
+
+    public function getBunnyPullZoneId(): string
+    {
+        return (string)App::parseEnv($this->bunnyPullZoneId);
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getVarnishUrls(): array
+    {
+        $urls = is_array($this->varnishUrls) ? $this->varnishUrls : preg_split('/[\r\n,]+/', $this->varnishUrls);
+
+        return array_values(array_filter(array_map(fn($u) => trim((string)App::parseEnv((string)$u)), $urls ?: [])));
+    }
+
+    /**
+     * Basic authentication for rebuild requests, or null.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    public function getWarmAuth(): ?array
+    {
+        $user = (string)App::parseEnv($this->warmUsername);
+
+        return $user !== '' ? [$user, (string)App::parseEnv($this->warmPassword)] : null;
     }
 
     public function getApiKey(): string

@@ -54,5 +54,7 @@ return [
 | `dataPath` | `'@storage/speedy'` | Where Speedy keeps tags, the log and CDN details |
 | `cloudflareToken`, `cloudflareZoneId` | | [Cloudflare](/guides/cloudflare) |
 | `cloudfrontDistributionId`, `awsAccessKeyId`, `awsSecretAccessKey` | | [CloudFront](/guides/cloudfront). The keys fall back to `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` |
+| `fastlyToken`, `fastlyServiceId`, `bunnyApiKey`, `bunnyPullZoneId`, `varnishUrls` | | [Fastly, Bunny and Varnish](/guides/other-cdns) |
+| `warmUsername`, `warmPassword` | | For rebuilding pages on a site behind basic authentication, such as staging. Use environment variables |
 | `cdnMaxAge` | `31536000` | How long the CDN keeps pages, when Speedy can clear it |
 | `wildcardThreshold` | `30` | CloudFront: more paths than this are grouped into wildcards |

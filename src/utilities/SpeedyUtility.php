@@ -54,6 +54,8 @@ class SpeedyUtility extends Utility
             'detected' => $plugin->cdn->detected(),
             'configured' => $plugin->cdn->configured(),
             'cdnLast' => $plugin->cdn->lastResults(),
+            'cdnNames' => $plugin->cdn->names(),
+            'report' => $plugin->insights->report(),
             'cloudfront' => $plugin->cdn->cloudfrontUsage(),
             'log' => $plugin->log->recent(30),
             'state' => $plugin->storage->readData('state'),

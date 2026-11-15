@@ -41,4 +41,12 @@ Pages are built two at a time, so the site stays responsive for visitors. On a b
 'warmConcurrency' => 4,
 ```
 
+On a site behind basic authentication, such as staging, give the rebuild requests a username and password:
+
+```php
+// config/speedy.php
+'warmUsername' => '$STAGING_USER',
+'warmPassword' => '$STAGING_PASSWORD',
+```
+
 Warming requests carry a one-off `speedy-warm` query string, so a CDN passes them to your server instead of answering with its old copy. They’re signed, so they always build a fresh page, even when the web server serves cached files. Certificate errors are allowed in `devMode`, for local sites with self-signed certificates.

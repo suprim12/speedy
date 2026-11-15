@@ -54,7 +54,14 @@ class Warmer extends Component
     public function warm(array $urls, bool $rebuild, ?callable $progress = null): array
     {
         $plugin = Plugin::getInstance();
-        $client = Craft::createGuzzleClient(['timeout' => 30, 'http_errors' => false, 'allow_redirects' => false, 'verify' => !Craft::$app->getConfig()->getGeneral()->devMode]);
+        $client = Craft::createGuzzleClient(array_filter([
+            'timeout' => 30,
+            'http_errors' => false,
+            'allow_redirects' => false,
+            'verify' => !Craft::$app->getConfig()->getGeneral()->devMode,
+            // For sites behind basic authentication, such as staging.
+            'auth' => $plugin->getSettings()->getWarmAuth(),
+        ], fn($v) => $v !== null));
         $built = [];
         $failed = [];
         $total = count($urls);
@@ -142,7 +149,11 @@ class Warmer extends Component
     private function readSitemap(string $url, int $depth = 0): array
     {
         try {
-            $body = (string)Craft::createGuzzleClient(['timeout' => 20, 'verify' => !Craft::$app->getConfig()->getGeneral()->devMode])->get($url)->getBody();
+            $body = (string)Craft::createGuzzleClient(array_filter([
+                'timeout' => 20,
+                'verify' => !Craft::$app->getConfig()->getGeneral()->devMode,
+                'auth' => Plugin::getInstance()->getSettings()->getWarmAuth(),
+            ], fn($v) => $v !== null))->get($url)->getBody();
         } catch (Throwable $e) {
             Craft::warning("Couldn’t read the sitemap $url: " . $e->getMessage(), 'speedy');
             return [];

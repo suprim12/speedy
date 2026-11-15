@@ -40,4 +40,8 @@
 - Compressed copies of each page are saved, and sent by PHP and by nginx (`gzip_static`) without compressing each time.
 - Turns itself off on hosts with a temporary disk, such as Craft Cloud, and says why.
 - Pages can be kept in Craft’s cache, such as Redis, so several web servers share them without a shared disk.
+- Fastly, Bunny and Varnish, alongside Cloudflare and CloudFront.
+- Events for plugins and modules: before a page is cached, after pages are cleared, and registering another CDN.
+- Rebuilds work on sites behind basic authentication, such as staging.
+- A support report on the utility page, with secrets left out.
 - Console commands: `speedy/clear`, `speedy/warm`, `speedy/expire`, `speedy/status` and `speedy/server-rules`.

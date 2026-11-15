@@ -15,6 +15,7 @@ use craft\base\ElementInterface;
 use craft\events\InvalidateElementCachesEvent;
 use craft\helpers\ElementHelper;
 use craft\helpers\Queue;
+use suprim\speedy\events\ClearEvent;
 use suprim\speedy\jobs\ClearJob;
 use suprim\speedy\jobs\ExpireJob;
 use suprim\speedy\Plugin;
@@ -24,6 +25,9 @@ use suprim\speedy\Plugin;
  */
 class Clearer extends Component
 {
+    /** After pages are cleared, by content changes, a URL, clearing everything or the API. */
+    public const EVENT_AFTER_CLEAR = 'afterClear';
+
     /** @var array<string, true> Tags waiting to be cleared at the end of the request or bulk operation. */
     private array $_pending = [];
 
@@ -157,6 +161,7 @@ class Clearer extends Component
         }
         if ($count) {
             $plugin->log->add($reason, $count, array_merge($rebuild, $purge));
+            $this->afterClear($reason, $count, array_merge($rebuild, $purge), false);
         }
 
         return $count;
@@ -183,6 +188,7 @@ class Clearer extends Component
         $plugin->storage->clearAll();
         $plugin->cdn->purgeAll();
         $plugin->log->add($reason, $count, []);
+        $this->afterClear($reason, $count, [], true);
         if ($plugin->getSettings()->warm) {
             $plugin->warmer->queue($plugin->warmer->warmList(), false);
         }
@@ -241,6 +247,16 @@ class Clearer extends Component
         $state['expireJobAt'] = $at;
         $storage->writeData('state', $state);
         Queue::push(new ExpireJob(), 1024, max(0, $at - time()));
+    }
+
+    /**
+     * @param string[] $urls
+     */
+    private function afterClear(string $reason, int $count, array $urls, bool $all): void
+    {
+        if ($this->hasEventHandlers(self::EVENT_AFTER_CLEAR)) {
+            $this->trigger(self::EVENT_AFTER_CLEAR, new ClearEvent(['reason' => $reason, 'count' => $count, 'urls' => $urls, 'all' => $all]));
+        }
     }
 
     /**

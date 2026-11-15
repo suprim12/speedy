@@ -11,9 +11,14 @@ namespace suprim\speedy\services;
 
 use Craft;
 use craft\base\Component;
+use craft\events\RegisterComponentTypesEvent;
 use craft\helpers\Json;
 use craft\web\Request;
 use suprim\speedy\Plugin;
+use suprim\speedy\purgers\Bunny;
+use suprim\speedy\purgers\Fastly;
+use suprim\speedy\purgers\PurgerInterface;
+use suprim\speedy\purgers\Varnish;
 use suprim\speedy\services\cdn\SigV4;
 use Throwable;
 
@@ -24,6 +29,43 @@ class Cdn extends Component
 {
     public const CLOUDFLARE = 'cloudflare';
     public const CLOUDFRONT = 'cloudfront';
+
+    /** Register more CDNs: add classes that implement PurgerInterface to `$event->types`. */
+    public const EVENT_REGISTER_PURGERS = 'registerPurgers';
+
+    /** @var array<string, PurgerInterface>|null */
+    private ?array $_purgers = null;
+
+    /**
+     * CDNs other than Cloudflare and CloudFront, built in or registered by other plugins, by handle.
+     *
+     * @return array<string, PurgerInterface>
+     */
+    public function purgers(): array
+    {
+        if ($this->_purgers === null) {
+            $event = new RegisterComponentTypesEvent(['types' => [Fastly::class, Bunny::class, Varnish::class]]);
+            $this->trigger(self::EVENT_REGISTER_PURGERS, $event);
+            $this->_purgers = [];
+            foreach ($event->types as $class) {
+                if (is_subclass_of($class, PurgerInterface::class)) {
+                    $this->_purgers[$class::handle()] = new $class();
+                }
+            }
+        }
+
+        return $this->_purgers;
+    }
+
+    /**
+     * Every CDN’s name, by handle.
+     *
+     * @return array<string, string>
+     */
+    public function names(): array
+    {
+        return [self::CLOUDFLARE => 'Cloudflare', self::CLOUDFRONT => 'CloudFront'] + array_map(fn(PurgerInterface $p) => $p::displayName(), $this->purgers());
+    }
 
     /**
      * Notes which CDN the request came through, from its headers. Checked at most once an hour.
@@ -40,6 +82,12 @@ class Cdn extends Component
             $headers->has('X-Amz-Cf-Id') || str_contains(strtolower((string)$headers->get('Via')), 'cloudfront') => self::CLOUDFRONT,
             default => null,
         };
+        foreach ($found === null ? $this->purgers() : [] as $handle => $purger) {
+            if ($purger->detect($request)) {
+                $found = $handle;
+                break;
+            }
+        }
         $storage = Plugin::getInstance()->storage;
         $state = $storage->readData('cdn');
         if (($state['detected'] ?? null) !== $found) {
@@ -73,6 +121,11 @@ class Cdn extends Component
         if ($settings->getCloudfrontDistributionId() && $settings->getAwsAccessKeyId() && $settings->getAwsSecretAccessKey()) {
             $cdns[] = self::CLOUDFRONT;
         }
+        foreach ($this->purgers() as $handle => $purger) {
+            if ($purger->isConfigured()) {
+                $cdns[] = $handle;
+            }
+        }
 
         return $cdns;
     }
@@ -102,7 +155,11 @@ class Cdn extends Component
         }
         foreach ($this->configured() as $cdn) {
             try {
-                $result = $cdn === self::CLOUDFLARE ? $this->cloudflarePurge($urls) : $this->cloudfrontInvalidate($this->cloudfrontPaths($urls));
+                $result = match ($cdn) {
+                    self::CLOUDFLARE => $this->cloudflarePurge($urls),
+                    self::CLOUDFRONT => $this->cloudfrontInvalidate($this->cloudfrontPaths($urls)),
+                    default => $this->purgers()[$cdn]->purgeUrls($urls),
+                };
                 $this->record($cdn, $result);
             } catch (Throwable $e) {
                 $this->record($cdn, 'failed: ' . $e->getMessage(), true);
@@ -118,7 +175,11 @@ class Cdn extends Component
     {
         foreach ($this->configured() as $cdn) {
             try {
-                $result = $cdn === self::CLOUDFLARE ? $this->cloudflarePurge(null) : $this->cloudfrontInvalidate(['/*']);
+                $result = match ($cdn) {
+                    self::CLOUDFLARE => $this->cloudflarePurge(null),
+                    self::CLOUDFRONT => $this->cloudfrontInvalidate(['/*']),
+                    default => $this->purgers()[$cdn]->purgeAll(),
+                };
                 $this->record($cdn, $result);
             } catch (Throwable $e) {
                 $this->record($cdn, 'failed: ' . $e->getMessage(), true);
@@ -133,6 +194,9 @@ class Cdn extends Component
     public function test(string $cdn): string
     {
         $settings = Plugin::getInstance()->getSettings();
+        if (isset($this->purgers()[$cdn])) {
+            return $this->purgers()[$cdn]->test();
+        }
         if ($cdn === self::CLOUDFLARE) {
             $response = Craft::createGuzzleClient(['http_errors' => false, 'timeout' => 15])->get('https://api.cloudflare.com/client/v4/user/tokens/verify', [
                 'headers' => ['Authorization' => 'Bearer ' . $settings->getCloudflareToken()],
@@ -285,7 +349,7 @@ class Cdn extends Component
         $state['last'][$cdn] = ['time' => time(), 'result' => $result, 'error' => $error];
         $storage->writeData('cdn', $state);
         if ($error) {
-            Plugin::getInstance()->log->add(ucfirst($cdn) . ': ' . $result, 0, [], $result);
+            Plugin::getInstance()->log->add(($this->names()[$cdn] ?? $cdn) . ': ' . $result, 0, [], $result);
         }
     }
 }

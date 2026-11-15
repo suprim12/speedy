@@ -204,6 +204,7 @@ class Plugin extends BasePlugin
             'detected' => $this->cdn->detected(),
             'configured' => $this->cdn->configured(),
             'cdnLast' => $this->cdn->lastResults(),
+            'cdnNames' => $this->cdn->names(),
             'stats' => $this->storage->stats(),
             'configRows' => $this->configRows(),
             'ephemeral' => App::isEphemeral(),

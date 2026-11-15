@@ -46,6 +46,10 @@ The details panel of entries, categories, products and other elements with pages
 
 Select entries, categories or Commerce products, and choose **Clear cached pages** from the actions menu. It clears every cached page that shows them. It needs the **Utilities → Speedy Cache** permission.
 
+## Support report
+
+**Copy support report** copies a plain-text summary to paste into a support email: versions, settings, CDN status, checks, recent clears and installed plugins. Keys and tokens only appear as “set”.
+
 ## Recent clears
 
 The last clears, with when, why, how many pages and which URLs:

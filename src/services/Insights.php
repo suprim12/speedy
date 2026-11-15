@@ -186,12 +186,12 @@ class Insights extends Component
         $last = $plugin->cdn->lastResults();
         foreach ($last as $cdn => $result) {
             if ($result['error']) {
-                $add('error', Craft::t('speedy', 'The last {cdn} clear failed: {result}', ['cdn' => $cdn === Cdn::CLOUDFRONT ? 'CloudFront' : 'Cloudflare', 'result' => $result['result']]));
+                $add('error', Craft::t('speedy', 'The last {cdn} clear failed: {result}', ['cdn' => $plugin->cdn->names()[$cdn] ?? $cdn, 'result' => $result['result']]));
             }
         }
         $detected = $plugin->cdn->detected();
         if ($detected && !in_array($detected, $plugin->cdn->configured(), true)) {
-            $add('hint', Craft::t('speedy', 'Your site is behind {cdn}. Add its details in Settings and it can keep pages too, closer to visitors.', ['cdn' => $detected === Cdn::CLOUDFRONT ? 'CloudFront' : 'Cloudflare']));
+            $add('hint', Craft::t('speedy', 'Your site is behind {cdn}. Add its details in Settings and it can keep pages too, closer to visitors.', ['cdn' => $plugin->cdn->names()[$detected] ?? $detected]));
         }
         $usage = $plugin->cdn->cloudfrontUsage();
         if ($usage['paths'] > 800) {
@@ -212,6 +212,64 @@ class Insights extends Component
         }
 
         return $checks;
+    }
+
+    /**
+     * A plain-text summary for support requests: versions, settings (secrets only as “set”), checks and recent clears.
+     */
+    public function report(): string
+    {
+        $plugin = Plugin::getInstance();
+        $settings = $plugin->getSettings();
+        $craft = Craft::$app;
+        $stats = $plugin->storage->stats();
+        $set = fn(string $v) => $v !== '' ? 'set' : 'not set';
+        $lines = [
+            '# Speedy Cache support report',
+            '',
+            'Generated: ' . date('c'),
+            'Speedy Cache: ' . $plugin->getVersion(),
+            'Craft: ' . $craft->getVersion() . ' ' . ucfirst(Craft::$app->edition->handle()),
+            'PHP: ' . PHP_VERSION,
+            'Database: ' . $craft->getDb()->getDriverLabel() . ' ' . $craft->getDb()->getSchema()->getServerVersion(),
+            'Environment: ' . ($craft->env ?? 'unknown') . ($craft->getConfig()->getGeneral()->devMode ? ' (devMode on)' : ''),
+            'Temporary disk: ' . (App::isEphemeral() ? 'yes' : 'no'),
+            '',
+            '## Caching',
+            'Enabled: ' . ($settings->isEnabled() ? 'yes' : 'no'),
+            'Storage: ' . $settings->storage . ($plugin->storage->usesCache() ? ' (' . CacheStore::describe()['class'] . ')' : ''),
+            'Pages cached: ' . $stats['pages'] . ' (' . round($stats['bytes'] / 1048576, 1) . ' MB)',
+            'Never cache: ' . (implode(', ', $settings->getNeverCache()) ?: 'none'),
+            'Query strings: ' . $settings->queryStrings . '; skip with cart: ' . ($settings->skipWhenCart ? 'yes' : 'no') . '; skip cookies: ' . (implode(', ', $settings->skipCookies) ?: 'none'),
+            'Rebuild changed pages: ' . ($settings->rebuildCleared ? 'yes' : 'no') . '; after clearing everything: ' . (is_array($settings->warm) ? count($settings->warm) . ' listed pages' : ($settings->warm ?: 'wait for visitors')),
+            'Default TTL: ' . ($settings->defaultTtl ?? 'none') . '; rebuild auth: ' . ($settings->getWarmAuth() ? 'set' : 'not set') . '; API key: ' . $set($settings->getApiKey()),
+            'Set in config/speedy.php: ' . (implode(', ', array_keys($craft->getConfig()->getConfigFromFile('speedy'))) ?: 'nothing'),
+            'Server serving checked: ' . (($plugin->storage->readData('state')['serverChecked'] ?? false) ? 'yes' : 'no'),
+            '',
+            '## CDN',
+            'Detected: ' . ($plugin->cdn->detected() ?? 'none'),
+            'Clearing: ' . (implode(', ', $plugin->cdn->configured()) ?: 'none'),
+        ];
+        foreach ($plugin->cdn->lastResults() as $cdn => $last) {
+            $lines[] = "Last $cdn result: " . $last['result'] . ' (' . date('c', $last['time']) . ')';
+        }
+        $lines[] = '';
+        $lines[] = '## Checks';
+        foreach ($this->checks() ?: [['level' => 'ok', 'message' => 'Nothing to report.']] as $check) {
+            $lines[] = '- ' . strtoupper($check['level']) . ': ' . strip_tags((string)$check['message']);
+        }
+        $lines[] = '';
+        $lines[] = '## Recent clears';
+        foreach ($plugin->log->recent(15) as $entry) {
+            $lines[] = '- ' . date('Y-m-d H:i', (int)$entry['time']) . ' · ' . $entry['count'] . ' · ' . $entry['reason'];
+        }
+        $lines[] = '';
+        $lines[] = '## Plugins';
+        foreach ($craft->getPlugins()->getAllPlugins() as $other) {
+            $lines[] = '- ' . $other->name . ' ' . $other->getVersion();
+        }
+
+        return implode("\n", $lines) . "\n";
     }
 
     private function describeQueryTag(string $class, string $tag): string

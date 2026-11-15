@@ -104,7 +104,12 @@ class ServerRules extends Component
     public function check(): array
     {
         $url = UrlHelper::siteUrl('/');
-        $client = Craft::createGuzzleClient(['timeout' => 20, 'http_errors' => false, 'verify' => !Craft::$app->getConfig()->getGeneral()->devMode]);
+        $client = Craft::createGuzzleClient(array_filter([
+            'timeout' => 20,
+            'http_errors' => false,
+            'verify' => !Craft::$app->getConfig()->getGeneral()->devMode,
+            'auth' => Plugin::getInstance()->getSettings()->getWarmAuth(),
+        ], fn($v) => $v !== null));
         try {
             $client->get($url);
             $start = microtime(true);

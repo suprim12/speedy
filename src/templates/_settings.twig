@@ -5,7 +5,6 @@
 {%- endmacro %}
 {% from _self import configWarning %}
 
-{% set cdnNames = { cloudflare: 'Cloudflare', cloudfront: 'CloudFront' } %}
 {% set warmIsList = settings.warm is iterable %}
 
 <div id="general">
@@ -80,10 +79,10 @@
 
 {# CDN ---------------------------------------------------------------------- #}
 <div id="cdn" class="hidden">
-<p class="speedy-intro">{{ 'Optional. With these set, your CDN keeps pages too and Speedy clears them when content changes. Without them, the CDN is told not to keep pages, so it never shows old ones. Use environment variables, such as $CLOUDFLARE_TOKEN.'|t('speedy') }}</p>
+<p class="speedy-intro">{{ 'Optional. Set the details for the CDN or proxy in front of your site: it then keeps pages too, and Speedy clears them when content changes. Without them, it’s told not to keep pages, so it never shows old ones. Use environment variables, such as $CLOUDFLARE_TOKEN.'|t('speedy') }}</p>
 
 <div class="speedy-cdns">
-	{% for cdn in ['cloudflare', 'cloudfront'] %}
+	{% for cdn in ['cloudflare', 'cloudfront', 'fastly', 'bunny', 'varnish'] %}
 		<div class="speedy-cdn {{ detected == cdn ? 'speedy-cdn--seen' }}">
 			<div class="speedy-cdn__head">
 				<h3>{{ cdnNames[cdn] }}</h3>
@@ -115,6 +114,55 @@
 					suggestEnvVars: true,
 					disabled: 'cloudflareZoneId' in overrides,
 					warning: 'cloudflareZoneId' in overrides ? configWarning('cloudflareZoneId'),
+				}) }}
+			{% elseif cdn == 'fastly' %}
+				{{ forms.autosuggestField({
+					label: 'API token'|t('speedy'),
+					instructions: 'A token with purge permission for the service.'|t('speedy'),
+					name: 'fastlyToken',
+					value: settings.fastlyToken,
+					suggestEnvVars: true,
+					disabled: 'fastlyToken' in overrides,
+					warning: 'fastlyToken' in overrides ? configWarning('fastlyToken'),
+				}) }}
+				{{ forms.autosuggestField({
+					label: 'Service ID'|t('speedy'),
+					
+					name: 'fastlyServiceId',
+					value: settings.fastlyServiceId,
+					suggestEnvVars: true,
+					disabled: 'fastlyServiceId' in overrides,
+					warning: 'fastlyServiceId' in overrides ? configWarning('fastlyServiceId'),
+				}) }}
+			{% elseif cdn == 'bunny' %}
+				{{ forms.autosuggestField({
+					label: 'API key'|t('speedy'),
+					instructions: 'Account → API in the Bunny dashboard.'|t('speedy'),
+					name: 'bunnyApiKey',
+					value: settings.bunnyApiKey,
+					suggestEnvVars: true,
+					disabled: 'bunnyApiKey' in overrides,
+					warning: 'bunnyApiKey' in overrides ? configWarning('bunnyApiKey'),
+				}) }}
+				{{ forms.autosuggestField({
+					label: 'Pull zone ID'|t('speedy'),
+					
+					name: 'bunnyPullZoneId',
+					value: settings.bunnyPullZoneId,
+					suggestEnvVars: true,
+					disabled: 'bunnyPullZoneId' in overrides,
+					warning: 'bunnyPullZoneId' in overrides ? configWarning('bunnyPullZoneId'),
+				}) }}
+			{% elseif cdn == 'varnish' %}
+				{{ forms.textareaField({
+					label: 'Varnish servers'|t('speedy'),
+					instructions: 'One per line, such as http://127.0.0.1:6081. Speedy sends PURGE and BAN requests; allow them in the VCL.'|t('speedy'),
+					name: 'varnishUrls',
+					value: settings.getVarnishUrls()|join("\n"),
+					rows: 2,
+					class: 'code',
+					disabled: 'varnishUrls' in overrides,
+					warning: 'varnishUrls' in overrides ? configWarning('varnishUrls'),
 				}) }}
 			{% else %}
 				{{ forms.autosuggestField({
