@@ -38,4 +38,5 @@
 - An API for clearing and rebuilding pages over HTTP with a key.
 - Expired pages (`ttl()` and scheduled content) keep being sent while their new copy is built, so no visitor waits.
 - Compressed copies of each page are saved, and sent by PHP and by nginx (`gzip_static`) without compressing each time.
+- Turns itself off on hosts with a temporary disk, such as Craft Cloud, and says why.
 - Console commands: `speedy/clear`, `speedy/warm`, `speedy/expire`, `speedy/status` and `speedy/server-rules`.

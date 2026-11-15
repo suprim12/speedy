@@ -14,6 +14,7 @@
 	<div class="speedy-status__item">
 		<span class="status {{ settings.isEnabled() ? 'green' : 'disabled' }}" aria-hidden="true"></span>
 		<span><strong>{{ settings.isEnabled() ? 'Caching on'|t('speedy') : 'Caching off'|t('speedy') }}</strong>
+		{% if ephemeral %}<span class="light">{{ 'This host’s disk is temporary, as on Craft Cloud, which caches pages itself.'|t('speedy') }}</span>{% endif %}
 		<span class="light">{{ '{count, plural, =1{# page} other{# pages}} cached'|t('speedy', { count: stats.pages }) }}</span></span>
 	</div>
 	<div class="speedy-status__item">

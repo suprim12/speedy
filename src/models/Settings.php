@@ -120,6 +120,11 @@ class Settings extends Model
 
     public function isEnabled(): bool
     {
+        // On hosts with a temporary disk, such as Craft Cloud, saved pages would vanish or differ between servers.
+        if (App::isEphemeral()) {
+            return false;
+        }
+
         return (bool)App::parseBooleanEnv($this->enabled);
     }
 

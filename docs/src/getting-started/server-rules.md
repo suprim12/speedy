@@ -85,4 +85,4 @@ Or with curl: `x-speedy: STATIC` means the web server sent it.
 - **Forge and Ploi:** edit the site’s Nginx configuration in their dashboard and paste the rules above `location /`.
 - **DDEV:** save the rules as `.ddev/nginx/speedy.conf` and run `ddev restart`.
 - **Hosts that don’t let you edit the server config:** skip this step. Speedy still serves cached pages through PHP.
-- **Craft Cloud and Servd**, the Craft-specific hosts, cache pages themselves, so you may not need Speedy there.
+- **Craft Cloud and Servd**, the Craft-specific hosts, cache pages themselves, so you may not need Speedy there. On Craft Cloud, and any host that sets `CRAFT_EPHEMERAL`, the disk is temporary, so Speedy turns itself off and says so on the utility and settings pages.

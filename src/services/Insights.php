@@ -12,6 +12,7 @@ namespace suprim\speedy\services;
 use Craft;
 use craft\base\Component;
 use craft\base\ElementInterface;
+use craft\helpers\App;
 use craft\helpers\ElementHelper;
 use craft\helpers\Html;
 use suprim\speedy\Plugin;
@@ -151,7 +152,9 @@ class Insights extends Component
             $checks[] = ['level' => $level, 'message' => $message];
         };
 
-        if (!$settings->isEnabled()) {
+        if (App::isEphemeral()) {
+            $add('warning', Craft::t('speedy', 'This host’s disk is temporary, as on Craft Cloud, so Speedy can’t keep pages and is off. Craft Cloud caches pages itself.'));
+        } elseif (!$settings->isEnabled()) {
             $add('warning', Craft::t('speedy', 'Caching is off, so pages are built for every visit.'));
         }
         foreach ([$plugin->storage->cacheRoot(), $plugin->storage->dataRoot()] as $dir) {

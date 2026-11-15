@@ -19,6 +19,7 @@ use craft\events\InvalidateElementCachesEvent;
 use craft\events\RegisterCacheOptionsEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterElementActionsEvent;
+use craft\helpers\App;
 use craft\helpers\FileHelper;
 use craft\helpers\Html;
 use craft\log\MonologTarget;
@@ -202,6 +203,7 @@ class Plugin extends BasePlugin
             'cdnLast' => $this->cdn->lastResults(),
             'stats' => $this->storage->stats(),
             'configRows' => $this->configRows(),
+            'ephemeral' => App::isEphemeral(),
         ]);
     }
 
