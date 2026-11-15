@@ -69,4 +69,4 @@ return [
 
 ## Support
 
-Email [support@suprim.com.au](mailto:support@suprim.com.au).
+Documentation: [speedy.suprim.com.au](https://speedy.suprim.com.au). Questions and bugs: [support@suprim.com.au](mailto:support@suprim.com.au).
