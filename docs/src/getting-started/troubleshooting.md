@@ -25,6 +25,8 @@ The header says why, after `SKIP`:
 | `sets a cookie` | The page sets a cookie, so it may be personal | Find what sets it, or move it to a page that isn’t cached |
 | `private` | The template or a plugin sent `Cache-Control: private` or `no-store` | Remove it if the page isn’t personal |
 | `template` | The template called `craft.speedy.skip()` | Expected |
+| `event` | A plugin or module stopped it with an event | Expected |
+| `too many query strings` | The page already has `maxQueryPages` versions cached, such as `?page=2` to `?page=101` | Expected. It’s built for each visit. Raise `maxQueryPages` if the page really has more |
 | `status 404` | Only 200 pages are cached | Expected |
 | `preview` | Live preview or a share link | Expected |
 | `disabled` | Caching is off | Check `enabled` in the settings or `config/speedy.php` |

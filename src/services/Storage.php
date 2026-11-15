@@ -74,6 +74,19 @@ class Storage extends Component
     }
 
     /**
+     * How many query string versions of a page are cached, such as `?page=2`.
+     */
+    public function countQueryPages(string $key): int
+    {
+        if ($this->usesCache()) {
+            return $this->cache()->countQueryPages($key);
+        }
+        $dir = $this->cacheRoot() . '/' . $key . '/' . self::QUERY_FOLDER;
+
+        return is_dir($dir) ? count(glob($dir . '/*', GLOB_ONLYDIR | GLOB_NOSORT) ?: []) : 0;
+    }
+
+    /**
      * The key of a page by its full URL, such as one from the log or the API.
      */
     public function keyForUrl(string $url): ?string

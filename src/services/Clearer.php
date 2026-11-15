@@ -16,7 +16,9 @@ use craft\events\InvalidateElementCachesEvent;
 use craft\helpers\ElementHelper;
 use craft\helpers\Json;
 use craft\helpers\Queue;
+use suprim\speedy\events\BeforeClearEvent;
 use suprim\speedy\events\ClearEvent;
+use suprim\speedy\events\InvalidateEvent;
 use suprim\speedy\jobs\ClearJob;
 use suprim\speedy\jobs\ExpireJob;
 use suprim\speedy\Plugin;
@@ -28,6 +30,15 @@ class Clearer extends Component
 {
     /** After pages are cleared, by content changes, a URL, clearing everything or the API. */
     public const EVENT_AFTER_CLEAR = 'afterClear';
+
+    /** When Craft says content changed: change the tags whose pages are cleared, or clear nothing. */
+    public const EVENT_BEFORE_INVALIDATE = 'beforeInvalidate';
+
+    /** Before pages are cleared: change which, or keep them. */
+    public const EVENT_BEFORE_CLEAR = 'beforeClear';
+
+    /** Whether pages cleared now are rebuilt, overriding the setting, such as while clearing without the queue. */
+    private ?bool $_rebuild = null;
 
     /** @var array<string, true> Tags waiting to be cleared at the end of the request or bulk operation. */
     private array $_pending = [];
@@ -65,6 +76,27 @@ class Clearer extends Component
         $tags = $event->tags;
         // Drafts and revisions never appear on the live site.
         $tags = array_filter($tags, fn($t) => !str_ends_with($t, '::drafts') && !str_ends_with($t, '::revisions'));
+        $ignored = Plugin::getInstance()->getSettings()->ignoredElementTypes;
+        if ($ignored) {
+            foreach ($ignored as $class) {
+                if ($event->element instanceof $class) {
+                    return;
+                }
+            }
+            $tags = array_filter($tags, function($tag) use ($ignored) {
+                foreach ($ignored as $class) {
+                    if ($tag === "element::$class" || str_starts_with($tag, "element::$class::")) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+        }
+        if ($tags && $this->hasEventHandlers(self::EVENT_BEFORE_INVALIDATE)) {
+            $before = new InvalidateEvent(['element' => $event->element instanceof ElementInterface ? $event->element : null, 'tags' => array_values($tags)]);
+            $this->trigger(self::EVENT_BEFORE_INVALIDATE, $before);
+            $tags = $before->isValid ? array_filter($before->tags, 'is_string') : [];
+        }
         if (!$tags) {
             return;
         }
@@ -228,7 +260,27 @@ class Clearer extends Component
         $this->_reasons = [];
         $this->_changed = [];
         $this->_clearAll = false;
+        if ($this->clearInRequest()) {
+            // Without a running queue, clear now so changes still show; pages are rebuilt on their next visit.
+            $this->_rebuild = false;
+            try {
+                $job->execute(null);
+            } finally {
+                $this->_rebuild = null;
+            }
+            return;
+        }
         Queue::push($job, 1024);
+    }
+
+    private function clearInRequest(): bool
+    {
+        $mode = Plugin::getInstance()->getSettings()->clearInRequest;
+        if ($mode === 'auto') {
+            return Plugin::getInstance()->insights->queueStalledFor() > 0;
+        }
+
+        return filter_var($mode, FILTER_VALIDATE_BOOLEAN);
     }
 
     /**
@@ -252,6 +304,14 @@ class Clearer extends Component
     public function clearKeys(array $keys, string $reason): int
     {
         $plugin = Plugin::getInstance();
+        if ($keys && $this->hasEventHandlers(self::EVENT_BEFORE_CLEAR)) {
+            $before = new BeforeClearEvent(['reason' => $reason, 'keys' => array_values($keys)]);
+            $this->trigger(self::EVENT_BEFORE_CLEAR, $before);
+            if (!$before->isValid) {
+                return 0;
+            }
+            $keys = array_filter($before->keys, 'is_string');
+        }
         $storage = $plugin->storage;
         $rebuild = [];
         $purge = [];
@@ -264,7 +324,7 @@ class Clearer extends Component
             }
             $count++;
             $url = $meta['url'] ?? null;
-            if ($url && $plugin->getSettings()->rebuildCleared) {
+            if ($url && ($this->_rebuild ?? $plugin->getSettings()->rebuildCleared)) {
                 // Keep the old copy until the new one is ready, so nobody waits for it.
                 $rebuild[] = $url;
             } else {
@@ -305,6 +365,13 @@ class Clearer extends Component
     public function clearAll(string $reason): void
     {
         $plugin = Plugin::getInstance();
+        if ($this->hasEventHandlers(self::EVENT_BEFORE_CLEAR)) {
+            $before = new BeforeClearEvent(['reason' => $reason, 'all' => true]);
+            $this->trigger(self::EVENT_BEFORE_CLEAR, $before);
+            if (!$before->isValid) {
+                return;
+            }
+        }
         $count = $plugin->storage->stats()['pages'];
         $plugin->storage->clearAll();
         $plugin->cdn->purgeAll();

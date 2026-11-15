@@ -86,6 +86,10 @@ Craft paginates with paths like `/news/p2`, which are cached like any page. If y
 'cachedParams' => ['page', 'category'],
 ```
 
-Each combination is cached separately: `/news?page=2` and `/news?page=2&category=shoes` are two pages, whatever order the parameters come in. Tracking parameters are still ignored. Only the parameters you list are cached, with one short value each, so made-up query strings can’t fill the disk; any other query string is passed to Craft as usual.
+If Craft paginates with a query string (`pageTrigger` set to `'?page='` in `config/general.php`), that parameter is cached without listing it.
+
+Each combination is cached separately: `/news?page=2` and `/news?page=2&category=shoes` are two pages, whatever order the parameters come in. Tracking parameters are still ignored. Only the parameters you list are cached, with one short value each, and at most `maxQueryPages` versions of a page (100), so made-up query strings can’t fill the disk. Any other query string is passed to Craft as usual.
+
+Search is best left out: nearly every search is different, so cached results are rarely used again.
 
 Pages with a query string are sent by PHP rather than the web server rules, which is still much faster than building them.

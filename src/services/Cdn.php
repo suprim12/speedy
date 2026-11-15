@@ -14,6 +14,7 @@ use craft\base\Component;
 use craft\events\RegisterComponentTypesEvent;
 use craft\helpers\Json;
 use craft\web\Request;
+use suprim\speedy\events\PurgeEvent;
 use suprim\speedy\Plugin;
 use suprim\speedy\purgers\Bunny;
 use suprim\speedy\purgers\Fastly;
@@ -32,6 +33,12 @@ class Cdn extends Component
 
     /** Register more CDNs: add classes that implement PurgerInterface to `$event->types`. */
     public const EVENT_REGISTER_PURGERS = 'registerPurgers';
+
+    /** Before the CDN is cleared: change the URLs, or stop it. */
+    public const EVENT_BEFORE_PURGE = 'beforePurge';
+
+    /** After the CDN is cleared, with each CDN’s answer. */
+    public const EVENT_AFTER_PURGE = 'afterPurge';
 
     /** @var array<string, PurgerInterface>|null */
     private ?array $_purgers = null;
@@ -153,7 +160,13 @@ class Cdn extends Component
     public function purgeUrls(array $urls): void
     {
         $urls = array_values(array_unique(array_filter($urls)));
-        if (!$urls) {
+        if (!$urls || !$this->configured()) {
+            return;
+        }
+        $event = new PurgeEvent(['urls' => $urls]);
+        $this->trigger(self::EVENT_BEFORE_PURGE, $event);
+        $urls = array_values(array_unique(array_filter($event->urls)));
+        if (!$event->isValid || !$urls) {
             return;
         }
         foreach ($this->configured() as $cdn) {
@@ -165,10 +178,13 @@ class Cdn extends Component
                 };
                 $this->record($cdn, $result);
             } catch (Throwable $e) {
-                $this->record($cdn, 'failed: ' . $e->getMessage(), true);
+                $result = 'failed: ' . $e->getMessage();
+                $this->record($cdn, $result, true);
                 Craft::warning("Couldn’t clear $cdn: " . $e->getMessage(), 'speedy');
             }
+            $event->results[$cdn] = $result;
         }
+        $this->trigger(self::EVENT_AFTER_PURGE, $event);
     }
 
     /**
@@ -241,6 +257,14 @@ class Cdn extends Component
      */
     public function purgeAll(): void
     {
+        if (!$this->configured()) {
+            return;
+        }
+        $event = new PurgeEvent(['all' => true]);
+        $this->trigger(self::EVENT_BEFORE_PURGE, $event);
+        if (!$event->isValid) {
+            return;
+        }
         foreach ($this->configured() as $cdn) {
             try {
                 $result = match ($cdn) {
@@ -250,10 +274,13 @@ class Cdn extends Component
                 };
                 $this->record($cdn, $result);
             } catch (Throwable $e) {
-                $this->record($cdn, 'failed: ' . $e->getMessage(), true);
+                $result = 'failed: ' . $e->getMessage();
+                $this->record($cdn, $result, true);
                 Craft::warning("Couldn’t clear $cdn: " . $e->getMessage(), 'speedy');
             }
+            $event->results[$cdn] = $result;
         }
+        $this->trigger(self::EVENT_AFTER_PURGE, $event);
     }
 
     /**

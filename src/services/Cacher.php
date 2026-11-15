@@ -15,6 +15,7 @@ use craft\helpers\App;
 use craft\helpers\UrlHelper;
 use craft\web\Request;
 use craft\web\Response;
+use suprim\speedy\events\CacheableRequestEvent;
 use suprim\speedy\events\CachePageEvent;
 use suprim\speedy\Plugin;
 use Throwable;
@@ -27,6 +28,12 @@ class Cacher extends Component
 {
     /** Before a page is cached: set `isValid` to false to skip it, or change its HTML or tags. */
     public const EVENT_BEFORE_CACHE = 'beforeCache';
+
+    /** Before a request is served from the cache or built for it: stop it being cached. */
+    public const EVENT_IS_CACHEABLE = 'isCacheable';
+
+    /** After a page is saved. */
+    public const EVENT_AFTER_CACHE = 'afterCache';
 
     /** Response header showing what Speedy did: HIT, MISS or SKIP. */
     public const HEADER = 'X-Speedy';
@@ -119,6 +126,18 @@ class Cacher extends Component
                 $headers->set('Cache-Control', 'private, no-cache');
             }
             return;
+        }
+
+        if ($this->hasEventHandlers(self::EVENT_IS_CACHEABLE)) {
+            $event = new CacheableRequestEvent(['request' => $request, 'key' => $this->_key]);
+            $this->trigger(self::EVENT_IS_CACHEABLE, $event);
+            if (!$event->isValid) {
+                $this->_key = null;
+                $headers = Craft::$app->getResponse()->getHeaders();
+                $headers->set(self::HEADER, 'SKIP event');
+                $headers->set('Cache-Control', 'private, no-cache');
+                return;
+            }
         }
 
         Plugin::getInstance()->cdn->detect($request);
@@ -231,9 +250,14 @@ class Cacher extends Component
             return null;
         }
 
-        $key = Plugin::getInstance()->storage->key($request->getHostName() ?? '', $path, $this->_query);
+        $storage = Plugin::getInstance()->storage;
+        $key = $storage->key($request->getHostName() ?? '', $path, $this->_query);
         if ($key === null) {
             $this->_skipReason = 'url';
+        } elseif ($this->_query && !$storage->exists($key) && $storage->countQueryPages((string)$storage->key($request->getHostName() ?? '', $path)) >= $settings->maxQueryPages) {
+            // Enough versions of this page are kept already; more are built for each visit instead.
+            $this->_skipReason = 'too many query strings';
+            $key = null;
         }
 
         return $key;
@@ -255,7 +279,8 @@ class Cacher extends Component
             // Expired, such as a ttl() page or scheduled content going live. Keep sending the old copy for a short
             // while and rebuild it in the background, so this visitor doesn't wait. Past the grace period, or when
             // rebuilding is off, build it now instead.
-            if (!Plugin::getInstance()->getSettings()->rebuildCleared || $expires <= time() - self::STALE_GRACE || empty($meta['url'])) {
+            // A stuck queue would never rebuild it.
+            if (!Plugin::getInstance()->getSettings()->rebuildCleared || $expires <= time() - self::STALE_GRACE || empty($meta['url']) || Plugin::getInstance()->insights->queueStalledFor() > 0) {
                 $storage->delete($key);
                 return false;
             }
@@ -361,6 +386,9 @@ class Cacher extends Component
             Plugin::getInstance()->storage->write($this->_key, $html, $url, $event->tags, $expires, $this->keptHeaders($response));
             if ($expires !== null) {
                 Plugin::getInstance()->clearer->scheduleExpiry($expires);
+            }
+            if ($this->hasEventHandlers(self::EVENT_AFTER_CACHE)) {
+                $this->trigger(self::EVENT_AFTER_CACHE, new CachePageEvent(['key' => $this->_key, 'url' => $url, 'html' => $html, 'tags' => $event->tags, 'expires' => $expires]));
             }
         } catch (Throwable $e) {
             Craft::error('Couldn’t cache ' . $this->_key . ': ' . $e->getMessage(), 'speedy');
@@ -754,6 +782,10 @@ class Cacher extends Component
     private function cachedQuery(Request $request, array $params): ?array
     {
         $allowed = Plugin::getInstance()->getSettings()->cachedParams;
+        $pageParam = self::pageParam();
+        if ($pageParam !== null) {
+            $allowed[] = $pageParam;
+        }
         $query = [];
         foreach ($params as $param) {
             $value = $request->getQueryParam($param);
@@ -766,6 +798,21 @@ class Cacher extends Component
         ksort($query);
 
         return $query;
+    }
+
+    /**
+     * Craft’s pagination parameter when it paginates with a query string (`pageTrigger` set to `'?page='`), so those
+     * pages are cached without setting anything. Path pagination (`/news/p2`, the default) is cached like any page.
+     */
+    public static function pageParam(): ?string
+    {
+        $trigger = Craft::$app->getConfig()->getGeneral()->pageTrigger;
+        if (!str_starts_with($trigger, '?')) {
+            return null;
+        }
+        $param = trim(substr($trigger, 1), '=');
+
+        return $param !== '' ? $param : null;
     }
 
     private function remainingParams(Request $request): array

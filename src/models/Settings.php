@@ -93,6 +93,18 @@ class Settings extends Model
      */
     public array $cachedParams = [];
 
+    /** The most query string versions of one page to keep, such as `?page=2` to `?page=100`. More are built but not saved. */
+    public int $maxQueryPages = 100;
+
+    /** @var string[] Element types whose changes never clear pages, by class name, such as `craft\elements\User`. */
+    public array $ignoredElementTypes = [];
+
+    /**
+     * Clear pages straight away rather than in the queue: `'auto'` does so only while the queue isn’t running, so
+     * changes still show; `true` always; `false` never. Pages cleared this way are rebuilt on their next visit.
+     */
+    public bool|string $clearInRequest = 'auto';
+
     /** Don’t clear pages when an entry, category, product or user is saved without changes, or saved disabled and was disabled already. */
     public bool $ignoreUnchangedSaves = true;
 
@@ -249,6 +261,7 @@ class Settings extends Model
             [['queryStrings'], 'in', 'range' => ['skip', 'ignore']],
             [['storage'], 'in', 'range' => [self::STORAGE_FILES, self::STORAGE_CRAFT_CACHE]],
             [['warmConcurrency'], 'integer', 'min' => 1, 'max' => 10],
+            [['maxQueryPages'], 'integer', 'min' => 1],
             [['wildcardThreshold'], 'integer', 'min' => 1],
             [['cdnMaxAge'], 'integer', 'min' => 0],
             [['apiKey'], function(string $attribute) {

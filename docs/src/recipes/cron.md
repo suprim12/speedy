@@ -12,6 +12,16 @@ php craft queue/listen
 
 with Supervisor, systemd or your host’s worker setting, and set `runQueueAutomatically` to `false` in `config/general.php`.
 
+### If the queue stops
+
+When a site’s queue stops, most page caches stop clearing and visitors see old content, with no error anywhere. Speedy notices when its jobs have waited more than ten minutes, and then:
+
+- clears pages straight away when content changes, so changes still show. They’re rebuilt on their next visit instead of in the background;
+- builds expired pages for their next visitor instead of waiting for the queue;
+- shows an alert across the control panel, and an error on the utility page, until the queue runs again.
+
+Set `clearInRequest` to `true` to always clear straight away, such as on a small site with no queue runner, or `false` to always wait for the queue.
+
 ## Cron
 
 Scheduled content (an entry going live at 9 am) is handled by a delayed queue job. For exact timing, add one line to cron too:

@@ -17,6 +17,8 @@ class SavesTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Count queued clears, whatever state the queue is in.
+        $this->settings()->clearInRequest = false;
         $section = Craft::$app->getEntries()->getAllSections()[0] ?? null;
         if (!$section) {
             $this->markTestSkipped('No section to create an entry in.');

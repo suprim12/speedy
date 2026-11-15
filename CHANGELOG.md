@@ -19,6 +19,12 @@
 - Replacing an asset’s file clears the old file and its transforms from the CDN.
 - Pages with query strings can be cached separately, for the parameters listed in `cachedParams`, such as `?page=2`.
 - `craft.speedy.tag()` names a page, to clear it with `speedy/clear --tag`, the API or PHP.
+- While the queue isn’t running, pages are cleared straight away and expired pages are built for their next visitor, with an alert in the control panel, so changes still show.
+- Events at each stage: before a request is cached, after a page is saved, when content changes, before pages are cleared, before and after warming, and before and after clearing the CDN.
+- `ignoredElementTypes` for element types whose changes never clear pages.
+- Craft’s pagination parameter is cached when `pageTrigger` uses a query string, such as `'?page='`.
+- At most `maxQueryPages` query string versions of a page are kept, 100 by default.
+- `speedy/import-blitz` shows what Blitz’s settings and template calls become in Speedy, and can save the settings.
 - The cache folder can’t be opened directly on Apache, even without the server rules.
 - Clearing a page removes its empty folders.
 - Multi-page forms and flash messages are safe: visitors with something in their session get their own pages, never a cached step or someone else’s message.

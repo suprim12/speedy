@@ -179,6 +179,10 @@ class Insights extends Component
                 $add('error', Craft::t('speedy', '{plugin} is enabled too. Two page caches fight: it marks pages as not cacheable, so Speedy can’t cache them. Use one.', ['plugin' => $other->name]));
             }
         }
+        $stalled = $this->queueStalledFor();
+        if ($stalled) {
+            $add('error', Craft::t('speedy', 'Speedy’s queue jobs have waited {minutes} minutes, so the queue isn’t running. Pages are cleared straight away until it is, and rebuilt on their next visit. Run the queue with a cron job or `php craft queue/listen`.', ['minutes' => intdiv($stalled, 60)]));
+        }
         $failed = $this->failedJobs();
         if ($failed) {
             $add('error', Craft::t('speedy', '{count, plural, =1{# Speedy queue job has} other{# Speedy queue jobs have}} failed. See Utilities → Queue Manager.', ['count' => $failed]));
@@ -288,6 +292,33 @@ class Insights extends Component
         };
 
         return $name ? "$type: $name" : "$type: $tag";
+    }
+
+    /** How long a Speedy job can wait before the queue counts as stuck, in seconds. */
+    public const STALL_AFTER = 600;
+
+    /**
+     * How long, in seconds, Speedy’s oldest job has been waiting for the queue, once it’s more than ten minutes.
+     * Zero while the queue is running. Checked once a minute.
+     */
+    public function queueStalledFor(): int
+    {
+        $queue = Craft::$app->getQueue();
+        if (!$queue instanceof \craft\queue\Queue) {
+            // A Redis or SQS queue can’t be inspected the same way.
+            return 0;
+        }
+
+        return (int)Craft::$app->getCache()->getOrSet('speedy:queueStalled', function() use ($queue) {
+            $oldest = (new \craft\db\Query())
+                ->from($queue->tableName)
+                ->where(['fail' => false, 'dateReserved' => null])
+                ->andWhere(['like', 'description', 'Speedy Cache:%', false])
+                ->min('[[timePushed]] + [[delay]]');
+            $age = $oldest ? time() - (int)$oldest : 0;
+
+            return $age > self::STALL_AFTER ? $age : 0;
+        }, 60);
     }
 
     private function failedJobs(): int

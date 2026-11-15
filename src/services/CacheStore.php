@@ -81,6 +81,9 @@ class CacheStore
         $this->cache->set($this->k('meta', $key), $meta, self::PAGE_TTL);
 
         $this->addToList($this->k('idx', substr(md5($key), 0, 2)), $key, strlen($gz));
+        if (($at = strpos($key, '/' . Storage::QUERY_FOLDER . '/')) !== false) {
+            $this->addToList($this->k('qv', md5(substr($key, 0, $at))), $key, true);
+        }
         foreach ($tags as $tag) {
             $this->addToList($this->k('tag', md5($tag)), $key, true);
         }
@@ -89,12 +92,20 @@ class CacheStore
         }
     }
 
+    public function countQueryPages(string $key): int
+    {
+        return count($this->getList($this->k('qv', md5($key))));
+    }
+
     public function delete(string $key): ?string
     {
         $url = $this->meta($key)['url'] ?? null;
         $this->cache->delete($this->k('html', $key));
         $this->cache->delete($this->k('meta', $key));
         $this->removeFromList($this->k('idx', substr(md5($key), 0, 2)), $key);
+        if (($at = strpos($key, '/' . Storage::QUERY_FOLDER . '/')) !== false) {
+            $this->removeFromList($this->k('qv', md5(substr($key, 0, $at))), $key);
+        }
 
         return $url;
     }

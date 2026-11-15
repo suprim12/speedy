@@ -182,6 +182,9 @@ class Plugin extends BasePlugin
             ['cachedParams', $s->cachedParams, Craft::t('speedy', 'Query parameters that make a page of their own, such as page. Other query strings aren’t cached.')],
             ['ignoredParams', $s->ignoredParams, Craft::t('speedy', 'Tracking parameters that never stop a page being cached.')],
             ['ignoredCookies', $s->ignoredCookies, Craft::t('speedy', 'Cookies that never change pages. Requests with other cookies are sent cached pages but don’t save them.')],
+            ['maxQueryPages', $s->maxQueryPages, Craft::t('speedy', 'The most query string versions of one page to keep.')],
+            ['ignoredElementTypes', $s->ignoredElementTypes, Craft::t('speedy', 'Element types whose changes never clear pages.')],
+            ['clearInRequest', $s->clearInRequest, Craft::t('speedy', 'Clear pages without the queue: auto does so only while the queue isn’t running.')],
             ['ignoreUnchangedSaves', $s->ignoreUnchangedSaves, Craft::t('speedy', 'Saves that change nothing don’t clear pages.')],
             ['skipCookies', $s->skipCookies, Craft::t('speedy', 'Cookies that mean a visitor sees their own pages, such as a consent banner.')],
             ['skipWhenCart', $s->skipWhenCart, Craft::t('speedy', 'Don’t cache for visitors with a Commerce cart.')],
@@ -295,6 +298,20 @@ class Plugin extends BasePlugin
 
                 return Html::tag('div', implode('', array_map(fn($line) => Html::tag('div', $line), $lines)));
             };
+        });
+
+        // A control panel alert while the queue isn’t running, as pages then wouldn’t clear without Speedy stepping in.
+        Event::on(\craft\helpers\Cp::class, \craft\helpers\Cp::EVENT_REGISTER_ALERTS, function(\craft\events\RegisterCpAlertsEvent $event) {
+            if (!Craft::$app->getUser()->checkPermission('utility:speedy')) {
+                return;
+            }
+            $stalled = $this->insights->queueStalledFor();
+            if ($stalled) {
+                $event->alerts[] = Craft::t('speedy', 'The queue hasn’t run for {minutes} minutes. Speedy Cache is clearing pages without it until it does. <a href="{url}">Details</a>', [
+                    'minutes' => intdiv($stalled, 60),
+                    'url' => \craft\helpers\UrlHelper::cpUrl('utilities/speedy'),
+                ]);
+            }
         });
 
         // “Clear cached pages” in the actions menu of element indexes, for elements with pages.

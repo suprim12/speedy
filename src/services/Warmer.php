@@ -16,6 +16,7 @@ use craft\helpers\UrlHelper;
 use GuzzleHttp\Pool;
 use GuzzleHttp\Psr7\Request as PsrRequest;
 use Psr\Http\Message\ResponseInterface;
+use suprim\speedy\events\WarmEvent;
 use suprim\speedy\jobs\WarmJob;
 use suprim\speedy\Plugin;
 use Throwable;
@@ -25,6 +26,12 @@ use Throwable;
  */
 class Warmer extends Component
 {
+    /** Before pages are queued to be built: change the URLs, or stop it. */
+    public const EVENT_BEFORE_WARM = 'beforeWarm';
+
+    /** After pages are built, with the ones that were and weren’t. */
+    public const EVENT_AFTER_WARM = 'afterWarm';
+
     /**
      * The value of the X-Speedy-Warm header, so only Speedy’s own requests can rebuild pages.
      */
@@ -40,6 +47,17 @@ class Warmer extends Component
     public function queue(array $urls, bool $rebuild): void
     {
         $urls = array_values(array_unique(array_filter($urls)));
+        if (!$urls) {
+            return;
+        }
+        if ($this->hasEventHandlers(self::EVENT_BEFORE_WARM)) {
+            $event = new WarmEvent(['urls' => $urls, 'rebuild' => $rebuild]);
+            $this->trigger(self::EVENT_BEFORE_WARM, $event);
+            if (!$event->isValid) {
+                return;
+            }
+            $urls = array_values(array_unique(array_filter($event->urls)));
+        }
         foreach (array_chunk($urls, 200) as $chunk) {
             Queue::push(new WarmJob(['urls' => $chunk, 'rebuild' => $rebuild]), 1025);
         }
@@ -112,6 +130,10 @@ class Warmer extends Component
                 $plugin->log->add(Craft::t('speedy', 'Couldn’t rebuild, so removed'), count($failed), $failed);
             }
             $plugin->cdn->purgeUrls(array_merge($built, $failed));
+        }
+
+        if ($this->hasEventHandlers(self::EVENT_AFTER_WARM)) {
+            $this->trigger(self::EVENT_AFTER_WARM, new WarmEvent(['urls' => $urls, 'rebuild' => $rebuild, 'built' => $built, 'failed' => $failed]));
         }
 
         return ['built' => count($built), 'failed' => count($failed)];
