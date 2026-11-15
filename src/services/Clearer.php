@@ -38,6 +38,9 @@ class Clearer extends Component
     private array $_changed = [];
 
     private bool $_clearAll = false;
+
+    /** Why every page should be rebuilt at the end of the request, such as SEOmatic’s settings changing. */
+    private ?string $_rebuildAll = null;
     private int $_bulkDepth = 0;
 
     /**
@@ -78,6 +81,14 @@ class Clearer extends Component
         }
     }
 
+    /**
+     * Rebuilds every page in the background at the end of the request, once, however often it’s asked for.
+     */
+    public function rebuildAllLater(string $reason): void
+    {
+        $this->_rebuildAll = $reason;
+    }
+
     public function beginBulk(): void
     {
         $this->_bulkDepth++;
@@ -94,6 +105,10 @@ class Clearer extends Component
      */
     public function flush(): void
     {
+        if ($this->_rebuildAll !== null && $this->_bulkDepth === 0) {
+            $this->rebuildAll($this->_rebuildAll);
+            $this->_rebuildAll = null;
+        }
         if ($this->_bulkDepth > 0 || (!$this->_pending && !$this->_clearAll)) {
             return;
         }

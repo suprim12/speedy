@@ -52,6 +52,12 @@ class Cacher extends Component
     /** Request headers sent by Ajax libraries, whose requests often get a partial page at the same URL. */
     private const AJAX_HEADERS = ['X-Requested-With', 'HX-Request', 'X-Up-Target'];
 
+    /**
+     * Cookies that never change what a page shows: analytics and bot-protection IDs, read by scripts in the browser.
+     * Matched by the start of the name.
+     */
+    private const IGNORED_COOKIES = ['_ga', '_gid', '_gat', '_gcl', '__utm', '_fbp', '_fbc', '_hj', '_clck', '_clsk', '_uet', '_pk_', '__hs', 'hubspotutk', '_ttp', '__cf_bm', 'cf_clearance', '_cfuvid', '__stripe_'];
+
     /** Placeholder for the CSRF token in cached pages; the refresh script replaces it. */
     public const CSRF_PLACEHOLDER = '__SPEEDY_CSRF__';
 
@@ -80,6 +86,9 @@ class Cacher extends Component
 
     /** Whether this request is rebuilding a page for Speedy itself (warming). */
     private bool $_warming = false;
+
+    /** Whether the request has cookies that could change the page, so it’s built for this visitor alone. */
+    private bool $_ownCookies = false;
 
     /** @var string[]|false|null The sites’ hosts, or false when a site answers on any host. */
     private array|false|null $_siteHosts = null;
@@ -114,7 +123,10 @@ class Cacher extends Component
 
         // When many visitors ask for the same uncached page at once, such as just after clearing everything,
         // one builds it and the others wait for that copy, instead of every one of them building it.
-        if (!$this->_warming && !$this->lockOrWait($this->_key) && $this->serve($this->_key)) {
+        // A page is only saved from a request without cookies of its own, so nobody can put something into the
+        // copy everyone gets by sending a made-up cookie. This visitor gets a page built for them.
+        $this->_ownCookies = !$this->_warming && $this->hasOwnCookies();
+        if (!$this->_warming && !$this->_ownCookies && !$this->lockOrWait($this->_key) && $this->serve($this->_key)) {
             return;
         }
 
@@ -275,6 +287,17 @@ class Cacher extends Component
             return;
         }
 
+        if ($this->_ownCookies) {
+            // Build the copy for everyone in the background, from a request without cookies.
+            $url = strtok(Craft::$app->getRequest()->getAbsoluteUrl(), '?');
+            if (Craft::$app->getCache()->add('speedy:building:' . md5((string)$this->_key), true, 60)) {
+                Plugin::getInstance()->warmer->queue([$url], false);
+            }
+            $response->getHeaders()->set(self::HEADER, 'SKIP request cookies');
+            $response->getHeaders()->set('Cache-Control', 'private, no-cache');
+            return;
+        }
+
         $tags = $dependency->tags ?? [];
         $settings = Plugin::getInstance()->getSettings();
         $ttls = array_filter([$duration, $this->_templateTtl, $settings->defaultTtl], fn($t) => $t !== null && $t > 0);
@@ -360,6 +383,18 @@ class Cacher extends Component
         $harmless = [$request->csrfParam, Craft::$app->getConfig()->getGeneral()->phpSessionName, self::STATE_COOKIE];
         foreach ($response->getCookies() as $cookie) {
             if (!in_array($cookie->name, $harmless, true)) {
+                return true;
+            }
+        }
+        // Cookies set with a raw header, by PHP’s setcookie() or another plugin.
+        $raw = (array)$response->getHeaders()->get('Set-Cookie', [], false);
+        foreach (headers_list() as $header) {
+            if (stripos($header, 'Set-Cookie:') === 0) {
+                $raw[] = ltrim(substr($header, 11));
+            }
+        }
+        foreach ($raw as $header) {
+            if (preg_match('/^([^=;\s]+)=/', (string)$header, $m) && !in_array($m[1], $harmless, true)) {
                 return true;
             }
         }
@@ -626,6 +661,35 @@ class Cacher extends Component
         $given = $request->getHeaders()->get('X-Speedy-Warm');
 
         return is_string($given) && hash_equals(Plugin::getInstance()->warmer->secret(), $given);
+    }
+
+    /**
+     * Whether the request has a cookie that could change what the page shows: any but Craft’s session and CSRF
+     * cookies, analytics IDs and the ones in the `ignoredCookies` setting.
+     */
+    private function hasOwnCookies(): bool
+    {
+        $request = Craft::$app->getRequest();
+        $ignored = array_merge(
+            [$request->csrfParam, Craft::$app->getConfig()->getGeneral()->phpSessionName],
+            self::IGNORED_COOKIES,
+            Plugin::getInstance()->getSettings()->ignoredCookies,
+        );
+        foreach (array_keys($_COOKIE) as $name) {
+            $name = (string)$name;
+            $known = false;
+            foreach ($ignored as $prefix) {
+                if ($prefix !== '' && str_starts_with($name, $prefix)) {
+                    $known = true;
+                    break;
+                }
+            }
+            if (!$known) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function hasCookie(Request $request, string $suffix): bool

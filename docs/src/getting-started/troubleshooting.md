@@ -18,6 +18,7 @@ The header says why, after `SKIP`:
 | `session` | The visitor has something in their session, such as a form step or a flash message | Expected. It clears once the session is empty. See [What isn’t cached](/guides/not-cached#multi-page-forms-and-flash-messages) |
 | `ajax` | An htmx, Unpoly or `X-Requested-With` request | Expected |
 | `cookie` | The visitor has a cookie listed in `skipCookies` | Expected |
+| `request cookies` | The page wasn’t cached yet and the visitor has cookies of their own, so the shared copy is built in the background instead | Expected. Add cookies that never change pages to `ignoredCookies` ([What isn’t cached](/guides/not-cached#made-up-cookies-can-t-reach-the-shared-copy)) |
 | `vary` | The page sends `Vary` with something other than `Accept-Encoding` | Remove the header if the page is the same for everyone |
 | `unknown host` | The `Host` header isn’t one of your sites’ domains | Check the site’s base URL |
 | `never cache` | The URL matches **Never cache** | Check the patterns in the settings |

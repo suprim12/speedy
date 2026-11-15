@@ -12,6 +12,8 @@
 - Pages clear when scheduled content goes live or expires, including the listing pages of entries and products with future post dates.
 - Forms keep working on cached pages: CSRF tokens are refreshed automatically.
 - Logged-in visitors, Commerce carts, pages that set cookies and pages with query strings aren’t cached.
+- Pages are only saved from requests without cookies of their own, so a made-up cookie can’t end up in the copy everyone gets. Analytics cookies are ignored, and more can be added with `ignoredCookies`.
+- Saving SEOmatic’s settings rebuilds every cached page in the background.
 - Multi-page forms and flash messages are safe: visitors with something in their session get their own pages, never a cached step or someone else’s message.
 - Cloudflare and CloudFront: detected automatically and cleared when pages change, with CloudFront paths batched into wildcards and a monthly counter.
 - CDNs are told not to keep pages that Speedy can’t clear from them.

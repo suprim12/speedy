@@ -58,6 +58,17 @@ If a template reads a cookie, such as a consent banner that’s only shown until
 
 Names are matched by part, and the [server rules](/getting-started/server-rules) include them, so copy the rules again after changing this. Better still, render the banner for everyone and hide it with JavaScript when the cookie is set; then every page can be cached.
 
+### Made-up cookies can’t reach the shared copy
+
+Even without `skipCookies`, a page is only ever saved from a request without cookies of its own, so nobody can send a made-up cookie to get their version cached for everyone. A visitor with other cookies is still sent the cached page; if there isn’t one yet, they get a page built for them (`X-Speedy: SKIP request cookies`) and the shared copy is built in the background.
+
+Craft’s session and CSRF cookies, and analytics and bot-protection cookies such as `_ga`, `_fbp`, `_hj` and `__cf_bm`, are ignored, as they’re only read in the browser. Add others that never change a page, matched by the start of the name:
+
+```php
+// config/speedy.php
+'ignoredCookies' => ['_my_analytics'],
+```
+
 ## Pages that differ by device or location
 
 Pages that change with the browser (`craft.app.request.isMobileBrowser`) or the visitor’s location can’t be told apart by URL. Use CSS or JavaScript for the differences, or add `{% do craft.speedy.skip() %}` to those templates.

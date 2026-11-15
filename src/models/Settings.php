@@ -93,6 +93,13 @@ class Settings extends Model
     /** @var string[] Cookies that mean a visitor sees their own version of pages, such as a consent banner rendered on the server. Matched by part of the name. */
     public array $skipCookies = [];
 
+    /**
+     * @var string[] Cookies that never change what a page shows, as well as analytics IDs, which are built in. Pages are
+     * only saved from requests without other cookies, so a made-up cookie can’t end up in everyone’s copy; visitors
+     * with other cookies are still sent cached pages. Matched by the start of the name.
+     */
+    public array $ignoredCookies = [];
+
     /** Don’t cache pages for visitors who have a Commerce cart. */
     public bool $skipWhenCart = true;
 

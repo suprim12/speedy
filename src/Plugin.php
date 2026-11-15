@@ -180,6 +180,7 @@ class Plugin extends BasePlugin
         $rows = [
             ['queryStrings', $s->queryStrings, Craft::t('speedy', 'skip: pages with a query string aren’t cached. ignore: they’re cached without it.')],
             ['ignoredParams', $s->ignoredParams, Craft::t('speedy', 'Tracking parameters that never stop a page being cached.')],
+            ['ignoredCookies', $s->ignoredCookies, Craft::t('speedy', 'Cookies that never change pages. Requests with other cookies are sent cached pages but don’t save them.')],
             ['skipCookies', $s->skipCookies, Craft::t('speedy', 'Cookies that mean a visitor sees their own pages, such as a consent banner.')],
             ['skipWhenCart', $s->skipWhenCart, Craft::t('speedy', 'Don’t cache for visitors with a Commerce cart.')],
             ['refreshCsrf', $s->refreshCsrf, Craft::t('speedy', 'Refresh CSRF tokens on cached pages, so forms work.')],
@@ -228,6 +229,16 @@ class Plugin extends BasePlugin
         });
         Event::on(Elements::class, Elements::EVENT_BEFORE_BULK_OP, fn() => $this->clearer->beginBulk());
         Event::on(Elements::class, Elements::EVENT_AFTER_BULK_OP, fn() => $this->clearer->endBulk());
+
+        // SEOmatic’s settings, such as its tracking scripts and default meta tags, are on every page. Saving them
+        // rebuilds every page in the background. Its per-element events are left alone: Craft’s cache tags cover those.
+        if (class_exists(\nystudio107\seomatic\services\MetaContainers::class)) {
+            Event::on(\nystudio107\seomatic\services\MetaContainers::class, 'invalidateContainerCaches', function($event) {
+                if ($event->uri === null && $event->siteId === null && $event->sourceId === null) {
+                    $this->clearer->rebuildAllLater(Craft::t('speedy', 'SEOmatic settings changed'));
+                }
+            });
+        }
 
         // One clear job per request or queue job, not one per saved element.
         Craft::$app->on(Application::EVENT_AFTER_REQUEST, fn() => $this->clearer->flush());

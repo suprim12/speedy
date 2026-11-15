@@ -39,12 +39,15 @@ class PagesTest extends TestCase
             'skip' => '{% do craft.speedy.skip() %}<html><body>Skipped</body></html>',
             'ttl' => '{% do craft.speedy.ttl(120) %}<html><body>Short-lived</body></html>',
             'vary' => '{% header "Vary: User-Agent" %}<html><body>Varies</body></html>',
-            'robots' => '{% header "X-Robots-Tag: noindex" %}<html><body>Robots</body></html>',
+            'robots' => '{% header "Permissions-Policy: geolocation=()" %}<html><body>Robots</body></html>',
             'set-step' => '{% do craft.app.session.set("speedyTestStep", 2) %}{% redirect "/' . self::$prefix . '/step" %}',
             'step' => '<html><body>Step {{ craft.app.session.get("speedyTestStep", 1) }}</body></html>',
             'done' => '{% do craft.app.session.remove("speedyTestStep") %}{% redirect "/' . self::$prefix . '/step" %}',
             'dynamic' => '<html><body>Page {{ now|date("U.u") }} {{ craft.speedy.dynamic("' . self::$prefix . '/_part", { name: "Alex" }) }}</body></html>',
             '_part' => '<p>Part for {{ name }} at {{ now|date("U.u") }}</p>',
+            'analytics' => '<html><body>Analytics</body></html>',
+            'theme' => '<html><body>Theme {{ craft.app.request.rawCookies.getValue("theme") ?? "default" }}</body></html>',
+            'raw-cookie' => '{% do craft.app.response.headers.add("Set-Cookie", "tracker=abc; Path=/") %}<html><body>Raw cookie</body></html>',
         ];
         foreach ($templates as $name => $twig) {
             file_put_contents(self::$dir . "/$name.twig", $twig);
@@ -104,6 +107,28 @@ class PagesTest extends TestCase
         $this->assertSame('private, no-cache', $this->get('skip')->getHeaderLine('Cache-Control'), 'Pages Speedy skips tell CDNs not to keep them.');
     }
 
+    public function testAMadeUpCookieNeverReachesTheSharedCopy(): void
+    {
+        $evil = CookieJar::fromArray(['theme' => 'evil'], parse_url(self::$base, PHP_URL_HOST));
+        $this->assertSame('SKIP request cookies', $this->speedy($this->get('theme', [], $evil)));
+        $this->assertStringContainsString('Theme evil', (string)$this->get('theme', [], $evil)->getBody(), 'The visitor still gets their own page.');
+        Craft::$app->getQueue()->run();
+
+        $clean = $this->get('theme');
+        $this->assertStringContainsString('Theme default', (string)$clean->getBody());
+        $this->assertContains($this->speedy($clean), ['HIT', 'STATIC'], 'The copy for everyone was built in the background, without the cookie.');
+        $this->assertContains($this->speedy($this->get('theme', [], $evil)), ['HIT', 'STATIC'], 'Visitors with cookies are sent the cached copy.');
+
+        $analytics = CookieJar::fromArray(['_ga' => 'GA1.1.1', '_ga_ABC' => 'GS1'], parse_url(self::$base, PHP_URL_HOST));
+        $this->assertSame('MISS', $this->speedy($this->get('analytics', [], $analytics)), 'Analytics cookies don’t stop a visitor building pages.');
+    }
+
+    public function testPagesThatSetARawCookieAreNotCached(): void
+    {
+        $this->assertSame('SKIP sets a cookie', $this->speedy($this->get('raw-cookie')));
+        $this->assertSame('SKIP sets a cookie', $this->speedy($this->get('raw-cookie')));
+    }
+
     public function testTrackingParametersAreIgnored(): void
     {
         $this->get('plain');
@@ -125,7 +150,7 @@ class PagesTest extends TestCase
     public function testKeepsHeadersAndExpiry(): void
     {
         $this->get('robots');
-        $this->assertSame('noindex', $this->get('robots')->getHeaderLine('X-Robots-Tag'));
+        $this->assertSame('geolocation=()', $this->get('robots')->getHeaderLine('Permissions-Policy'));
 
         $this->get('ttl');
         $key = Plugin::getInstance()->storage->key(parse_url(self::$base, PHP_URL_HOST), '/' . self::$prefix . '/ttl');
