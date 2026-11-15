@@ -35,10 +35,16 @@ class Storage extends Component
 
     private ?CacheStore $_cacheStore = null;
 
+    /** The folder inside a page’s folder that holds its query string versions, such as `?page=2`. */
+    public const QUERY_FOLDER = '~query';
+
     /**
-     * A page’s key, such as `example.com/news/summer-sale`, or null when the URL can’t be cached safely.
+     * A page’s key, such as `example.com/news/summer-sale`, or null when the URL can’t be cached safely. Query
+     * parameters, when given, make a separate page: `example.com/news/~query/page%3D2`.
+     *
+     * @param array<string, mixed> $query
      */
-    public function key(string $host, string $path): ?string
+    public function key(string $host, string $path, array $query = []): ?string
     {
         $host = strtolower($host);
         if (!preg_match('/^[a-z0-9.-]+(:\d+)?$/', $host)) {
@@ -49,12 +55,34 @@ class Storage extends Component
             return null;
         }
         foreach ($path === '' ? [] : explode('/', $path) as $segment) {
-            if ($segment === '' || $segment === '.' || $segment === '..') {
+            if ($segment === '' || $segment === '.' || $segment === '..' || $segment === self::QUERY_FOLDER) {
                 return null;
             }
         }
 
-        return $path === '' ? $host : "$host/$path";
+        $key = $path === '' ? $host : "$host/$path";
+        if ($query) {
+            ksort($query);
+            $string = http_build_query($query);
+            if ($string === '' || strlen($string) > 200) {
+                return null;
+            }
+            $key .= '/' . self::QUERY_FOLDER . '/' . rawurlencode($string);
+        }
+
+        return $key;
+    }
+
+    /**
+     * The key of a page by its full URL, such as one from the log or the API.
+     */
+    public function keyForUrl(string $url): ?string
+    {
+        $parts = parse_url($url);
+        parse_str($parts['query'] ?? '', $query);
+        unset($query[Cacher::WARM_PARAM]);
+
+        return $this->key($parts['host'] ?? '', $parts['path'] ?? '', array_map('strval', array_filter($query, 'is_scalar')));
     }
 
     public function htmlFile(string $key): string

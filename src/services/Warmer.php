@@ -103,8 +103,7 @@ class Warmer extends Component
         if ($rebuild) {
             // A page that can’t be rebuilt (now a 404, now private…) mustn’t stay cached.
             foreach ($failed as $url) {
-                $parts = parse_url($url);
-                $key = $plugin->storage->key($parts['host'] ?? '', $parts['path'] ?? '');
+                $key = $plugin->storage->keyForUrl($url);
                 if ($key) {
                     $plugin->storage->delete($key);
                 }

@@ -36,6 +36,9 @@ class Cdn extends Component
     /** @var array<string, PurgerInterface>|null */
     private ?array $_purgers = null;
 
+    /** @var array<int, string[]> Addresses of assets being replaced, by asset ID. */
+    private array $_assetUrls = [];
+
     /**
      * CDNs other than Cloudflare and CloudFront, built in or registered by other plugins, by handle.
      *
@@ -166,6 +169,71 @@ class Cdn extends Component
                 Craft::warning("Couldn’t clear $cdn: " . $e->getMessage(), 'speedy');
             }
         }
+    }
+
+    /**
+     * Notes a replaced asset’s addresses, and those of its transforms, before Craft deletes the transforms.
+     */
+    public function rememberAssetUrls(\craft\elements\Asset $asset): void
+    {
+        if (!$this->configured() || !$asset->getVolume()->getFs()->hasUrls) {
+            return;
+        }
+        $urls = [$asset->getUrl()];
+        try {
+            $rows = (new \craft\db\Query())
+                ->from(\craft\db\Table::IMAGETRANSFORMINDEX)
+                ->where(['assetId' => $asset->id, 'fileExists' => true])
+                ->limit(200)
+                ->all();
+            foreach ($rows as $row) {
+                $string = (string)$row['transformString'];
+                try {
+                    $transform = \craft\helpers\ImageTransforms::createTransformFromString($string);
+                } catch (Throwable) {
+                    // A named transform is stored by its handle, such as `_thumb`.
+                    $transform = \craft\helpers\ImageTransforms::normalizeTransform(ltrim($string, '_'));
+                }
+                if ($transform === null) {
+                    continue;
+                }
+                if ($row['format']) {
+                    $transform->format = $row['format'];
+                }
+                $urls[] = $asset->getUrl($transform, false);
+            }
+        } catch (Throwable $e) {
+            Craft::info('Couldn’t list the transforms of asset ' . $asset->id . ': ' . $e->getMessage(), 'speedy');
+        }
+        $this->_assetUrls[$asset->id] = array_values(array_filter($urls, fn($u) => is_string($u) && $this->onSiteHost($u)));
+    }
+
+    /**
+     * Clears a replaced asset’s old file and transforms from the CDN, as they keep the same addresses.
+     */
+    public function purgeAssetUrls(\craft\elements\Asset $asset): void
+    {
+        $urls = $this->_assetUrls[$asset->id] ?? [];
+        unset($this->_assetUrls[$asset->id]);
+        if ($urls) {
+            $this->purgeUrls($urls);
+            Plugin::getInstance()->log->add(Craft::t('speedy', 'Replaced file “{name}”', ['name' => $asset->getFilename()]), count($urls), $urls);
+        }
+    }
+
+    /**
+     * Whether a URL is on one of the sites’ domains, so it’s on the CDN that’s set up for them.
+     */
+    private function onSiteHost(string $url): bool
+    {
+        $host = strtolower((string)parse_url($url, PHP_URL_HOST));
+        foreach (Craft::$app->getSites()->getAllSites() as $site) {
+            if ($host === strtolower((string)parse_url((string)$site->getBaseUrl(), PHP_URL_HOST))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

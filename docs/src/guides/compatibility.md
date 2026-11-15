@@ -29,6 +29,10 @@ Meta tags, JSON-LD and tracking scripts are part of the cached page, and the `Li
 - Warming from the sitemap reads SEOmatic’s sitemap index at `/sitemap.xml`.
 - Its analytics cookies (`_ga` and others) don’t stop pages being cached.
 
+## Commerce
+
+Product pages are cleared when stock changes, from orders, control panel edits and transfers ([How clearing works](/guides/clearing#commerce-stock)). Visitors with a cart get pages built for them, so their cart is always their own.
+
 ## Formie and other forms
 
 See [Forms and CSRF](/guides/forms).

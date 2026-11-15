@@ -11,7 +11,7 @@ Speedy only caches pages it can be sure are the same for everyone.
 | Cookies you list in `skipCookies` | Such as a consent banner rendered on the server. See below |
 | Pages that send `Vary` | `Vary: User-Agent` or `Vary: Cookie` means the page differs per visitor. `Vary: Accept-Encoding` is fine |
 | Hosts that aren’t a site’s | A request with someone else’s domain in its `Host` header. Sites whose base URL is `@web` accept any host |
-| URLs with a query string | `?q=`, `?page=` and filters usually change the page. Tracking parameters (`utm_*`, `gclid`, `fbclid`…) are ignored |
+| URLs with a query string | `?q=`, `?page=` and filters usually change the page. Tracking parameters (`utm_*`, `gclid`, `fbclid`…) are ignored, and the ones you list in `cachedParams` are cached ([Pagination and filters](#pagination-and-filters)) |
 | URLs matching **Never cache** | Such as `checkout/*` or `account*` |
 | Pages that set a cookie | A cookie usually means something personal. Craft’s CSRF and session cookies are fine |
 | Pages marked private | `Cache-Control: private` or `no-store`, from your template or a plugin |
@@ -77,6 +77,15 @@ Pages that change with the browser (`craft.app.request.isMobileBrowser`) or the 
 
 Headers your templates or plugins send, such as `X-Robots-Tag`, `Link`, `Content-Language` and `Content-Security-Policy`, are saved with the page and sent again when PHP serves it. Pages served by the web server get the headers in your server configuration instead.
 
-## Pagination
+## Pagination and filters
 
-Craft paginates with paths like `/news/p2`, which are cached like any page. If your site paginates with `?page=2`, those pages aren’t cached by default.
+Craft paginates with paths like `/news/p2`, which are cached like any page. If your site uses query strings, such as `?page=2` or `?category=shoes`, list the parameters that make a page of their own:
+
+```php
+// config/speedy.php
+'cachedParams' => ['page', 'category'],
+```
+
+Each combination is cached separately: `/news?page=2` and `/news?page=2&category=shoes` are two pages, whatever order the parameters come in. Tracking parameters are still ignored. Only the parameters you list are cached, with one short value each, so made-up query strings can’t fill the disk; any other query string is passed to Craft as usual.
+
+Pages with a query string are sent by PHP rather than the web server rules, which is still much faster than building them.

@@ -179,8 +179,10 @@ class Plugin extends BasePlugin
         };
         $rows = [
             ['queryStrings', $s->queryStrings, Craft::t('speedy', 'skip: pages with a query string aren’t cached. ignore: they’re cached without it.')],
+            ['cachedParams', $s->cachedParams, Craft::t('speedy', 'Query parameters that make a page of their own, such as page. Other query strings aren’t cached.')],
             ['ignoredParams', $s->ignoredParams, Craft::t('speedy', 'Tracking parameters that never stop a page being cached.')],
             ['ignoredCookies', $s->ignoredCookies, Craft::t('speedy', 'Cookies that never change pages. Requests with other cookies are sent cached pages but don’t save them.')],
+            ['ignoreUnchangedSaves', $s->ignoreUnchangedSaves, Craft::t('speedy', 'Saves that change nothing don’t clear pages.')],
             ['skipCookies', $s->skipCookies, Craft::t('speedy', 'Cookies that mean a visitor sees their own pages, such as a consent banner.')],
             ['skipWhenCart', $s->skipWhenCart, Craft::t('speedy', 'Don’t cache for visitors with a Commerce cart.')],
             ['refreshCsrf', $s->refreshCsrf, Craft::t('speedy', 'Refresh CSRF tokens on cached pages, so forms work.')],
@@ -227,6 +229,9 @@ class Plugin extends BasePlugin
         Event::on(Elements::class, Elements::EVENT_INVALIDATE_CACHES, function(InvalidateElementCachesEvent $event) {
             $this->clearer->onInvalidate($event);
         });
+        // Saves that change nothing, such as clicking Save twice, don’t clear pages.
+        Event::on(Elements::class, Elements::EVENT_BEFORE_SAVE_ELEMENT, fn(\craft\events\ElementEvent $event) => $this->clearer->beforeSave($event->element));
+        Event::on(Elements::class, Elements::EVENT_AFTER_SAVE_ELEMENT, fn(\craft\events\ElementEvent $event) => $this->clearer->afterSave($event->element));
         Event::on(Elements::class, Elements::EVENT_BEFORE_BULK_OP, fn() => $this->clearer->beginBulk());
         Event::on(Elements::class, Elements::EVENT_AFTER_BULK_OP, fn() => $this->clearer->endBulk());
 
@@ -239,6 +244,20 @@ class Plugin extends BasePlugin
                 }
             });
         }
+
+        // Commerce changes stock without telling Craft that pages showing it changed: on orders, control panel
+        // edits and transfers between locations.
+        if (class_exists(\craft\commerce\services\Inventory::class)) {
+            foreach ([\craft\commerce\services\Inventory::EVENT_AFTER_EXECUTE_UPDATE_INVENTORY_LEVEL => 'updateInventoryLevel', \craft\commerce\services\Inventory::EVENT_AFTER_EXECUTE_INVENTORY_MOVEMENT => 'inventoryMovement'] as $name => $property) {
+                Event::on(\craft\commerce\services\Inventory::class, $name, function($event) use ($property) {
+                    $this->clearer->stockChanged($event->$property?->getInventoryItem()?->getPurchasable());
+                });
+            }
+        }
+
+        // A replaced image keeps its address, so the CDN would keep sending the old one.
+        Event::on(\craft\services\Assets::class, \craft\services\Assets::EVENT_BEFORE_REPLACE_ASSET, fn(\craft\events\ReplaceAssetEvent $event) => $this->cdn->rememberAssetUrls($event->asset));
+        Event::on(\craft\services\Assets::class, \craft\services\Assets::EVENT_AFTER_REPLACE_ASSET, fn(\craft\events\ReplaceAssetEvent $event) => $this->cdn->purgeAssetUrls($event->asset));
 
         // One clear job per request or queue job, not one per saved element.
         Craft::$app->on(Application::EVENT_AFTER_REQUEST, fn() => $this->clearer->flush());

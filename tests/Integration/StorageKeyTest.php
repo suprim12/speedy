@@ -28,4 +28,18 @@ class StorageKeyTest extends TestCase
         $this->assertNull($storage->key('evil.com/../x', '/'));
         $this->assertNull($storage->key('example.com', '/' . str_repeat('a', 401)));
     }
+
+    public function testQueryStringsMakeTheirOwnPage(): void
+    {
+        $storage = $this->plugin()->storage;
+        $this->assertSame('example.com/news/~query/page%3D2', $storage->key('example.com', '/news', ['page' => '2']));
+        $this->assertSame(
+            $storage->key('example.com', '/news', ['page' => '2', 'category' => 'a']),
+            $storage->key('example.com', '/news', ['category' => 'a', 'page' => '2']),
+            'The order of parameters doesn’t matter.'
+        );
+        $this->assertSame($storage->key('example.com', '/news', ['page' => '2']), $storage->keyForUrl('https://example.com/news?page=2&speedy-warm=ab12'));
+        $this->assertNull($storage->key('example.com', '/news', ['q' => str_repeat('a', 201)]));
+        $this->assertNull($storage->key('example.com', '/news/~query/page%3D2'), 'A real URL can’t reach a query page’s folder.');
+    }
 }

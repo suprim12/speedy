@@ -28,6 +28,20 @@ For whole sections of the site, **Never cache** in the settings is simpler. See 
 
 The page is cleared and rebuilt after 600 seconds. Use it for pages showing data from outside Craft. If it’s called more than once, the shortest time wins. See [Pages with live data](/recipes/live-data).
 
+## Clear pages by name
+
+```twig
+{% do craft.speedy.tag('weather') %}
+```
+
+Gives the page a name to clear it by, for content from outside Craft that changes at unknown times, such as stock levels from another system. When it changes, clear every page with that name:
+
+```bash
+php craft speedy/clear --tag=weather
+```
+
+Or from the [API](/guides/api) with `tags[]=weather`, or in PHP with `Plugin::getInstance()->clearer->clearCustomTags(['weather'], 'Weather updated')`. A page can have several names: `craft.speedy.tag('weather', 'homepage')`.
+
 ## Personal content on a cached page
 
 A cached page is the same for everyone, so a cart count, a “Hi, Alex” or a form can’t be in it. Put those parts in their own template and include them with `craft.speedy.dynamic()`:

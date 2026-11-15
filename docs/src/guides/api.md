@@ -28,6 +28,11 @@ curl -X POST https://example.com/actions/speedy/api/clear \
   -d "urls[]=https://example.com/news" \
   -d "urls[]=https://example.com/"
 
+# Clear the pages tagged with craft.speedy.tag('weather')
+curl -X POST https://example.com/actions/speedy/api/clear \
+  -H "Authorization: Bearer $SPEEDY_API_KEY" \
+  -d "tags[]=weather"
+
 # Rebuild every page, keeping the old copies until the new ones are ready
 curl -X POST https://example.com/actions/speedy/api/rebuild \
   -H "Authorization: Bearer $SPEEDY_API_KEY"
@@ -37,6 +42,7 @@ curl -X POST https://example.com/actions/speedy/api/rebuild \
 |---|---|
 | `api/clear` | `{"success":true,"cleared":120}` |
 | `api/clear` with `urls[]` | `{"success":true,"cleared":2}`, up to 1,000 URLs |
+| `api/clear` with `tags[]` | `{"success":true,"cleared":4}`, up to 100 tags |
 | `api/rebuild` | `{"success":true,"rebuilding":120}` |
 | A wrong or missing key | 403 |
 

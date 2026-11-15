@@ -87,6 +87,15 @@ class Settings extends Model
     /** Query strings: `'skip'` doesn't cache pages with one (except tracking parameters), `'ignore'` caches the page without it. */
     public string $queryStrings = 'skip';
 
+    /**
+     * @var string[] Query parameters that make a page of their own, such as `page` or `category`: `?page=2` is cached
+     * separately from the page without it. Only these, so made-up query strings can’t fill the disk. `*` matches any characters.
+     */
+    public array $cachedParams = [];
+
+    /** Don’t clear pages when an entry, category, product or user is saved without changes, or saved disabled and was disabled already. */
+    public bool $ignoreUnchangedSaves = true;
+
     /** @var string[] Query parameters that never stop a page being cached, and are ignored. */
     public array $ignoredParams = ['utm_*', 'gclid', 'fbclid', 'msclkid', 'mc_cid', 'mc_eid', '_ga', '_gl'];
 

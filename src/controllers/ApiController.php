@@ -21,6 +21,7 @@ use yii\web\Response;
  *
  *   POST actions/speedy/api/clear               everything
  *   POST actions/speedy/api/clear  urls[]=…     those pages
+ *   POST actions/speedy/api/clear  tags[]=…     pages tagged with craft.speedy.tag()
  *   POST actions/speedy/api/rebuild             every page, keeping old copies until the new ones are ready
  *
  * Send the key in an `Authorization: Bearer …` header, or as a `key` field in the POST body. Never in the URL.
@@ -58,6 +59,12 @@ class ApiController extends Controller
     public function actionClear(): Response
     {
         $clearer = Plugin::getInstance()->clearer;
+        $tags = $this->request->getBodyParam('tags');
+        if (is_array($tags) && $tags) {
+            $names = array_slice(array_filter($tags, 'is_string'), 0, 100);
+            $count = $clearer->clearCustomTags($names, Craft::t('speedy', 'Cleared tags {tags}, with the API key', ['tags' => implode(', ', $names)]));
+            return $this->asJson(['success' => true, 'cleared' => $count]);
+        }
         $urls = $this->request->getBodyParam('urls');
         if (is_array($urls) && $urls) {
             $count = 0;

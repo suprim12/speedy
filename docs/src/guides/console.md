@@ -5,6 +5,7 @@
 | `php craft speedy/clear` | Clears every page and your CDN, then warms your `warm` list |
 | `php craft speedy/clear --rebuild` | Rebuilds every page in the background, keeping the old copies until the new ones are ready |
 | `php craft speedy/clear --url=https://example.com/news` | Clears one page |
+| `php craft speedy/clear --tag=weather` | Clears the pages tagged with `craft.speedy.tag('weather')`. Several, separated by commas |
 | `php craft speedy/warm` | Builds the pages in your `warm` list, with progress |
 | `php craft speedy/expire` | Clears pages whose scheduled content has gone live or expired. For cron |
 | `php craft speedy/status` | Pages cached, size, CDN and the last ten clears |

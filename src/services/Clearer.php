@@ -14,6 +14,7 @@ use craft\base\Component;
 use craft\base\ElementInterface;
 use craft\events\InvalidateElementCachesEvent;
 use craft\helpers\ElementHelper;
+use craft\helpers\Json;
 use craft\helpers\Queue;
 use suprim\speedy\events\ClearEvent;
 use suprim\speedy\jobs\ClearJob;
@@ -39,6 +40,12 @@ class Clearer extends Component
 
     private bool $_clearAll = false;
 
+    /**
+     * @var array<int, array<string, mixed>|null> Elements being saved right now, by object, with their stored field
+     * values, so a save that changes nothing can be told apart.
+     */
+    private array $_saving = [];
+
     /** Why every page should be rebuilt at the end of the request, such as SEOmatic’s settings changing. */
     private ?string $_rebuildAll = null;
     private int $_bulkDepth = 0;
@@ -50,6 +57,9 @@ class Clearer extends Component
     {
         // Drafts, autosaves and revisions never appear on the live site.
         if ($event->element instanceof ElementInterface && ElementHelper::isDraftOrRevision($event->element)) {
+            return;
+        }
+        if ($event->element instanceof ElementInterface && array_key_exists(spl_object_id($event->element), $this->_saving) && $this->isUnchanged($event->element)) {
             return;
         }
         $tags = $event->tags;
@@ -87,6 +97,98 @@ class Clearer extends Component
     public function rebuildAllLater(string $reason): void
     {
         $this->_rebuildAll = $reason;
+    }
+
+    /**
+     * Called before an element is saved, so its cache tags can be ignored if the save turns out to change nothing.
+     */
+    public function beforeSave(ElementInterface $element): void
+    {
+        $stored = null;
+        if (Plugin::getInstance()->getSettings()->ignoreUnchangedSaves && \craft\helpers\ElementHelper::shouldTrackChanges($element) && !ElementHelper::isDraftOrRevision($element)) {
+            // The control panel sends every field, so Craft marks them all as changed; compare with what’s stored.
+            $original = $element::find()->id($element->id)->siteId($element->siteId)->status(null)->one();
+            $stored = $original?->getSerializedFieldValues();
+        }
+        $this->_saving[spl_object_id($element)] = $stored;
+    }
+
+    public function afterSave(ElementInterface $element): void
+    {
+        unset($this->_saving[spl_object_id($element)]);
+    }
+
+    /**
+     * Whether a save changed nothing a visitor could see: no attribute or field changed, or the element was disabled
+     * and still is. Only for element types whose changes Craft records (entries, categories, products, users…);
+     * anything else always clears its pages.
+     */
+    private function isUnchanged(ElementInterface $element): bool
+    {
+        if (!Plugin::getInstance()->getSettings()->ignoreUnchangedSaves || !$element::trackChanges()) {
+            return false;
+        }
+        if ($element->firstSave || $element->isNewForSite || $element->dateDeleted !== null || $element->duplicateOf !== null || $element->propagateAll) {
+            return false;
+        }
+        $attributes = $element->getDirtyAttributes();
+        $statusChanged = (bool)array_intersect($attributes, ['enabled', 'enabledForSite', 'status', 'postDate', 'expiryDate']);
+        if (!$statusChanged && $element->getStatus() === \craft\base\Element::STATUS_DISABLED) {
+            // Disabled before and after: it isn’t on any page.
+            return true;
+        }
+
+        if ($attributes) {
+            return false;
+        }
+        $dirty = $element->getDirtyFields();
+        if (!$dirty) {
+            return true;
+        }
+        $stored = $this->_saving[spl_object_id($element)] ?? null;
+        if ($stored === null) {
+            return false;
+        }
+        foreach ($element->getSerializedFieldValues($dirty) as $handle => $value) {
+            if (!array_key_exists($handle, $stored) || Json::encode($stored[$handle]) !== Json::encode($value)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Clears pages tagged in templates with `craft.speedy.tag()`.
+     *
+     * @param string[] $names
+     */
+    public function clearCustomTags(array $names, string $reason): int
+    {
+        $tags = array_values(array_filter(array_map(fn($name) => \suprim\speedy\services\Cacher::customTag((string)$name), $names)));
+
+        return $tags ? $this->clearTags($tags, $reason) : 0;
+    }
+
+    /**
+     * After stock changes, from an order, a control panel edit or a transfer: clears the pages that show the
+     * product or variant, as Commerce doesn’t tell Craft its caches changed.
+     */
+    public function stockChanged(?ElementInterface $purchasable): void
+    {
+        if ($purchasable === null) {
+            return;
+        }
+        $id = (string)$purchasable->id;
+        if (!isset($this->_changed[$id]) && count($this->_reasons) < 3) {
+            $this->_reasons[] = Craft::t('speedy', 'Stock changed for “{title}”', ['title' => mb_strimwidth((string)$purchasable, 0, 60, '…')]);
+            $this->_changed[$id] = true;
+        }
+        Craft::$app->getElements()->invalidateCachesForElement($purchasable);
+        $owner = method_exists($purchasable, 'getOwner') ? $purchasable->getOwner() : null;
+        if ($owner instanceof ElementInterface) {
+            $this->_pending["element::$owner->id"] = true;
+        }
     }
 
     public function beginBulk(): void
@@ -192,8 +294,7 @@ class Clearer extends Component
      */
     public function clearUrl(string $url): int
     {
-        $parts = parse_url($url);
-        $key = Plugin::getInstance()->storage->key($parts['host'] ?? '', $parts['path'] ?? '');
+        $key = Plugin::getInstance()->storage->keyForUrl($url);
 
         return $key ? $this->clearKeys([$key], Craft::t('speedy', 'Cleared {url}', ['url' => $url])) : 0;
     }

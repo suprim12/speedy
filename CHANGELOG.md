@@ -14,6 +14,11 @@
 - Logged-in visitors, Commerce carts, pages that set cookies and pages with query strings aren’t cached.
 - Pages are only saved from requests without cookies of their own, so a made-up cookie can’t end up in the copy everyone gets. Analytics cookies are ignored, and more can be added with `ignoredCookies`.
 - Saving SEOmatic’s settings rebuilds every cached page in the background.
+- Saving without changes doesn’t clear pages, including control panel saves that send every field, and nor does saving a disabled entry that stays disabled.
+- Commerce stock changes clear the pages that show the product, from orders, control panel edits and transfers.
+- Replacing an asset’s file clears the old file and its transforms from the CDN.
+- Pages with query strings can be cached separately, for the parameters listed in `cachedParams`, such as `?page=2`.
+- `craft.speedy.tag()` names a page, to clear it with `speedy/clear --tag`, the API or PHP.
 - The cache folder can’t be opened directly on Apache, even without the server rules.
 - Clearing a page removes its empty folders.
 - Multi-page forms and flash messages are safe: visitors with something in their session get their own pages, never a cached step or someone else’s message.

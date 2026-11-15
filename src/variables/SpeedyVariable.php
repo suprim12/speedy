@@ -38,6 +38,15 @@ class SpeedyVariable
     }
 
     /**
+     * Names this page so it can be cleared by name, such as when data from outside Craft changes:
+     * `{% do craft.speedy.tag('weather') %}`, then `php craft speedy/clear --tag=weather`.
+     */
+    public function tag(string ...$names): void
+    {
+        Plugin::getInstance()->cacher->tag(...$names);
+    }
+
+    /**
      * Clears this page after a number of seconds, for content from outside Craft: `{% do craft.speedy.ttl(600) %}`.
      */
     public function ttl(int $seconds): void

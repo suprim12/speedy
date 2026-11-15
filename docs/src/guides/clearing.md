@@ -42,7 +42,16 @@ When an element is saved, deleted, restored, moved in a structure or has its URL
 ## What doesn’t clear pages
 
 - **Drafts, autosaves and revisions.** They never appear on the live site.
+- **Saves that change nothing.** Clicking Save twice, or saving an entry with the same values, leaves its pages alone. Speedy compares each field with what’s stored, as the control panel sends every field on each save. Saving a disabled entry that stays disabled doesn’t clear anything either, as it isn’t on any page. This covers entries, categories, Commerce products and users; other element types always clear. Turn it off with `'ignoreUnchangedSaves' => false`.
 - **Changes outside Craft,** such as an API, a feed or the database edited by hand. See [Pages with live data](/recipes/live-data).
+
+## Commerce stock
+
+Commerce changes stock without saving the product, so Craft doesn’t know the pages showing it changed. Speedy listens for every stock change, from orders, control panel edits and transfers between locations, and clears the pages that show the product or its variants. A product page never says “3 in stock” after the last one sold.
+
+## Replaced images
+
+Replacing an asset’s file keeps its address, so a CDN would keep sending the old image. Speedy clears the old file and each of its transforms from your CDN, as well as the pages that show it.
 
 ## Imports and bulk saves
 

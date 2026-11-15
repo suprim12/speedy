@@ -40,6 +40,8 @@ return [
 | `enabled` | `true` | Whether pages are cached |
 | `neverCache` | `[]` | URL paths never cached, such as `checkout/*`. On the settings page, one per line |
 | `queryStrings` | `'skip'` | `'skip'`: pages with a query string aren’t cached. `'ignore'`: they’re cached without it, for sites that never use query strings for content |
+| `cachedParams` | `[]` | Query parameters that make a page of their own, such as `['page', 'category']` ([Pagination and filters](/guides/not-cached#pagination-and-filters)) |
+| `ignoreUnchangedSaves` | `true` | Don’t clear pages when something is saved without changes ([How clearing works](/guides/clearing#what-doesn-t-clear-pages)) |
 | `ignoredParams` | `utm_*`, `gclid`, `fbclid`… | Tracking parameters that never stop a page being cached |
 | `skipWhenCart` | `true` | Don’t cache for visitors with a Commerce cart |
 | `skipCookies` | `[]` | Cookies that mean a visitor sees their own version of pages, matched by part of the name, such as `['cookie_consent']` ([What isn’t cached](/guides/not-cached#cookies-that-change-pages)) |

@@ -87,6 +87,12 @@ class Cacher extends Component
     /** Whether this request is rebuilding a page for Speedy itself (warming). */
     private bool $_warming = false;
 
+    /** @var array<string, string> The query parameters this page is cached with, from the `cachedParams` setting. */
+    private array $_query = [];
+
+    /** @var string[] Tags a template gave this page with `craft.speedy.tag()`. */
+    private array $_customTags = [];
+
     /** Whether the request has cookies that could change the page, so it’s built for this visitor alone. */
     private bool $_ownCookies = false;
 
@@ -156,6 +162,30 @@ class Cacher extends Component
     }
 
     /**
+     * For templates: `{% do craft.speedy.tag('weather') %}` lets the page be cleared by that name, from the console,
+     * the API or PHP, such as when data from outside Craft changes.
+     */
+    public function tag(string ...$names): void
+    {
+        foreach ($names as $name) {
+            $tag = self::customTag($name);
+            if ($tag !== null && !in_array($tag, $this->_customTags, true)) {
+                $this->_customTags[] = $tag;
+            }
+        }
+    }
+
+    /**
+     * The cache tag for a name given to `craft.speedy.tag()`, or null when it isn’t usable.
+     */
+    public static function customTag(string $name): ?string
+    {
+        $name = trim($name);
+
+        return $name !== '' && strlen($name) <= 100 ? 'speedy:' . strtolower($name) : null;
+    }
+
+    /**
      * For templates: `{% do craft.speedy.ttl(600) %}` clears this page after the given number of seconds.
      */
     public function ttl(int $seconds): void
@@ -183,8 +213,14 @@ class Cacher extends Component
             !$this->isSiteHost((string)$request->getHostName()) => 'unknown host',
             default => null,
         };
-        if ($reason === null && $settings->queryStrings === 'skip' && $this->remainingParams($request)) {
-            $reason = 'query string';
+        $this->_query = [];
+        if ($reason === null && $settings->queryStrings === 'skip' && ($params = $this->remainingParams($request))) {
+            $query = $this->cachedQuery($request, $params);
+            if ($query === null) {
+                $reason = 'query string';
+            } else {
+                $this->_query = $query;
+            }
         }
         $path = $request->getFullPath();
         if ($reason === null && $this->matchesAny($path, $settings->getNeverCache())) {
@@ -195,7 +231,7 @@ class Cacher extends Component
             return null;
         }
 
-        $key = Plugin::getInstance()->storage->key($request->getHostName() ?? '', $path);
+        $key = Plugin::getInstance()->storage->key($request->getHostName() ?? '', $path, $this->_query);
         if ($key === null) {
             $this->_skipReason = 'url';
         }
@@ -289,7 +325,7 @@ class Cacher extends Component
 
         if ($this->_ownCookies) {
             // Build the copy for everyone in the background, from a request without cookies.
-            $url = strtok(Craft::$app->getRequest()->getAbsoluteUrl(), '?');
+            $url = strtok(Craft::$app->getRequest()->getAbsoluteUrl(), '?') . ($this->_query ? '?' . http_build_query($this->_query) : '');
             if (Craft::$app->getCache()->add('speedy:building:' . md5((string)$this->_key), true, 60)) {
                 Plugin::getInstance()->warmer->queue([$url], false);
             }
@@ -307,7 +343,8 @@ class Cacher extends Component
             $html = $this->prepareHtml((string)$response->content);
             // The address as requested, without the query string. (Building it from the site’s base URL would
             // repeat a subfolder such as /de/ on multi-site.)
-            $url = strtok(Craft::$app->getRequest()->getAbsoluteUrl(), '?');
+            $url = strtok(Craft::$app->getRequest()->getAbsoluteUrl(), '?') . ($this->_query ? '?' . http_build_query($this->_query) : '');
+            $tags = array_merge($tags, $this->_customTags);
             $event = new CachePageEvent(['key' => $this->_key, 'url' => $url, 'html' => $html, 'tags' => $tags, 'expires' => $expires]);
             if ($this->hasEventHandlers(self::EVENT_BEFORE_CACHE)) {
                 $this->trigger(self::EVENT_BEFORE_CACHE, $event);
@@ -708,6 +745,29 @@ class Cacher extends Component
      *
      * @return string[]
      */
+    /**
+     * The query parameters to cache the page with, sorted, or null when any of them isn’t in `cachedParams`.
+     *
+     * @param string[] $params
+     * @return array<string, string>|null
+     */
+    private function cachedQuery(Request $request, array $params): ?array
+    {
+        $allowed = Plugin::getInstance()->getSettings()->cachedParams;
+        $query = [];
+        foreach ($params as $param) {
+            $value = $request->getQueryParam($param);
+            // One plain value each, so `?page[]=` and long values can’t make endless copies.
+            if (!$allowed || !$this->matchesAny((string)$param, $allowed) || !is_scalar($value) || strlen((string)$value) > 100) {
+                return null;
+            }
+            $query[(string)$param] = (string)$value;
+        }
+        ksort($query);
+
+        return $query;
+    }
+
     private function remainingParams(Request $request): array
     {
         $ignored = Plugin::getInstance()->getSettings()->ignoredParams;
