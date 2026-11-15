@@ -135,6 +135,19 @@ class Storage extends Component
     }
 
     /**
+     * How many cached pages use a tag.
+     */
+    public function countPagesForTag(string $tag): int
+    {
+        $file = $this->tagFile($tag);
+        if (!is_file($file)) {
+            return 0;
+        }
+
+        return count(array_filter(array_unique($this->readLines($file)), fn($k) => is_file($this->metaFile($k))));
+    }
+
+    /**
      * Pages whose expiry has passed.
      *
      * @return string[]

@@ -25,6 +25,6 @@ class ExpireJob extends BaseJob
 
     protected function defaultDescription(): ?string
     {
-        return Craft::t('speedy', 'Clearing pages with scheduled changes');
+        return Craft::t('speedy', 'Speedy Cache: clearing pages with scheduled changes');
     }
 }

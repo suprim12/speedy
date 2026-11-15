@@ -26,4 +26,8 @@
 - Background rebuilds reach your server even when a CDN keeps pages.
 - Settings page: what happens when content changes and after clearing everything, with a note on settings set in `config/speedy.php`.
 - Warnings and errors are written to `storage/logs/speedy.log`, rotated daily.
+- A list of cached pages on the utility page, searchable, with what each page depends on in plain words and a Clear button.
+- Checks and tips on the utility page: failed jobs, CDN errors, unwritable folders, pages that clear on every save, and more.
+- A Page cache line in the details of entries and other elements: cached or not, when, and how many cached pages show it.
+- A “Clear cached pages” action for entries, categories and Commerce products.
 - Console commands: `speedy/clear`, `speedy/warm`, `speedy/expire`, `speedy/status` and `speedy/server-rules`.

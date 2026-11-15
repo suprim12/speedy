@@ -35,6 +35,6 @@ class ClearJob extends BaseJob
 
     protected function defaultDescription(): ?string
     {
-        return Craft::t('speedy', 'Clearing cached pages');
+        return Craft::t('speedy', 'Speedy Cache: clearing pages');
     }
 }

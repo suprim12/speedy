@@ -61,7 +61,11 @@ class UtilityController extends Controller
 
     public function actionCheckServer(): ?Response
     {
+        $storage = Plugin::getInstance()->storage;
         $result = Plugin::getInstance()->serverRules->check();
+        $state = $storage->readData('state');
+        $state['serverChecked'] = $result['ok'];
+        $storage->writeData('state', $state);
 
         return $result['ok'] ? $this->asSuccess($result['message']) : $this->asFailure($result['message']);
     }

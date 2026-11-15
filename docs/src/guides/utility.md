@@ -11,6 +11,14 @@
 - **CloudFront paths this month,** when CloudFront is set up.
 - The last result from each CDN.
 
+## Checks and tips
+
+Under the totals, Speedy lists anything that needs attention, most important first:
+
+- **Problems:** a folder Speedy can’t write to, failed Speedy queue jobs, a CDN clear that failed.
+- **Checks:** caching turned off, `devMode` on in production, CloudFront close to its free paths.
+- **Tips:** your site is behind a CDN Speedy could clear, pages that clear whenever any entry is saved (a query without `.section()`), image transforms generated on first view, and server rules not checked yet.
+
 ## Actions
 
 | Button | What it does |
@@ -20,6 +28,22 @@
 | **Warm pages** | Builds the pages in your `warm` list now. Shown when `warm` is set |
 | **Check server serving** | Checks that the web server is serving cached pages without PHP. See [Server rules](/getting-started/server-rules) |
 | **Test Cloudflare / Test CloudFront** | Checks the CDN details. Shown when they’re set |
+
+## Cached pages
+
+Every cached page, sorted by URL, with a search box. For each page:
+
+- **Cached:** when it was built, and when it will be rebuilt for scheduled content.
+- **Clears when these change:** what the page depends on, in words: “Entries: News”, “Entry: Summer Sale”, “Any of: Entries”. A page with nothing listed only clears when everything is cleared, such as a page from a template with no entries.
+- **Clear:** clears that page.
+
+## On each entry
+
+The details panel of entries, categories, products and other elements with pages shows a **Page cache** line: whether its page is cached and when, or why it isn’t (caching off, or a **Never cache** pattern), and how many cached pages show it.
+
+## Clear from an element index
+
+Select entries, categories or Commerce products, and choose **Clear cached pages** from the actions menu. It clears every cached page that shows them. It needs the **Utilities → Speedy Cache** permission.
 
 ## Recent clears
 

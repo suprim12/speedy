@@ -37,7 +37,18 @@ class SpeedyUtility extends Utility
     {
         $plugin = Plugin::getInstance();
 
+        $request = Craft::$app->getRequest();
+        $search = (string)$request->getQueryParam('speedySearch', '');
+        $page = max(1, (int)$request->getQueryParam('speedyPage', 1));
+        $perPage = 50;
+        $list = $plugin->insights->pages($search, ($page - 1) * $perPage, $perPage);
+
         return Craft::$app->getView()->renderTemplate('speedy/_utility', [
+            'checks' => $plugin->insights->checks(),
+            'list' => $list,
+            'search' => $search,
+            'page' => $page,
+            'perPage' => $perPage,
             'settings' => $plugin->getSettings(),
             'stats' => $plugin->storage->stats(),
             'detected' => $plugin->cdn->detected(),

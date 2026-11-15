@@ -28,6 +28,17 @@
 		{% endif %}
 	</div>
 
+	{% if checks|length %}
+		<ul class="speedy-checks">
+			{% for check in checks %}
+				<li class="speedy-check speedy-check--{{ check.level }}">
+					<span class="speedy-check__dot" aria-hidden="true"></span>
+					<span><strong>{{ { error: 'Problem'|t('speedy'), warning: 'Check'|t('speedy'), hint: 'Tip'|t('speedy') }[check.level] }}</strong> {{ check.message|md(inlineOnly=true) }}</span>
+				</li>
+			{% endfor %}
+		</ul>
+	{% endif %}
+
 	<div class="speedy-actions">
 		<form method="post">
 			{{ csrfInput() }}{{ actionInput('speedy/utility/clear-all') }}
@@ -59,6 +70,58 @@
 	{% for cdn, last in cdnLast %}
 		<p class="{{ last.error ? 'error' : 'light' }}">{{ cdnNames[cdn] ?? cdn }}: {{ last.result }} · {{ last.time|datetime('short') }}</p>
 	{% endfor %}
+
+	<h2 id="speedy-pages">{{ 'Cached pages'|t('speedy') }}</h2>
+	<form method="get" class="flex speedy-search" action="{{ url('utilities/speedy') }}#speedy-pages">
+		<input type="search" name="speedySearch" value="{{ search }}" class="text" placeholder="{{ 'Search URLs'|t('speedy') }}" aria-label="{{ 'Search URLs'|t('speedy') }}" style="width: 320px;">
+		<button type="submit" class="btn">{{ 'Search'|t('speedy') }}</button>
+		<span class="light">{{ '{count, plural, =1{# page} other{# pages}}'|t('speedy', { count: list.total }) }}</span>
+	</form>
+	{% if list.pages|length %}
+		<table class="data fullwidth speedy-pages">
+			<thead><tr>
+				<th scope="col">{{ 'URL'|t('speedy') }}</th>
+				<th scope="col">{{ 'Cached'|t('speedy') }}</th>
+				<th scope="col">{{ 'Clears when these change'|t('speedy') }}</th>
+				<th scope="col"><span class="visually-hidden">{{ 'Actions'|t('speedy') }}</span></th>
+			</tr></thead>
+			<tbody>
+				{% for row in list.pages %}
+					{% set deps = row.deps %}
+					<tr>
+						<td><a href="{{ row.url }}" target="_blank" rel="noopener">{{ row.url|replace({ 'https://': '', 'http://': '' }) }}</a></td>
+						<td class="nowrap">
+							{{ row.created ? row.created|datetime('short') }}
+							{% if row.expires %}<div class="light smalltext">{{ 'Rebuilt {time}'|t('speedy', { time: row.expires|datetime('short') }) }}</div>{% endif %}
+						</td>
+						<td>
+							{% if deps|length %}
+								<details><summary class="light">{{ '{count, plural, =1{# thing} other{# things}}'|t('speedy', { count: deps|length }) }}</summary><ul class="speedy-deps">{% for dep in deps %}<li>{{ dep|raw }}</li>{% endfor %}</ul></details>
+							{% else %}
+								<span class="light">{{ 'Only a full clear'|t('speedy') }}</span>
+							{% endif %}
+						</td>
+						<td class="thin">
+							<form method="post">
+								{{ csrfInput() }}{{ actionInput('speedy/utility/clear-url') }}{{ hiddenInput('url', row.url) }}
+								<button type="submit" class="btn small">{{ 'Clear'|t('speedy') }}</button>
+							</form>
+						</td>
+					</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+		{% set pages = (list.total / perPage)|round(0, 'ceil') %}
+		{% if pages > 1 %}
+			<div class="flex speedy-pager">
+				{% if page > 1 %}<a class="btn small" href="{{ url('utilities/speedy', { speedySearch: search, speedyPage: page - 1 }) }}#speedy-pages">{{ 'Previous'|t('speedy') }}</a>{% endif %}
+				<span class="light">{{ 'Page {page} of {pages}'|t('speedy', { page: page, pages: pages }) }}</span>
+				{% if page < pages %}<a class="btn small" href="{{ url('utilities/speedy', { speedySearch: search, speedyPage: page + 1 }) }}#speedy-pages">{{ 'Next'|t('speedy') }}</a>{% endif %}
+			</div>
+		{% endif %}
+	{% else %}
+		<p class="zilch">{{ search ? 'No cached pages match.'|t('speedy') : 'No pages cached yet. They’re cached as visitors arrive.'|t('speedy') }}</p>
+	{% endif %}
 
 	<h2>{{ 'Recent clears'|t('speedy') }}</h2>
 	{% if log|length %}
@@ -99,4 +162,13 @@
 .speedy-actions .flex { gap: 8px; }
 .speedy-urls { font-size: 12px; color: var(--light-text-color, #606d7b); margin-top: 4px; }
 .speedy-code { background: #f3f7fc; padding: 12px 14px; border-radius: 6px; font-size: 12px; overflow-x: auto; white-space: pre; }
+.speedy-checks { list-style: none; margin: 0 0 20px; padding: 0; display: grid; gap: 6px; }
+.speedy-check { display: flex; gap: 10px; align-items: baseline; padding: 10px 14px; border-radius: 6px; background: var(--gray-050, #f3f7fc); }
+.speedy-check__dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--blue-500, #3b82f6); transform: translateY(-1px); }
+.speedy-check--error .speedy-check__dot { background: var(--red-500, #ef4444); }
+.speedy-check--warning .speedy-check__dot { background: var(--yellow-500, #eab308); }
+.speedy-search { gap: 8px; margin-bottom: 12px; }
+.speedy-deps { margin: 6px 0 0; padding-left: 18px; list-style: disc; font-size: 12px; }
+.speedy-pages td { vertical-align: top; }
+.speedy-pager { gap: 10px; margin-top: 12px; }
 {% endcss %}

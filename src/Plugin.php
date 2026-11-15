@@ -10,12 +10,17 @@
 namespace suprim\speedy;
 
 use Craft;
+use craft\base\Element;
+use craft\base\ElementInterface;
 use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
+use craft\events\DefineMetadataEvent;
 use craft\events\InvalidateElementCachesEvent;
 use craft\events\RegisterCacheOptionsEvent;
 use craft\events\RegisterComponentTypesEvent;
+use craft\events\RegisterElementActionsEvent;
 use craft\helpers\FileHelper;
+use craft\helpers\Html;
 use craft\log\MonologTarget;
 use craft\services\Elements;
 use craft\services\Utilities;
@@ -23,10 +28,12 @@ use craft\utilities\ClearCaches;
 use craft\web\Application as WebApplication;
 use craft\web\twig\variables\CraftVariable;
 use Psr\Log\LogLevel;
+use suprim\speedy\elements\actions\ClearPages;
 use suprim\speedy\models\Settings;
 use suprim\speedy\services\Cacher;
 use suprim\speedy\services\Cdn;
 use suprim\speedy\services\Clearer;
+use suprim\speedy\services\Insights;
 use suprim\speedy\services\Log;
 use suprim\speedy\services\ServerRules;
 use suprim\speedy\services\Storage;
@@ -47,6 +54,7 @@ use yii\queue\Queue;
  * @property-read Warmer $warmer
  * @property-read Log $log
  * @property-read ServerRules $serverRules
+ * @property-read Insights $insights
  * @method Settings getSettings()
  */
 class Plugin extends BasePlugin
@@ -65,6 +73,7 @@ class Plugin extends BasePlugin
                 'warmer' => Warmer::class,
                 'log' => Log::class,
                 'serverRules' => ServerRules::class,
+                'insights' => Insights::class,
             ],
         ];
     }
@@ -155,6 +164,45 @@ class Plugin extends BasePlugin
         Event::on(Utilities::class, Utilities::EVENT_REGISTER_UTILITIES, function(RegisterComponentTypesEvent $event) {
             $event->types[] = SpeedyUtility::class;
         });
+
+        // A “Speedy Cache” line in each element’s details, like its status and dates.
+        Event::on(Element::class, Element::EVENT_DEFINE_METADATA, function(DefineMetadataEvent $event) {
+            /** @var ElementInterface $element */
+            $element = $event->sender;
+            $event->metadata[Craft::t('speedy', 'Page cache')] = function() use ($element) {
+                $status = $this->insights->forElement($element);
+                if ($status === null) {
+                    return false;
+                }
+                $colour = match ($status['state']) {
+                    'cached' => 'green',
+                    'uncached' => 'orange',
+                    default => 'disabled',
+                };
+                $lines = [Html::tag('span', '', ['class' => ['status', $colour], 'role' => 'img', 'aria-hidden' => 'true']) . Html::encode($status['label'])];
+                if ($status['detail']) {
+                    $lines[] = Html::tag('span', Html::encode($status['detail']), ['class' => 'light smalltext']);
+                }
+                if ($status['pages']) {
+                    $lines[] = Html::tag('span', Html::encode(Craft::t('speedy', 'Shown on {count, plural, =1{# cached page} other{# cached pages}}', ['count' => $status['pages']])), ['class' => 'light smalltext']);
+                }
+
+                return Html::tag('div', implode('', array_map(fn($line) => Html::tag('div', $line), $lines)));
+            };
+        });
+
+        // “Clear cached pages” in the actions menu of element indexes, for elements with pages.
+        $types = [\craft\elements\Entry::class, \craft\elements\Category::class];
+        if (class_exists(\craft\commerce\elements\Product::class)) {
+            $types[] = \craft\commerce\elements\Product::class;
+        }
+        foreach ($types as $type) {
+            Event::on($type, Element::EVENT_REGISTER_ACTIONS, function(RegisterElementActionsEvent $event) {
+                if (Craft::$app->getUser()->checkPermission('utility:speedy')) {
+                    $event->actions[] = ClearPages::class;
+                }
+            });
+        }
 
         // Craft's Utilities → Caches can clear Speedy too.
         Event::on(ClearCaches::class, ClearCaches::EVENT_REGISTER_CACHE_OPTIONS, function(RegisterCacheOptionsEvent $event) {

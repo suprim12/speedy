@@ -31,6 +31,6 @@ class WarmJob extends BaseJob
 
     protected function defaultDescription(): ?string
     {
-        return $this->rebuild ? Craft::t('speedy', 'Rebuilding cleared pages') : Craft::t('speedy', 'Warming pages');
+        return $this->rebuild ? Craft::t('speedy', 'Speedy Cache: rebuilding changed pages') : Craft::t('speedy', 'Speedy Cache: warming pages');
     }
 }
