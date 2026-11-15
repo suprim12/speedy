@@ -183,7 +183,6 @@ class Plugin extends BasePlugin
             ['warmConcurrency', $s->warmConcurrency, Craft::t('speedy', 'How many pages are rebuilt at once.')],
             ['sitemap', $s->sitemap, Craft::t('speedy', 'The sitemap read when rebuilding everything.')],
             ['cacheComment', $s->cacheComment, Craft::t('speedy', 'Add a “Cached by Speedy Cache” comment to cached pages.')],
-            ['apiKey', $s->getApiKey() !== '' ? Craft::t('speedy', 'set') : Craft::t('speedy', 'not set'), Craft::t('speedy', 'For clearing and rebuilding over HTTP.')],
             ['cdnMaxAge', $s->cdnMaxAge, Craft::t('speedy', 'How long a CDN keeps pages, in seconds.')],
             ['wildcardThreshold', $s->wildcardThreshold, Craft::t('speedy', 'CloudFront: more paths than this are grouped into wildcards.')],
             ['cachePath', $s->cachePath, Craft::t('speedy', 'Where pages are saved.')],

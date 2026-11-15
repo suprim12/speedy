@@ -9,6 +9,7 @@
 
 namespace suprim\speedy\models;
 
+use Craft;
 use craft\base\Model;
 use craft\helpers\App;
 
@@ -159,6 +160,12 @@ class Settings extends Model
             [['warmConcurrency'], 'integer', 'min' => 1, 'max' => 10],
             [['wildcardThreshold'], 'integer', 'min' => 1],
             [['cdnMaxAge'], 'integer', 'min' => 0],
+            [['apiKey'], function(string $attribute) {
+                $key = $this->getApiKey();
+                if ($key !== '' && strlen($key) < 16) {
+                    $this->addError($attribute, Craft::t('speedy', 'Use at least 16 characters.'));
+                }
+            }],
         ];
     }
 }

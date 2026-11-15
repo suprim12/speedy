@@ -149,9 +149,34 @@
 
 </div>
 
-{# Config file -------------------------------------------------------------- #}
-<div id="config" class="hidden">
-<p class="speedy-intro">{{ 'Less common options are set in config/speedy.php. These are the values in use now.'|t('speedy') }} <a href="https://speedy.suprim.com.au/getting-started/configuration" target="_blank" rel="noopener">{{ 'All options'|t('speedy') }}</a></p>
+{# Advanced ----------------------------------------------------------------- #}
+<div id="advanced" class="hidden">
+{{ forms.autosuggestField({
+	label: 'API key'|t('speedy'),
+	instructions: 'Lets a deploy pipeline or another system clear and rebuild pages over HTTP. At least 16 characters; best kept in .env, such as $SPEEDY_API_KEY. Leave blank to turn the API off.'|t('speedy'),
+	id: 'apiKey',
+	name: 'apiKey',
+	value: settings.apiKey,
+	suggestEnvVars: true,
+	errors: settings.getErrors('apiKey'),
+	disabled: 'apiKey' in overrides,
+	warning: 'apiKey' in overrides ? configWarning('apiKey'),
+}) }}
+{% if 'apiKey' not in overrides %}
+	<p class="speedy-under"><a href="#" class="speedy-generate">{{ 'Generate a key'|t('speedy') }}</a></p>
+{% endif %}
+{% if settings.getApiKey() %}
+	<div class="field">
+		<div class="heading"><label>{{ 'Example'|t('speedy') }}</label></div>
+		<div class="instructions"><p>{{ 'Clears every page. See the docs for clearing some pages or rebuilding.'|t('speedy') }} <a href="https://speedy.suprim.com.au/guides/api" target="_blank" rel="noopener">{{ 'API docs'|t('speedy') }}</a></p></div>
+		<pre class="speedy-code"><code>curl -X POST {{ siteUrl(craft.app.config.general.actionTrigger ~ '/speedy/api/clear') }} \
+  -H "Authorization: Bearer $SPEEDY_API_KEY"</code></pre>
+	</div>
+{% endif %}
+
+<hr>
+<h3>{{ 'Set in config/speedy.php'|t('speedy') }}</h3>
+<p class="speedy-intro">{{ 'Less common options, with the values in use now.'|t('speedy') }} <a href="https://speedy.suprim.com.au/getting-started/configuration" target="_blank" rel="noopener">{{ 'All options'|t('speedy') }}</a></p>
 <table class="data fullwidth speedy-config">
 	<thead><tr><th scope="col">{{ 'Option'|t('speedy') }}</th><th scope="col">{{ 'Value'|t('speedy') }}</th><th scope="col">{{ 'What it does'|t('speedy') }}</th></tr></thead>
 	<tbody>
@@ -164,12 +189,6 @@
 		{% endfor %}
 	</tbody>
 </table>
-<pre class="speedy-code"><code>// config/speedy.php
-return [
-    'skipCookies' => ['cookie_consent'],
-    'defaultTtl' => 3600,
-    'apiKey' => '$SPEEDY_API_KEY',
-];</code></pre>
 </div>
 
 {% css %}
@@ -178,7 +197,8 @@ return [
 .speedy-status__item .light { margin-left: 6px; }
 .speedy-status .btn { margin-left: auto; }
 .speedy-config td { vertical-align: top; }
-.speedy-code { background: var(--gray-050, #f3f7fc); padding: 12px 14px; border-radius: 6px; font-size: 12px; margin-top: 20px; }
+.speedy-code { background: var(--gray-050, #f3f7fc); padding: 12px 14px; border-radius: 6px; font-size: 12px; margin: 0; white-space: pre-wrap; }
+.speedy-under { margin-top: -12px; margin-bottom: 24px; font-size: 13px; }
 .speedy-intro { max-width: 70ch; color: var(--light-text-color, #606d7b); margin-bottom: 20px; }
 .speedy-cdns { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
 .speedy-cdn { border: 1px solid var(--hairline-color, #e3e5e8); border-radius: 8px; padding: 18px 20px 20px; }
@@ -189,3 +209,16 @@ return [
 .speedy-pill--on { background: var(--green-100, #dcfce7); color: var(--green-700, #15803d); }
 .speedy-pill--seen { background: var(--blue-100, #dbeafe); color: var(--blue-700, #1d4ed8); }
 {% endcss %}
+
+{% js %}
+document.querySelectorAll('.speedy-generate').forEach(function (link) {
+	link.addEventListener('click', function (e) {
+		e.preventDefault();
+		var bytes = new Uint8Array(24);
+		crypto.getRandomValues(bytes);
+		var key = Array.from(bytes, function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+		var input = document.querySelector('input[name="settings[apiKey]"]');
+		if (input) { input.value = key; input.dispatchEvent(new Event('input', { bubbles: true })); input.focus(); }
+	});
+});
+{% endjs %}

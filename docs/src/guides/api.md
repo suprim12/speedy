@@ -4,19 +4,14 @@ Clear or rebuild pages over HTTP, from a deploy pipeline, another system that ch
 
 ## Turn it on
 
-Set a key of at least 16 characters, kept in `.env`:
+In **Settings → Plugins → Speedy Cache → Advanced**, click **Generate a key**, or enter your own of at least 16 characters, and save. To keep the key out of project config, put it in `.env` and enter `$SPEEDY_API_KEY` instead:
 
 ```bash
 # .env
 SPEEDY_API_KEY="a-long-random-string"
 ```
 
-```php
-// config/speedy.php
-'apiKey' => '$SPEEDY_API_KEY',
-```
-
-Without a key, the API answers 404.
+Without a key, the API answers 404. The Advanced tab shows a ready-to-copy request once a key is set.
 
 ## Requests
 
