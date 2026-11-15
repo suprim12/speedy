@@ -103,7 +103,9 @@ class Plugin extends BasePlugin
                 return;
             }
             // Control panel requests too, so logging in marks the visitor before they see the site.
-            Craft::$app->on(WebApplication::EVENT_AFTER_REQUEST, fn() => $this->cacher->markState());
+            // After the response is prepared (Craft renders templates then, so a form step or flash message has just
+            // been stored) and before its headers go out.
+            Event::on(\yii\web\Response::class, \yii\web\Response::EVENT_AFTER_PREPARE, fn() => $this->cacher->markState());
             if (Craft::$app->getRequest()->getIsSiteRequest()) {
                 $this->cacher->handleRequest();
             }

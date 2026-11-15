@@ -21,3 +21,4 @@ vercel.json export-ignore
 
 # Front-end source (built files ship in src/web/assets)
 resources/ export-ignore
+phpunit.xml.dist export-ignore

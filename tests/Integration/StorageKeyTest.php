@@ -1,0 +1,31 @@
+<?php
+
+namespace suprim\speedy\tests\Integration;
+
+use suprim\speedy\tests\TestCase;
+
+class StorageKeyTest extends TestCase
+{
+    public function testBuildsKeysFromHostAndPath(): void
+    {
+        $storage = $this->plugin()->storage;
+        $this->assertSame('example.com', $storage->key('Example.COM', '/'));
+        $this->assertSame('example.com/news/summer-sale', $storage->key('example.com', '/news/summer-sale/'));
+        $this->assertSame('localhost:8080/a', $storage->key('localhost:8080', 'a'));
+    }
+
+    /**
+     * Keys become folder names, so anything that could escape the cache folder is refused.
+     */
+    public function testRefusesUnsafeKeys(): void
+    {
+        $storage = $this->plugin()->storage;
+        $this->assertNull($storage->key('example.com', '/../etc/passwd'));
+        $this->assertNull($storage->key('example.com', '/a/./b'));
+        $this->assertNull($storage->key('example.com', "/a\0b"));
+        $this->assertNull($storage->key('example.com', '/a\\b'));
+        $this->assertNull($storage->key('example.com', '/a//b'));
+        $this->assertNull($storage->key('evil.com/../x', '/'));
+        $this->assertNull($storage->key('example.com', '/' . str_repeat('a', 401)));
+    }
+}

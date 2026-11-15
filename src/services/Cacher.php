@@ -66,6 +66,8 @@ class Cacher extends Component
     /** @var resource|null The lock held while this request builds its page. */
     private $_lock = null;
 
+    private bool $_stateChecked = false;
+
     /** The page whose build lock is held in Craft’s mutex, when pages are kept in Craft’s cache. */
     private ?string $_mutexKey = null;
 
@@ -375,6 +377,10 @@ class Cacher extends Component
      */
     public function markState(): void
     {
+        if ($this->_stateChecked) {
+            return;
+        }
+        $this->_stateChecked = true;
         $request = Craft::$app->getRequest();
         if (!$request instanceof Request) {
             return;
@@ -382,9 +388,14 @@ class Cacher extends Component
         $session = Craft::$app->getSession();
         $marked = $this->hasCookie($request, self::STATE_COOKIE);
         if (!$session->getIsActive()) {
-            if (!$marked || !$this->hasCookie($request, Craft::$app->getConfig()->getGeneral()->phpSessionName)) {
+            // Craft may have saved and closed the session already, which is exactly when a form step or flash
+            // message has just been stored. Reopen it by its ID to look: from the visitor’s cookie, or, for a
+            // session started during this request, from the cookie PHP is about to send.
+            $id = $this->sessionId(Craft::$app->getConfig()->getGeneral()->phpSessionName);
+            if ($id === null) {
                 return;
             }
+            $session->setId($id);
             $session->open();
         }
         $hasState = $this->sessionHasState(self::AMBIENT_SESSION_KEYS);
@@ -397,6 +408,23 @@ class Cacher extends Component
         } else {
             $cookies->remove(new \yii\web\Cookie(['name' => self::STATE_COOKIE]), true);
         }
+    }
+
+    /**
+     * The visitor’s session ID, from their cookie or from the session cookie this response is about to set.
+     */
+    private function sessionId(string $name): ?string
+    {
+        if (!empty($_COOKIE[$name]) && is_string($_COOKIE[$name])) {
+            return $_COOKIE[$name];
+        }
+        foreach (headers_list() as $header) {
+            if (preg_match('/^Set-Cookie:\s*' . preg_quote($name, '/') . '=([^;]+)/i', $header, $m)) {
+                return urldecode($m[1]);
+            }
+        }
+
+        return null;
     }
 
     /**

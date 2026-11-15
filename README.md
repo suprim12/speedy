@@ -67,6 +67,17 @@ return [
 ];
 ```
 
+## Running the tests
+
+The tests boot the Craft project Speedy Cache is installed in. From the project root, with PHPUnit installed in the project:
+
+```bash
+php vendor/bin/phpunit -c plugins/speedy/phpunit.xml.dist --testsuite unit,integration
+SPEEDY_TEST_URL=https://example.test php vendor/bin/phpunit -c plugins/speedy/phpunit.xml.dist   # real requests too
+```
+
+The http suite makes real requests, with its own temporary templates, so no other page cache plugin may be enabled.
+
 ## Support
 
 Documentation: [plugins.speedy.suprim.com.au](https://plugins.speedy.suprim.com.au). Questions and bugs: [support@suprim.com.au](mailto:support@suprim.com.au).

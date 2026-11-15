@@ -11,3 +11,5 @@ node_modules
 /docs/src/.vitepress/cache
 /docs/src/.vitepress/dist
 /docs/src/.vitepress/.temp
+
+/.phpunit.cache
