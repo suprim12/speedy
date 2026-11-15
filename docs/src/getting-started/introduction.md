@@ -10,7 +10,7 @@ Speedy Cache saves your Craft pages as static HTML files and sends those to visi
 - **Clearing you can trust.** Speedy uses Craft’s own cache tags, the same system as Craft’s `{% cache %}` tag. Saving an entry clears the pages that show it and the pages that list its section, and nothing else.
 - **No template changes.** Forms keep working: CSRF tokens are refreshed as the page loads. Logged-in visitors, carts and pages that set cookies are never cached.
 - **Served without PHP.** Add the rules Speedy writes for Nginx or Apache, and cached pages are sent by the web server in a millisecond or two.
-- **Cloudflare and CloudFront built in.** Speedy spots your CDN and clears it too.
+- **Cloudflare, CloudFront, Fastly, Bunny and Varnish built in.** Speedy spots your CDN and clears it too, and other plugins can add more.
 - **Plain-English log.** “Saved entry ‘Summer Sale’ → 12 pages”, so you can always see why a page changed.
 
 ## How a page is cached

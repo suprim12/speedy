@@ -5,7 +5,7 @@ const base = process.env.DOCS_BASE ?? '/'
 
 export default defineConfig({
   title: 'Speedy Cache',
-  description: 'Full-page caching for Craft CMS, with no database tables and Cloudflare and CloudFront built in',
+  description: 'Full-page caching for Craft CMS, with no database tables and Cloudflare, CloudFront, Fastly, Bunny and Varnish built in',
   base,
   cleanUrls: true,
 

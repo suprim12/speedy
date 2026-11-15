@@ -1,6 +1,6 @@
 {
   "name": "suprim/speedy",
-  "description": "Speedy Cache: full-page caching for Craft CMS that keeps your database clean, works with your templates as they are, and clears CloudFront and Cloudflare.",
+  "description": "Speedy Cache: full-page caching for Craft CMS that keeps your database clean, works with your templates as they are, and clears Cloudflare, CloudFront, Fastly, Bunny and Varnish.",
   "type": "craft-plugin",
   "license": "proprietary",
   "authors": [

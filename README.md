@@ -1,6 +1,6 @@
 # Speedy Cache for Craft CMS
 
-Full-page caching that works with your templates as they are, keeps your database clean, and clears Cloudflare and CloudFront when content changes.
+Full-page caching that works with your templates as they are, keeps your database clean, and clears Cloudflare, CloudFront, Fastly, Bunny and Varnish when content changes.
 
 ## Features
 
@@ -10,7 +10,7 @@ Full-page caching that works with your templates as they are, keeps your databas
 - **Never a slow first visit.** Cleared pages are rebuilt in the background before the old copy is replaced.
 - **Safe by default.** Logged-in visitors, carts, pages that set cookies and pages with query strings are never cached. Drafts and autosaves never clear live pages.
 - **Forms just work.** CSRF tokens on cached pages are refreshed automatically, with no template changes.
-- **Cloudflare and CloudFront built in.** Detected automatically and cleared when pages change. CloudFront paths are batched into wildcards to stay in the free tier.
+- **Cloudflare, CloudFront, Fastly, Bunny and Varnish built in.** Cleared when pages change, and other plugins can add more. CloudFront paths are batched into wildcards to stay in the free tier.
 - **Scheduled content.** Pages clear when a post goes live or expires.
 - **See why.** A plain-English log: “Saved entry ‘Summer Sale’ → 12 pages cleared”.
 

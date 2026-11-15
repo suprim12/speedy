@@ -96,7 +96,7 @@ const rulesCmd = 'php craft speedy/server-rules'
     <section class="sh-hero">
       <div class="sh-wrap sh-hero__head" data-reveal>
         <h1>Fast pages, cleared just right</h1>
-        <p class="sh-lead">Speedy Cache saves your Craft pages as static files and clears only the ones that change. No database tables, no template changes, and Cloudflare and CloudFront built in. Save something below and see what clears.</p>
+        <p class="sh-lead">Speedy Cache saves your Craft pages as static files and clears only the ones that change. No database tables, no template changes, and Cloudflare, CloudFront, Fastly, Bunny and Varnish built in. Save something below and see what clears.</p>
         <p class="sh-actions">
           <a class="sh-btn" :href="withBase('/getting-started/installation')">Get started</a>
           <a class="sh-link sh-link--light" :href="withBase('/guides/clearing')">How clearing works →</a>
@@ -196,7 +196,7 @@ Done resaving entries.
         </article>
         <article class="sh-cell sh-cell--flip" data-reveal>
           <div class="sh-cell__text"><h3>Two settings to start</h3><p>On, and URLs to never cache. CDN keys if you have one. Everything else has a sensible default.</p></div>
-          <img :src="withBase('/images/settings.jpg')" width="1600" height="1600" alt="Speedy Cache settings: Cache pages, Never cache, and the Cloudflare and CloudFront fields" loading="lazy">
+          <img :src="withBase('/images/settings.jpg')" width="1600" height="713" alt="Speedy Cache settings, General tab: caching on, never cache, and what happens when content changes" loading="lazy">
         </article>
       </div>
     </section>
