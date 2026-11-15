@@ -32,6 +32,7 @@ class ScheduledTest extends TestCase
             'sectionId' => $section->id,
             'typeId' => $section->getEntryTypes()[0]->id,
             'title' => 'Speedy test: goes live',
+            'slug' => 'speedy-test-goes-live-' . bin2hex(random_bytes(3)),
             'postDate' => new DateTime('-5 seconds'),
         ]);
         $this->assertTrue(Craft::$app->getElements()->saveElement($entry), json_encode($entry->getErrors()));

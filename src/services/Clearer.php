@@ -52,8 +52,8 @@ class Clearer extends Component
     private bool $_clearAll = false;
 
     /**
-     * @var array<int, array<string, mixed>|null> Elements being saved right now, by object, with their stored field
-     * values, so a save that changes nothing can be told apart.
+     * @var array<int, array{title: ?string, fields: array<string, mixed>}|null> Elements being saved right now, by
+     * object, with their stored title and field values, so a save that changes nothing can be told apart.
      */
     private array $_saving = [];
 
@@ -140,7 +140,7 @@ class Clearer extends Component
         if (Plugin::getInstance()->getSettings()->ignoreUnchangedSaves && \craft\helpers\ElementHelper::shouldTrackChanges($element) && !ElementHelper::isDraftOrRevision($element)) {
             // The control panel sends every field, so Craft marks them all as changed; compare with what’s stored.
             $original = $element::find()->id($element->id)->siteId($element->siteId)->status(null)->one();
-            $stored = $original?->getSerializedFieldValues();
+            $stored = $original ? ['title' => $original->title, 'fields' => $original->getSerializedFieldValues()] : null;
         }
         $this->_saving[spl_object_id($element)] = $stored;
     }
@@ -163,7 +163,13 @@ class Clearer extends Component
         if ($element->firstSave || $element->isNewForSite || $element->dateDeleted !== null || $element->duplicateOf !== null || $element->propagateAll) {
             return false;
         }
+        $stored = $this->_saving[spl_object_id($element)] ?? null;
         $attributes = $element->getDirtyAttributes();
+        // Older Craft 5 versions count the title as changed on every save (an empty title is stored as null), so
+        // compare it with what’s stored.
+        if ($stored !== null && (string)$element->title === (string)$stored['title']) {
+            $attributes = array_values(array_diff($attributes, ['title']));
+        }
         $statusChanged = (bool)array_intersect($attributes, ['enabled', 'enabledForSite', 'status', 'postDate', 'expiryDate']);
         if (!$statusChanged && $element->getStatus() === \craft\base\Element::STATUS_DISABLED) {
             // Disabled before and after: it isn’t on any page.
@@ -177,12 +183,11 @@ class Clearer extends Component
         if (!$dirty) {
             return true;
         }
-        $stored = $this->_saving[spl_object_id($element)] ?? null;
         if ($stored === null) {
             return false;
         }
         foreach ($element->getSerializedFieldValues($dirty) as $handle => $value) {
-            if (!array_key_exists($handle, $stored) || Json::encode($stored[$handle]) !== Json::encode($value)) {
+            if (!array_key_exists($handle, $stored['fields']) || Json::encode($stored['fields'][$handle]) !== Json::encode($value)) {
                 return false;
             }
         }
