@@ -163,6 +163,10 @@ class Queries extends Component
      */
     private function save(string $url, array $result): void
     {
+        // Most pages have no repeated queries and aren’t on the report: nothing to write.
+        if (!$result['repeated'] && !array_key_exists($url, Plugin::getInstance()->storage->readData('queries'))) {
+            return;
+        }
         $mutex = Craft::$app->getMutex();
         if (!$mutex->acquire('speedy:queries', 5)) {
             return;
