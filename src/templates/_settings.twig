@@ -5,6 +5,27 @@
 {%- endmacro %}
 {% from _self import configWarning %}
 
+{% set cdnNames = { cloudflare: 'Cloudflare', cloudfront: 'CloudFront' } %}
+{% set warmIsList = settings.warm is iterable %}
+
+{# Status ------------------------------------------------------------------- #}
+<div class="speedy-status">
+	<div class="speedy-status__item">
+		<span class="status {{ settings.isEnabled() ? 'green' : 'disabled' }}" aria-hidden="true"></span>
+		<span><strong>{{ settings.isEnabled() ? 'Caching on'|t('speedy') : 'Caching off'|t('speedy') }}</strong>
+		<span class="light">{{ '{count, plural, =1{# page} other{# pages}} cached'|t('speedy', { count: stats.pages }) }}</span></span>
+	</div>
+	<div class="speedy-status__item">
+		<span class="status {{ configured|length ? 'green' : (detected ? 'orange' : 'disabled') }}" aria-hidden="true"></span>
+		<span><strong>{{ detected ? cdnNames[detected] : 'No CDN seen'|t('speedy') }}</strong>
+		<span class="light">{{ configured|length ? 'Cleared automatically'|t('speedy') : (detected ? 'Add its details below'|t('speedy') : 'Optional'|t('speedy')) }}</span></span>
+	</div>
+	<a class="btn small" href="{{ url('utilities/speedy') }}">{{ 'Open Speedy Cache utility'|t('speedy') }}</a>
+</div>
+
+{# Caching ------------------------------------------------------------------ #}
+<h2 class="speedy-h">{{ 'Caching'|t('speedy') }}</h2>
+
 {{ forms.lightswitchField({
 	label: 'Cache pages'|t('speedy'),
 	instructions: 'Turn this off to stop caching, such as on dev.'|t('speedy'),
@@ -16,93 +37,132 @@
 
 {{ forms.textareaField({
 	label: 'Never cache'|t('speedy'),
-	instructions: 'One URL path per line. `*` matches anything, such as `checkout/*` or `account*`.'|t('speedy'),
+	instructions: 'One URL path per line. `*` matches anything.'|t('speedy'),
 	name: 'neverCache',
 	value: settings.getNeverCache()|join("\n"),
+	placeholder: "checkout/*\naccount*\nsearch",
 	rows: 4,
 	class: 'code',
 	disabled: 'neverCache' in overrides,
 	warning: 'neverCache' in overrides ? configWarning('neverCache'),
 }) }}
 
-{{ forms.selectField({
-	label: 'When content changes'|t('speedy'),
-	instructions: 'Rebuilding keeps the old copy until the new one is ready, so nobody waits.'|t('speedy'),
-	name: 'rebuildCleared',
-	options: [
-		{ label: 'Rebuild the changed pages in the background'|t('speedy'), value: '1' },
-		{ label: 'Remove the changed pages; the next visitor rebuilds them'|t('speedy'), value: '' },
-	],
-	value: settings.rebuildCleared ? '1' : '',
-	disabled: 'rebuildCleared' in overrides,
-	warning: 'rebuildCleared' in overrides ? configWarning('rebuildCleared'),
-}) }}
+<div class="flex-fields">
+	{{ forms.selectField({
+		label: 'When content changes'|t('speedy'),
+		instructions: 'Rebuilding keeps the old copy until the new one is ready, so nobody waits.'|t('speedy'),
+		fieldClass: 'width-50',
+		name: 'rebuildCleared',
+		options: [
+			{ label: 'Rebuild the changed pages in the background'|t('speedy'), value: '1' },
+			{ label: 'Remove them; the next visitor rebuilds them'|t('speedy'), value: '' },
+		],
+		value: settings.rebuildCleared ? '1' : '',
+		disabled: 'rebuildCleared' in overrides,
+		warning: 'rebuildCleared' in overrides ? configWarning('rebuildCleared'),
+	}) }}
+	{{ forms.selectField({
+		label: 'After clearing everything'|t('speedy'),
+		instructions: 'Such as after a deploy.'|t('speedy'),
+		fieldClass: 'width-50',
+		name: 'warm',
+		options: [
+			{ label: 'Rebuild every page in the sitemap'|t('speedy'), value: 'sitemap' },
+			{ label: 'Wait for visitors'|t('speedy'), value: '' },
+		]|merge(warmIsList ? [{ label: 'Rebuild the pages listed in config/speedy.php'|t('speedy'), value: 'list' }] : []),
+		value: warmIsList ? 'list' : (settings.warm == 'sitemap' ? 'sitemap' : ''),
+		disabled: 'warm' in overrides,
+		warning: 'warm' in overrides ? configWarning('warm'),
+	}) }}
+</div>
 
-{% set warmIsList = settings.warm is iterable %}
-{{ forms.selectField({
-	label: 'After clearing everything'|t('speedy'),
-	instructions: 'Such as after a deploy. A list of pages to warm can be set in config/speedy.php.'|t('speedy'),
-	name: 'warm',
-	options: [
-		{ label: 'Rebuild every page in the sitemap'|t('speedy'), value: 'sitemap' },
-		{ label: 'Wait for visitors'|t('speedy'), value: '' },
-	]|merge(warmIsList ? [{ label: 'Rebuild the pages listed in config/speedy.php'|t('speedy'), value: 'list' }] : []),
-	value: warmIsList ? 'list' : (settings.warm == 'sitemap' ? 'sitemap' : ''),
-	disabled: 'warm' in overrides,
-	warning: 'warm' in overrides ? configWarning('warm'),
-}) }}
+{# CDN ---------------------------------------------------------------------- #}
+<hr>
+<h2 class="speedy-h">{{ 'CDN'|t('speedy') }}</h2>
+<p class="speedy-intro">{{ 'Optional. With these set, your CDN keeps pages too and Speedy clears them when content changes. Without them, the CDN is told not to keep pages, so it never shows old ones. Use environment variables, such as $CLOUDFLARE_TOKEN.'|t('speedy') }}</p>
+
+<div class="speedy-cdns">
+	{% for cdn in ['cloudflare', 'cloudfront'] %}
+		<div class="speedy-cdn {{ detected == cdn ? 'speedy-cdn--seen' }}">
+			<div class="speedy-cdn__head">
+				<h3>{{ cdnNames[cdn] }}</h3>
+				{% if cdn in configured %}
+					<span class="speedy-pill speedy-pill--on">{{ 'Set up'|t('speedy') }}</span>
+				{% elseif detected == cdn %}
+					<span class="speedy-pill speedy-pill--seen">{{ 'Your site is behind it'|t('speedy') }}</span>
+				{% endif %}
+			</div>
+			{% if cdnLast[cdn] is defined %}
+				<p class="{{ cdnLast[cdn].error ? 'error' : 'light' }} smalltext">{{ cdnLast[cdn].result }} · {{ cdnLast[cdn].time|datetime('short') }}</p>
+			{% endif %}
+
+			{% if cdn == 'cloudflare' %}
+				{{ forms.autosuggestField({
+					label: 'API token'|t('speedy'),
+					instructions: 'With only the Zone → Cache Purge permission.'|t('speedy'),
+					name: 'cloudflareToken',
+					value: settings.cloudflareToken,
+					suggestEnvVars: true,
+					disabled: 'cloudflareToken' in overrides,
+					warning: 'cloudflareToken' in overrides ? configWarning('cloudflareToken'),
+				}) }}
+				{{ forms.autosuggestField({
+					label: 'Zone ID'|t('speedy'),
+					instructions: 'On the domain’s overview page.'|t('speedy'),
+					name: 'cloudflareZoneId',
+					value: settings.cloudflareZoneId,
+					suggestEnvVars: true,
+					disabled: 'cloudflareZoneId' in overrides,
+					warning: 'cloudflareZoneId' in overrides ? configWarning('cloudflareZoneId'),
+				}) }}
+			{% else %}
+				{{ forms.autosuggestField({
+					label: 'Distribution ID'|t('speedy'),
+					name: 'cloudfrontDistributionId',
+					value: settings.cloudfrontDistributionId,
+					suggestEnvVars: true,
+					disabled: 'cloudfrontDistributionId' in overrides,
+					warning: 'cloudfrontDistributionId' in overrides ? configWarning('cloudfrontDistributionId'),
+				}) }}
+				{{ forms.autosuggestField({
+					label: 'Access key ID'|t('speedy'),
+					instructions: 'Allowed only cloudfront:CreateInvalidation. Blank uses AWS_ACCESS_KEY_ID.'|t('speedy'),
+					name: 'awsAccessKeyId',
+					value: settings.awsAccessKeyId,
+					suggestEnvVars: true,
+					disabled: 'awsAccessKeyId' in overrides,
+					warning: 'awsAccessKeyId' in overrides ? configWarning('awsAccessKeyId'),
+				}) }}
+				{{ forms.autosuggestField({
+					label: 'Secret access key'|t('speedy'),
+					instructions: 'Blank uses AWS_SECRET_ACCESS_KEY.'|t('speedy'),
+					name: 'awsSecretAccessKey',
+					value: settings.awsSecretAccessKey,
+					suggestEnvVars: true,
+					disabled: 'awsSecretAccessKey' in overrides,
+					warning: 'awsSecretAccessKey' in overrides ? configWarning('awsSecretAccessKey'),
+				}) }}
+			{% endif %}
+		</div>
+	{% endfor %}
+</div>
 
 <hr>
+<p class="light">{{ 'Query strings, cookies, the API key and other options are in config/speedy.php.'|t('speedy') }} <a href="https://speedy.suprim.com.au/getting-started/configuration" target="_blank" rel="noopener">{{ 'All options'|t('speedy') }}</a></p>
 
-<h2>{{ 'CDN'|t('speedy') }}</h2>
-{% if detected %}
-	<p>{{ 'Your site was last seen behind {cdn}.'|t('speedy', { cdn: detected == 'cloudfront' ? 'CloudFront' : 'Cloudflare' }) }}</p>
-{% endif %}
-<p class="light">{{ 'Optional. With these set, Speedy lets your CDN keep pages too and clears it when content changes. Without them, the CDN is told not to keep pages, so it never shows old ones. Use environment variables, such as $CLOUDFLARE_TOKEN.'|t('speedy') }}</p>
-
-{{ forms.autosuggestField({
-	label: 'Cloudflare API token'|t('speedy'),
-	instructions: 'A token with only the Zone → Cache Purge permission.'|t('speedy'),
-	name: 'cloudflareToken',
-	value: settings.cloudflareToken,
-	suggestEnvVars: true,
-	disabled: 'cloudflareToken' in overrides,
-	warning: 'cloudflareToken' in overrides ? configWarning('cloudflareToken'),
-}) }}
-{{ forms.autosuggestField({
-	label: 'Cloudflare zone ID'|t('speedy'),
-	instructions: 'On the domain’s overview page in Cloudflare.'|t('speedy'),
-	name: 'cloudflareZoneId',
-	value: settings.cloudflareZoneId,
-	suggestEnvVars: true,
-	disabled: 'cloudflareZoneId' in overrides,
-	warning: 'cloudflareZoneId' in overrides ? configWarning('cloudflareZoneId'),
-}) }}
-{{ forms.autosuggestField({
-	label: 'CloudFront distribution ID'|t('speedy'),
-	name: 'cloudfrontDistributionId',
-	value: settings.cloudfrontDistributionId,
-	suggestEnvVars: true,
-	disabled: 'cloudfrontDistributionId' in overrides,
-	warning: 'cloudfrontDistributionId' in overrides ? configWarning('cloudfrontDistributionId'),
-}) }}
-{{ forms.autosuggestField({
-	label: 'AWS access key ID'|t('speedy'),
-	instructions: 'For a user allowed only cloudfront:CreateInvalidation. Leave blank to use AWS_ACCESS_KEY_ID.'|t('speedy'),
-	name: 'awsAccessKeyId',
-	value: settings.awsAccessKeyId,
-	suggestEnvVars: true,
-	disabled: 'awsAccessKeyId' in overrides,
-	warning: 'awsAccessKeyId' in overrides ? configWarning('awsAccessKeyId'),
-}) }}
-{{ forms.autosuggestField({
-	label: 'AWS secret access key'|t('speedy'),
-	instructions: 'Leave blank to use AWS_SECRET_ACCESS_KEY.'|t('speedy'),
-	name: 'awsSecretAccessKey',
-	value: settings.awsSecretAccessKey,
-	suggestEnvVars: true,
-	disabled: 'awsSecretAccessKey' in overrides,
-	warning: 'awsSecretAccessKey' in overrides ? configWarning('awsSecretAccessKey'),
-}) }}
-
-<p class="light">{{ 'Query strings, cookies and other options are in config/speedy.php. Status and actions are in Utilities → Speedy Cache.'|t('speedy') }}</p>
+{% css %}
+.speedy-status { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; padding: 14px 18px; margin-bottom: 28px; border-radius: 8px; background: var(--gray-050, #f3f7fc); }
+.speedy-status__item { display: flex; align-items: baseline; gap: 8px; }
+.speedy-status__item .light { margin-left: 6px; }
+.speedy-status .btn { margin-left: auto; }
+.speedy-h { margin-bottom: 14px; }
+.speedy-intro { max-width: 70ch; color: var(--light-text-color, #606d7b); margin-bottom: 20px; }
+.speedy-cdns { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.speedy-cdn { border: 1px solid var(--hairline-color, #e3e5e8); border-radius: 8px; padding: 18px 20px 20px; }
+.speedy-cdn--seen { border-color: var(--blue-300, #93c5fd); }
+.speedy-cdn__head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.speedy-cdn__head h3 { margin: 0; }
+.speedy-pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+.speedy-pill--on { background: var(--green-100, #dcfce7); color: var(--green-700, #15803d); }
+.speedy-pill--seen { background: var(--blue-100, #dbeafe); color: var(--blue-700, #1d4ed8); }
+{% endcss %}

@@ -136,6 +136,9 @@ class Plugin extends BasePlugin
             'settings' => $this->getSettings(),
             'overrides' => array_keys(Craft::$app->getConfig()->getConfigFromFile('speedy')),
             'detected' => $this->cdn->detected(),
+            'configured' => $this->cdn->configured(),
+            'cdnLast' => $this->cdn->lastResults(),
+            'stats' => $this->storage->stats(),
         ]);
     }
 
