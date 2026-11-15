@@ -55,6 +55,17 @@ export default defineConfig({
         ],
       },
       {
+        text: 'Examples',
+        items: [
+          { text: 'All examples', link: '/examples/' },
+          { text: 'Cart count in the header', link: '/examples/cart-count' },
+          { text: 'Form in the footer', link: '/examples/footer-form' },
+          { text: 'Contact form', link: '/examples/contact-form' },
+          { text: 'Live data', link: '/examples/live-data' },
+          { text: 'Cache status bar', link: '/examples/status-bar' },
+        ],
+      },
+      {
         text: 'Recipes',
         items: [
           { text: 'Deploy Script', link: '/recipes/deploy' },
