@@ -202,11 +202,47 @@ class Storage extends Component
      */
     public function clearAll(): void
     {
+        // Moving a folder is instant however many pages it holds, so clearing never times out half-way.
+        // The old files are deleted afterwards, by deleteTrash().
+        $moved = false;
         foreach ([$this->cacheRoot(), $this->dataRoot() . '/meta', $this->dataRoot() . '/tags', $this->dataRoot() . '/expiry'] as $dir) {
-            if (is_dir($dir)) {
+            if (!is_dir($dir)) {
+                continue;
+            }
+            $trash = $this->dataRoot() . '/trash/' . bin2hex(random_bytes(6));
+            FileHelper::createDirectory(dirname($trash));
+            if (@rename($dir, $trash)) {
+                $moved = true;
+            } else {
+                // A different disk, such as a cache folder on shared storage: delete it now instead.
                 FileHelper::removeDirectory($dir);
             }
         }
+        if ($moved) {
+            \craft\helpers\Queue::push(new \suprim\speedy\jobs\DeleteTrashJob(), 2048);
+        }
+    }
+
+    /**
+     * Deletes folders moved aside by clearAll().
+     */
+    public function deleteTrash(): void
+    {
+        $dir = $this->dataRoot() . '/trash';
+        if (is_dir($dir)) {
+            FileHelper::removeDirectory($dir);
+        }
+    }
+
+    /**
+     * A lock file for building a page, so visitors who arrive together don’t all build it.
+     */
+    public function lockFile(string $key): string
+    {
+        $file = $this->dataRoot() . '/locks/' . md5($key) . '.lock';
+        FileHelper::createDirectory(dirname($file));
+
+        return $file;
     }
 
     /**

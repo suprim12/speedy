@@ -56,6 +56,15 @@ Some changes clear every page:
 - **Speedy Cache pages** in **Utilities → Caches**;
 - changes Craft treats as affecting everything, such as clearing all of Craft’s caches.
 
+## Busy sites
+
+Clearing everything on a busy site means every visitor builds pages at once. Speedy keeps that safe:
+
+- **One build per page.** When many visitors ask for the same page before it’s cached, one request builds it and the others wait a moment for that copy, rather than every one of them running the template and its queries.
+- **Clearing is instant.** The cache folder is moved aside in one step and deleted afterwards in the background, so clearing never times out half-way, however many pages there are.
+- **Rebuild instead of clear.** **Rebuild all pages**, or `php craft speedy/clear --rebuild`, rebuilds every page in the background while visitors keep getting the old copies.
+- **Gentle rebuilds.** Pages are rebuilt two at a time (`warmConcurrency`), so rebuilding never floods your own server.
+
 ## Why per section, not per query
 
 Speedy records that a page lists the News section, not the exact query (“the 3 newest News entries”). So saving an old News entry also clears `/news`, even if that entry wasn’t in the top 3.

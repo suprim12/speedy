@@ -60,6 +60,12 @@ class Cacher extends Component
 
     private bool $_collecting = false;
 
+    /** @var resource|null The lock held while this request builds its page. */
+    private $_lock = null;
+
+    /** How long a visitor waits for another request to finish building the same page, in seconds. */
+    private const BUILD_WAIT = 5;
+
     /** Whether this request is rebuilding a page for Speedy itself (warming). */
     private bool $_warming = false;
 
@@ -91,6 +97,12 @@ class Cacher extends Component
         Plugin::getInstance()->cdn->detect($request);
 
         if (!$this->_warming && $this->serve($this->_key)) {
+            return;
+        }
+
+        // When many visitors ask for the same uncached page at once, such as just after clearing everything,
+        // one builds it and the others wait for that copy, instead of every one of them building it.
+        if (!$this->_warming && !$this->lockOrWait($this->_key) && $this->serve($this->_key)) {
             return;
         }
 
@@ -197,6 +209,15 @@ class Cacher extends Component
             return;
         }
         $this->_collecting = false;
+        try {
+            $this->storeResponse($response);
+        } finally {
+            $this->unlock();
+        }
+    }
+
+    private function storeResponse(Response $response): void
+    {
         $elements = Craft::$app->getElements();
         // Craft caps the duration at its cacheDuration setting (a day by default) when nothing is scheduled.
         // Speedy only wants real scheduled changes, such as an entry going live, so it reads them first.
@@ -365,6 +386,49 @@ class Cacher extends Component
         }
 
         return false;
+    }
+
+    /**
+     * Takes the build lock for a page. When another request holds it, waits for that request to save the page and
+     * returns false, so the caller can serve it; if it takes too long, the caller builds the page itself.
+     */
+    private function lockOrWait(string $key): bool
+    {
+        $handle = @fopen(Plugin::getInstance()->storage->lockFile($key), 'c');
+        if ($handle === false) {
+            return true;
+        }
+        if (flock($handle, LOCK_EX | LOCK_NB)) {
+            $this->_lock = $handle;
+            return true;
+        }
+        $file = Plugin::getInstance()->storage->htmlFile($key);
+        $until = microtime(true) + self::BUILD_WAIT;
+        while (microtime(true) < $until) {
+            usleep(100000);
+            clearstatcache(true, $file);
+            if (is_file($file)) {
+                fclose($handle);
+                return false;
+            }
+            if (flock($handle, LOCK_EX | LOCK_NB)) {
+                // The other request finished without saving the page, such as a 404. Build it here.
+                $this->_lock = $handle;
+                return true;
+            }
+        }
+        fclose($handle);
+
+        return true;
+    }
+
+    private function unlock(): void
+    {
+        if ($this->_lock) {
+            flock($this->_lock, LOCK_UN);
+            fclose($this->_lock);
+            $this->_lock = null;
+        }
     }
 
     /**

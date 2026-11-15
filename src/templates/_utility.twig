@@ -44,6 +44,10 @@
 			{{ csrfInput() }}{{ actionInput('speedy/utility/clear-all') }}
 			<button type="submit" class="btn submit">{{ 'Clear all pages'|t('speedy') }}</button>
 		</form>
+		<form method="post">
+			{{ csrfInput() }}{{ actionInput('speedy/utility/rebuild-all') }}
+			<button type="submit" class="btn" title="{{ 'Visitors keep getting the old copies until the new ones are ready.'|t('speedy') }}">{{ 'Rebuild all pages'|t('speedy') }}</button>
+		</form>
 		<form method="post" class="flex">
 			{{ csrfInput() }}{{ actionInput('speedy/utility/clear-url') }}
 			<input type="url" name="url" class="text" placeholder="https://…" aria-label="{{ 'URL to clear'|t('speedy') }}" required style="width: 320px;">

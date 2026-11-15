@@ -160,6 +160,13 @@ class Insights extends Component
                 $add('error', Craft::t('speedy', 'Speedy can’t write to {dir}.', ['dir' => $dir]));
             }
         }
+        // Other full-page caches; getPlugin() only returns enabled ones.
+        foreach (['blitz'] as $handle) {
+            $other = Craft::$app->getPlugins()->getPlugin($handle);
+            if ($other) {
+                $add('error', Craft::t('speedy', '{plugin} is enabled too. Two page caches fight: it marks pages as not cacheable, so Speedy can’t cache them. Use one.', ['plugin' => $other->name]));
+            }
+        }
         $failed = $this->failedJobs();
         if ($failed) {
             $add('error', Craft::t('speedy', '{count, plural, =1{# Speedy queue job has} other{# Speedy queue jobs have}} failed. See Utilities → Queue Manager.', ['count' => $failed]));

@@ -7,7 +7,16 @@ php craft up
 php craft speedy/clear
 ```
 
-`speedy/clear` also clears your CDN, and queues a warm job for your `warm` list. To warm during the deploy instead, so the site is fast the moment it goes live:
+`speedy/clear` also clears your CDN, and queues a warm job for your `warm` list.
+
+On a busy site, rebuild instead, so visitors keep getting the old pages until the new ones are ready:
+
+```bash
+php craft up
+php craft speedy/clear --rebuild
+```
+
+Use `speedy/clear` when the old pages mustn’t be shown at all, such as after removing content for legal reasons. To warm during the deploy instead, so the site is fast the moment it goes live:
 
 ```bash
 php craft up

@@ -31,4 +31,7 @@
 - A Page cache line in the details of entries and other elements: cached or not, when, and how many cached pages show it.
 - A “Clear cached pages” action for entries, categories and Commerce products.
 - Works with Formie: pages showing a form aren’t cached, and seeing a form doesn’t stop the visitor getting cached copies of other pages.
+- When many visitors ask for the same uncached page at once, one request builds it and the others wait for that copy.
+- Clearing everything is instant however many pages there are; old files are deleted in the background.
+- Rebuild all pages, from the utility page or `speedy/clear --rebuild`, keeping the old copies until the new ones are ready.
 - Console commands: `speedy/clear`, `speedy/warm`, `speedy/expire`, `speedy/status` and `speedy/server-rules`.

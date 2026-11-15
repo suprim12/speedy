@@ -19,6 +19,7 @@ use yii\console\ExitCode;
  *
  *   php craft speedy/clear
  *   php craft speedy/clear --url=https://example.com/news
+ *   php craft speedy/clear --rebuild
  */
 class ClearController extends Controller
 {
@@ -27,9 +28,12 @@ class ClearController extends Controller
     /** @var string|null One URL to clear. */
     public ?string $url = null;
 
+    /** @var bool Rebuild every page in the background instead, keeping the old copies until the new ones are ready. */
+    public bool $rebuild = false;
+
     public function options($actionID): array
     {
-        return array_merge(parent::options($actionID), ['url']);
+        return array_merge(parent::options($actionID), ['url', 'rebuild']);
     }
 
     public function actionIndex(): int
@@ -38,6 +42,11 @@ class ClearController extends Controller
         if ($this->url) {
             $count = $clearer->clearUrl($this->url);
             $this->stdout($count ? "Cleared {$this->url}.\n" : "{$this->url} wasn’t cached.\n", Console::FG_GREEN);
+            return ExitCode::OK;
+        }
+        if ($this->rebuild) {
+            $count = $clearer->rebuildAll('Rebuilding everything, from the command line');
+            $this->stdout("Rebuilding $count pages in the background. Visitors get the old copies until then.\n", Console::FG_GREEN);
             return ExitCode::OK;
         }
         $clearer->clearAll('Cleared from the command line');

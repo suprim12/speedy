@@ -189,6 +189,26 @@ class Clearer extends Component
     }
 
     /**
+     * Rebuilds every cached page in the background. Visitors keep getting the old copies until the new ones are
+     * ready, so it’s the gentle way to refresh a busy site, such as after a deploy.
+     */
+    public function rebuildAll(string $reason): int
+    {
+        $plugin = Plugin::getInstance();
+        $urls = [];
+        foreach ($plugin->storage->allKeys() as $key) {
+            $url = $plugin->storage->meta($key)['url'] ?? null;
+            if ($url) {
+                $urls[] = $url;
+            }
+        }
+        $plugin->warmer->queue($urls, true);
+        $plugin->log->add($reason, count($urls), $urls);
+
+        return count($urls);
+    }
+
+    /**
      * Clears pages whose scheduled content has gone live or expired.
      */
     public function clearExpired(): int

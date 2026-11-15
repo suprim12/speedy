@@ -39,6 +39,13 @@ class UtilityController extends Controller
         return $this->asSuccess(Craft::t('speedy', 'Every cached page was cleared.'));
     }
 
+    public function actionRebuildAll(): ?Response
+    {
+        $count = Plugin::getInstance()->clearer->rebuildAll(Craft::t('speedy', 'Rebuilding everything, by {user}', ['user' => (string)Craft::$app->getUser()->getIdentity()]));
+
+        return $this->asSuccess(Craft::t('speedy', 'Rebuilding {count, plural, =1{# page} other{# pages}} in the background.', ['count' => $count]));
+    }
+
     public function actionClearUrl(): ?Response
     {
         $url = trim((string)$this->request->getRequiredBodyParam('url'));

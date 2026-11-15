@@ -15,7 +15,7 @@
 
 Under the totals, Speedy lists anything that needs attention, most important first:
 
-- **Problems:** a folder Speedy can’t write to, failed Speedy queue jobs, a CDN clear that failed.
+- **Problems:** another page-cache plugin enabled at the same time, a folder Speedy can’t write to, failed Speedy queue jobs, a CDN clear that failed.
 - **Checks:** caching turned off, `devMode` on in production, CloudFront close to its free paths.
 - **Tips:** your site is behind a CDN Speedy could clear, pages that clear whenever any entry is saved (a query without `.section()`), image transforms generated on first view, and server rules not checked yet.
 
@@ -24,6 +24,7 @@ Under the totals, Speedy lists anything that needs attention, most important fir
 | Button | What it does |
 |---|---|
 | **Clear all pages** | Removes every cached page, clears your CDN, then warms the pages you listed |
+| **Rebuild all pages** | Rebuilds every cached page in the background. Visitors keep getting the old copies until the new ones are ready, so a busy site never has a moment with nothing cached |
 | **Clear URL** | Clears one page, such as `https://example.com/news` |
 | **Warm pages** | Builds the pages in your `warm` list now. Shown when `warm` is set |
 | **Check server serving** | Checks that the web server is serving cached pages without PHP. See [Server rules](/getting-started/server-rules) |
