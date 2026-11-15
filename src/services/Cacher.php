@@ -36,6 +36,12 @@ class Cacher extends Component
     /** Response headers saved with a page and sent again when PHP serves it. */
     private const KEPT_HEADERS = ['X-Robots-Tag', 'Content-Language', 'Link', 'Content-Security-Policy', 'Referrer-Policy', 'Permissions-Policy', 'X-Frame-Options', 'X-Content-Type-Options'];
 
+    /**
+     * Session keys some plugins set for every visitor who sees a form, such as Formie’s. Pages that show them aren’t
+     * cached, but they don’t stop the visitor getting cached copies of other pages.
+     */
+    private const AMBIENT_SESSION_KEYS = ['formie:authority'];
+
     /** Request headers sent by Ajax libraries, whose requests often get a partial page at the same URL. */
     private const AJAX_HEADERS = ['X-Requested-With', 'HX-Request', 'X-Up-Target'];
 
@@ -326,7 +332,7 @@ class Cacher extends Component
             }
             $session->open();
         }
-        $hasState = $this->sessionHasState();
+        $hasState = $this->sessionHasState(self::AMBIENT_SESSION_KEYS);
         if ($hasState === $marked) {
             return;
         }
@@ -340,8 +346,10 @@ class Cacher extends Component
 
     /**
      * Whether this visitor’s session holds anything, such as a form step or a flash message.
+     *
+     * @param string[] $alsoIgnore
      */
-    private function sessionHasState(): bool
+    private function sessionHasState(array $alsoIgnore = []): bool
     {
         $session = Craft::$app->getSession();
         if (!$session->getIsActive()) {
@@ -349,7 +357,7 @@ class Cacher extends Component
         }
         // Flash messages are stored as their own keys; the flash key only counts them. The CSRF token is kept in
         // the session when Craft’s enableCsrfCookie is off, and Speedy refreshes it on cached pages anyway.
-        $ignored = [$session->flashParam, Craft::$app->getRequest()->csrfParam];
+        $ignored = [$session->flashParam, Craft::$app->getRequest()->csrfParam, ...$alsoIgnore];
         foreach ($_SESSION ?? [] as $name => $value) {
             if (!in_array($name, $ignored, true) && $value !== null) {
                 return true;

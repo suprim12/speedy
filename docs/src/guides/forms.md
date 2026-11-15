@@ -29,3 +29,13 @@ Craft’s <code v-pre>{{ csrfInput({ async: true }) }}</code> works too: Craft f
 ## Turning it off
 
 Set `refreshCsrf` to `false` in `config/speedy.php`. Pages with CSRF tokens are then not cached, as Craft marks them `no-store`.
+
+## Formie
+
+Formie keeps each visitor’s progress through a form, and its “Thanks” message, on the server, linked to the visitor’s session. So:
+
+- **Pages that show a Formie form aren’t cached** (`X-Speedy: SKIP session`). A cached copy could show one visitor’s step or message to someone else.
+- **Seeing a form doesn’t affect other pages.** The visitor still gets cached copies of every other page.
+- **After submitting,** the visitor gets fresh pages until the confirmation has been shown.
+
+To cache a page that has a form on it, such as a newsletter sign-up in the footer, load the form with JavaScript from a page in **Never cache**, or use Formie’s Ajax submission with the form on its own page.

@@ -30,4 +30,5 @@
 - Checks and tips on the utility page: failed jobs, CDN errors, unwritable folders, pages that clear on every save, and more.
 - A Page cache line in the details of entries and other elements: cached or not, when, and how many cached pages show it.
 - A “Clear cached pages” action for entries, categories and Commerce products.
+- Works with Formie: pages showing a form aren’t cached, and seeing a form doesn’t stop the visitor getting cached copies of other pages.
 - Console commands: `speedy/clear`, `speedy/warm`, `speedy/expire`, `speedy/status` and `speedy/server-rules`.
