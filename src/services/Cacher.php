@@ -379,7 +379,7 @@ class Cacher extends Component
             return $html;
         }
         $html = str_replace($token, self::CSRF_PLACEHOLDER, $html);
-        $script = '<script>(function(){var p=' . json_encode(self::CSRF_PLACEHOLDER) . ';fetch(' . json_encode(UrlHelper::actionUrl('speedy/csrf')) . ',{headers:{Accept:"application/json"},credentials:"same-origin"}).then(function(r){return r.json()}).then(function(d){document.querySelectorAll("input[value=\'"+p+"\']").forEach(function(i){i.value=d.token});document.querySelectorAll("meta[content=\'"+p+"\']").forEach(function(m){m.content=d.token});window.csrfTokenValue=d.token})})();</script>';
+        $script = '<script>(function(){var p=' . json_encode(self::CSRF_PLACEHOLDER) . ';fetch(' . json_encode(self::relativeActionUrl('speedy/csrf')) . ',{headers:{Accept:"application/json"},credentials:"same-origin"}).then(function(r){return r.json()}).then(function(d){document.querySelectorAll("input[value=\'"+p+"\']").forEach(function(i){i.value=d.token});document.querySelectorAll("meta[content=\'"+p+"\']").forEach(function(m){m.content=d.token});window.csrfTokenValue=d.token})})();</script>';
 
         return str_contains($html, '</body>') ? substr_replace($html, $script . '</body>', strrpos($html, '</body>'), 7) : $html . $script;
     }
@@ -605,6 +605,18 @@ class Cacher extends Component
         }
 
         return false;
+    }
+
+    /**
+     * An action URL without the scheme and host, so cached pages work on every address the site answers on, such as
+     * with and without www, or a CDN’s hostname.
+     */
+    public static function relativeActionUrl(string $action): string
+    {
+        $url = UrlHelper::actionUrl($action);
+        $parts = parse_url($url);
+
+        return ($parts['path'] ?? '/') . (isset($parts['query']) ? '?' . $parts['query'] : '');
     }
 
     private function isWarmRequest(Request $request): bool

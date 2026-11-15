@@ -13,7 +13,6 @@ use Craft;
 use craft\base\Component;
 use craft\helpers\Html;
 use craft\helpers\Json;
-use craft\helpers\UrlHelper;
 use craft\web\View;
 use suprim\speedy\Plugin;
 use Twig\Markup;
@@ -77,7 +76,7 @@ class Dynamic extends Component
      */
     private function loaderScript(): string
     {
-        $url = Json::encode(UrlHelper::actionUrl('speedy/dynamic/render'));
+        $url = Json::encode(Cacher::relativeActionUrl('speedy/dynamic/render'));
 
         return <<<JS
 (function(){var els=[].slice.call(document.querySelectorAll('[data-speedy-dynamic]'));if(!els.length)return;

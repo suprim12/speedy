@@ -44,4 +44,5 @@
 - Events for plugins and modules: before a page is cached, after pages are cleared, and registering another CDN.
 - Rebuilds work on sites behind basic authentication, such as staging.
 - A support report on the utility page, with secrets left out.
+- Cached pages work on every address a site answers on, such as with and without www, or a CDN hostname.
 - Console commands: `speedy/clear`, `speedy/warm`, `speedy/expire`, `speedy/status` and `speedy/server-rules`.
