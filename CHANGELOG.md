@@ -13,6 +13,7 @@
 - Importing the other page cache’s settings brings over its included pages and its Cloudflare zone for each site.
 
 ### Fixed
+- Saving pages no longer gets slower and slower when thousands of cached pages share a tag, such as a section’s entries.
 - Writing the list of what a page depends on is locked, so a page added while the list is tidied or cleared is never lost, and a line cut short by a full disk is taken back off.
 - On a full disk, a page that’s only partly saved, or whose list of what it depends on couldn’t be saved, is taken out instead of being sent or left uncleared.
 - New pages aren’t cached while the disk has less than 256 MB free, with an error on the utility page.

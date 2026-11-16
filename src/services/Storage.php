@@ -257,6 +257,7 @@ class Storage extends Component
             foreach ($this->withListLock($file, function() use ($file) {
                 $lines = $this->readLines($file);
                 @unlink($file);
+                @unlink("$file.size");
                 return $lines;
             }) as $key) {
                 $keys[$key] = true;
@@ -555,11 +556,17 @@ class Storage extends Component
             }
 
             clearstatcache(true, $file);
-            if (@filesize($file) > self::COMPACT_BYTES) {
+            $size = (int)@filesize($file);
+            // Tidied again only once it has doubled since it was last tidied: a list of many pages that are all
+            // still cached stays big, and tidying it on every save would get slower with every page.
+            $tidied = (int)@file_get_contents("$file.size");
+            if ($size > self::COMPACT_BYTES && $size > 2 * $tidied) {
                 // Keep each page once, and only pages that are still cached. Written to a copy first, so a full disk
                 // can’t leave the list empty.
                 $keep = array_filter(array_unique($this->readLines($file)), fn($k) => is_file($this->metaFile($k)));
-                $this->atomicWrite($file, $keep ? implode("\n", $keep) . "\n" : '');
+                $contents = $keep ? implode("\n", $keep) . "\n" : '';
+                $this->atomicWrite($file, $contents);
+                @file_put_contents("$file.size", (string)strlen($contents));
             }
         });
     }
