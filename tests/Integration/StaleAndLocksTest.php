@@ -74,7 +74,7 @@ class StaleAndLocksTest extends TestCase
         if (!$entry || !Craft::$app->getIsMultiSite()) {
             $this->markTestSkipped('Needs more than one site.');
         }
-        $sites = (new \craft\db\Query())->from(\craft\db\Table::ELEMENTS_SITES)->where(['elementId' => $entry->id, 'enabled' => true])->column('siteId');
+        $sites = (new \craft\db\Query())->from(\craft\db\Table::ELEMENTS_SITES)->select('siteId')->where(['elementId' => $entry->id, 'enabled' => true])->column();
         $other = array_values(array_diff(array_map('intval', $sites), [(int)$entry->siteId]));
         $this->assertSame($other !== [] && $entry->enabled, $method->invoke($this->plugin()->clearer, $entry));
     }
