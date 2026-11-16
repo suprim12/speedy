@@ -79,8 +79,11 @@ class Settings extends Model
     /** Whether cleared pages are rebuilt in the background, so visitors never wait for them. */
     public bool $rebuildCleared = true;
 
-    /** Rebuild cached pages in the background when project config changes are applied, such as by `craft up` in a deploy. */
-    public bool $rebuildAfterDeploy = true;
+    /**
+     * Rebuild every cached page in the background when project config changes are applied, such as by `craft up` in a
+     * deploy. Off by default, as on a large site that’s a lot of rebuilding after each deploy.
+     */
+    public bool $rebuildAfterDeploy = false;
 
     /** Count the database queries of pages Speedy rebuilds, and list the ones that run the same query again and again (N+1 queries). Visitors’ requests aren’t counted. */
     public bool $queryReport = true;

@@ -214,15 +214,17 @@ class HooksTest extends TestCase
             $this->plugin()->clearer->flush();
         };
 
+        $this->assertFalse((new \suprim\speedy\models\Settings())->rebuildAfterDeploy, 'Off unless turned on.');
+        $this->settings()->rebuildAfterDeploy = false;
+        $deploy();
+        $this->assertSame([], array_diff($rebuilds(), $before), 'Off, a deploy doesn’t rebuild.');
+
+        $this->settings()->rebuildAfterDeploy = true;
         $deploy();
         $new = array_diff($rebuilds(), $before);
         $this->jobIds = array_merge($this->jobIds, $new);
         $this->assertCount(1, $new, 'One rebuild job for the cached pages.');
         $this->assertSame('Project config changes applied', $this->plugin()->log->recent(1)[0]['reason']);
-
-        $this->settings()->rebuildAfterDeploy = false;
-        $deploy();
-        $this->assertCount(0, array_diff($rebuilds(), $before, $new), 'Turned off, a deploy doesn’t rebuild.');
     }
 
     public function testCountsQueryVersionsOfAPage(): void

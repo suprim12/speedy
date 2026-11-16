@@ -193,7 +193,7 @@ class Plugin extends BasePlugin
             ['skipWhenCart', $s->skipWhenCart, Craft::t('speedy', 'Don’t cache for visitors with a Commerce cart.')],
             ['refreshCsrf', $s->refreshCsrf, Craft::t('speedy', 'Refresh CSRF tokens on cached pages, so forms work.')],
             ['defaultTtl', $s->defaultTtl, Craft::t('speedy', 'A maximum age for every page, in seconds.')],
-            ['rebuildAfterDeploy', $s->rebuildAfterDeploy, Craft::t('speedy', 'Rebuild cached pages when a deploy applies project config changes.')],
+            ['rebuildAfterDeploy', $s->rebuildAfterDeploy, Craft::t('speedy', 'Rebuild every cached page when a deploy applies project config changes.')],
             ['queryReport', $s->queryReport, Craft::t('speedy', 'Count the queries of rebuilt pages and list repeated ones (N+1 queries).')],
             ['warmConcurrency', $s->warmConcurrency, Craft::t('speedy', 'How many pages are rebuilt at once.')],
             ['sitemap', $s->sitemap, Craft::t('speedy', 'The sitemap read when rebuilding everything.')],

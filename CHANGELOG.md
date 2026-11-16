@@ -7,7 +7,7 @@
 - The utility page has tabs for cached pages, recent clears, repeated queries and setup, under the totals and actions.
 - A dashboard widget with the pages cached, recent clears, the CDN and any problems.
 - **Only cache**: cache just the pages that match, such as `news*`, with `/` for the homepage. Empty caches every page, as before.
-- Cached pages are rebuilt in the background when a deploy applies project config changes. Turn it off with `rebuildAfterDeploy`.
+- `rebuildAfterDeploy` rebuilds cached pages in the background when a deploy applies project config changes.
 - After clearing everything, the homepage and top pages are rebuilt first, using the sitemap’s priorities.
 - A Cloudflare zone for each domain, with `cloudflareZones`, for sites on several domains.
 - Importing the other page cache’s settings brings over its included pages and its Cloudflare zone for each site.

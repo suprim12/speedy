@@ -52,7 +52,7 @@ return [
 | `ignoredCookies` | `[]` | Cookies that never change pages, as well as the built-in analytics ones. Pages are only saved from requests without other cookies ([What isn’t cached](/guides/not-cached#made-up-cookies-can-t-reach-the-shared-copy)) |
 | `refreshCsrf` | `true` | Refresh CSRF tokens on cached pages ([Forms](/guides/forms)) |
 | `rebuildCleared` | `true` | Rebuild cleared pages in the background before replacing them ([Warming](/guides/warming)) |
-| `rebuildAfterDeploy` | `true` | Rebuild cached pages in the background when a deploy applies project config changes ([Deploy script](/recipes/deploy)) |
+| `rebuildAfterDeploy` | `false` | Rebuild every cached page in the background when a deploy applies project config changes ([Deploy script](/recipes/deploy)) |
 | `queryReport` | `true` | Count the queries of pages Speedy rebuilds, and list pages that run the same query again and again ([Repeated queries](/guides/utility#repeated-queries)) |
 | `warm` | `false` | Pages to build after a full clear: `'sitemap'` or a list of URLs |
 | `sitemap` | `'sitemap.xml'` | The sitemap to read for `warm`, relative to each site |
