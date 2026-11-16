@@ -8,6 +8,12 @@ Clearing works across sites: saving an entry clears its page in every site it ap
 
 Tested with a second site in a subfolder (`/de/`) sharing a section with the primary site.
 
+Speedy caches pages for the hosts in your sites’ base URLs, so a request with a made-up `Host` header is never cached. A base URL of `@web` answers to any host, so list the real ones:
+
+```php
+'allowedHosts' => ['example.com', 'www.example.com'],
+```
+
 The server rules work for any number of domains, as they use the request’s host. With Cloudflare, give each domain its own zone with [`cloudflareZones`](/guides/cloudflare#several-domains).
 
 ## Several web servers

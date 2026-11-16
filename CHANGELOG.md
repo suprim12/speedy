@@ -13,6 +13,18 @@
 - Importing the other page cache’s settings brings over its included pages and its Cloudflare zone for each site.
 
 ### Fixed
+- Only real host names are cached: a crafted `Host` or `X-Forwarded-Host` header can no longer make Speedy write outside its cache folder.
+- Sites without URLs no longer make every host cacheable, and a made-up port is never cached. `allowedHosts` lists the hosts to cache when a site’s base URL is `@web`.
+- Rebuild requests carry a token for one page that expires, and only go to the sites’ own hosts.
+- A page requested with Craft’s path parameter (`?p=`) is stored with its own address, so it rebuilds and clears correctly.
+- A page whose address has encoded characters, such as `café`, is removed when it can no longer be rebuilt.
+- A page built while its content was being changed isn’t saved, so an older copy can’t replace a newer clear.
+- Saving a page in one site, while it’s disabled there, still clears its pages in the sites where it’s live.
+- With Redis storage, tags are kept in Redis sets: saving stays fast however many pages share a tag, and a page added during a clear is never lost.
+- Visitors no longer wait in turn for a page that isn’t saved, such as one that sets a cookie.
+- Responses that set a cookie are never sent with a public `Cache-Control`.
+- Old build lock files are removed.
+- Query strings too long for a folder name aren’t cached, instead of failing each time.
 - Saving pages no longer gets slower and slower when thousands of cached pages share a tag, such as a section’s entries.
 - Writing the list of what a page depends on is locked, so a page added while the list is tidied or cleared is never lost, and a line cut short by a full disk is taken back off.
 - On a full disk, a page that’s only partly saved, or whose list of what it depends on couldn’t be saved, is taken out instead of being sent or left uncleared.

@@ -406,6 +406,29 @@ class Storage extends Component
     }
 
     /**
+     * Removes build lock files nobody has used for an hour, so one per address ever requested doesn’t pile up.
+     */
+    public function pruneLocks(): void
+    {
+        $dir = $this->dataRoot() . '/locks';
+        $old = time() - 3600;
+        foreach (glob("$dir/*.lock", GLOB_NOSORT) ?: [] as $file) {
+            if (@filemtime($file) >= $old) {
+                continue;
+            }
+            $handle = @fopen($file, 'c');
+            // Only if no request holds it.
+            if ($handle !== false && flock($handle, LOCK_EX | LOCK_NB)) {
+                @unlink($file);
+                flock($handle, LOCK_UN);
+            }
+            if ($handle !== false) {
+                fclose($handle);
+            }
+        }
+    }
+
+    /**
      * Every cached page’s key.
      *
      * @return iterable<string>

@@ -285,6 +285,24 @@ class PagesTest extends TestCase
         $this->assertSame(self::$base . '/' . self::$prefix . '/param', $meta['url'], 'Stored with its own address, so it rebuilds itself.');
     }
 
+    public function testVisitorsDontQueueForAPageThatIsntSaved(): void
+    {
+        $this->assertSame('SKIP template', $this->speedy($this->get('skip')));
+        $key = Plugin::getInstance()->storage->key((string)parse_url(self::$base, PHP_URL_HOST), self::$prefix . '/skip');
+        $this->assertTrue((bool)Craft::$app->getCache()->get('speedy:notSaved:' . md5((string)$key)), 'Remembered, so the next visitors build it side by side.');
+        Craft::$app->getCache()->delete('speedy:notSaved:' . md5((string)$key));
+    }
+
+    public function testResponsesThatSetACookieArentPublic(): void
+    {
+        $response = $this->get('form');
+        if ($response->getHeaderLine('Set-Cookie') !== '') {
+            $this->assertStringContainsString('private', $response->getHeaderLine('Cache-Control'), 'A CDN mustn’t keep a response with someone’s cookie.');
+        } else {
+            $this->assertNotSame('', $response->getHeaderLine('Cache-Control'));
+        }
+    }
+
     public function testApiIsOffWithoutAKey(): void
     {
         if (Plugin::getInstance()->getSettings()->getApiKey() !== '') {

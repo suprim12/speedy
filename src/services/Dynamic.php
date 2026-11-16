@@ -39,6 +39,8 @@ class Dynamic extends Component
         }
 
         $token = Craft::$app->getSecurity()->hashData(Json::encode([
+            // Marks it as Speedy’s, so no other value Craft signs can pass for one.
+            'k' => 'speedy-dynamic',
             't' => $template,
             'v' => $variables,
             's' => Craft::$app->getSites()->getCurrentSite()->id,
@@ -56,6 +58,12 @@ class Dynamic extends Component
         $data = Craft::$app->getSecurity()->validateData($token);
         $data = $data !== false ? Json::decodeIfJson($data) : null;
         if (!is_array($data) || !is_string($data['t'] ?? null)) {
+            return null;
+        }
+        // Tokens on pages cached by 1.0 have no mark: only t, v and s.
+        $mark = $data['k'] ?? null;
+        unset($data['k']);
+        if ($mark !== 'speedy-dynamic' && ($mark !== null || array_diff(array_keys($data), ['t', 'v', 's']))) {
             return null;
         }
         $site = Craft::$app->getSites()->getSiteById((int)($data['s'] ?? 0));

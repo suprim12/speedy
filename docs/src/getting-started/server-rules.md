@@ -48,6 +48,7 @@ What the rules do:
 - Cookies you list in `skipCookies` are added to the cookie line.
 - Speedy’s own rebuild requests (`X-Speedy-Warm`) always reach Craft.
 - `internal` stops anyone opening the cache folder directly.
+- nginx doesn’t pass the server block’s `add_header` lines on to a `location` that has its own, so cached pages wouldn’t get headers such as `Strict-Transport-Security` or `Content-Security-Policy`. Repeat them in the Speedy block, where the rules show an example.
 - `gzip_static` sends the compressed copy Speedy saves next to each page (`index.html.gz`), so nginx doesn’t compress it on every request. It’s included in most nginx builds; if `nginx -t` says it’s unknown, remove that line.
 - Everything else goes to Craft as usual, which still serves cached pages through PHP.
 

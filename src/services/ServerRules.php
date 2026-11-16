@@ -69,6 +69,8 @@ class ServerRules extends Component
             gzip_static on;
             add_header X-Speedy "STATIC" always;
             add_header Cache-Control "$cacheControl" always;
+            # nginx doesn’t pass on the server block’s add_header lines here: repeat your security headers, such as
+            # add_header Strict-Transport-Security "max-age=31536000" always;
         }
         NGINX;
     }

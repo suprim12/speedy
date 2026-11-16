@@ -171,8 +171,8 @@ class Clearer extends Component
             $attributes = array_values(array_diff($attributes, ['title']));
         }
         $statusChanged = (bool)array_intersect($attributes, ['enabled', 'enabledForSite', 'status', 'postDate', 'expiryDate']);
-        if (!$statusChanged && $element->getStatus() === \craft\base\Element::STATUS_DISABLED) {
-            // Disabled before and after: it isn’t on any page.
+        if (!$statusChanged && $element->getStatus() === \craft\base\Element::STATUS_DISABLED && !$this->enabledElsewhere($element)) {
+            // Disabled before and after, in every site: it isn’t on any page.
             return true;
         }
 
@@ -193,6 +193,22 @@ class Clearer extends Component
         }
 
         return true;
+    }
+
+    /**
+     * Whether the element is enabled in another site, where its pages can still show what was just changed.
+     */
+    private function enabledElsewhere(ElementInterface $element): bool
+    {
+        if (!$element->enabled || !Craft::$app->getIsMultiSite()) {
+            return false;
+        }
+
+        return (new \craft\db\Query())
+            ->from(\craft\db\Table::ELEMENTS_SITES)
+            ->where(['elementId' => $element->id, 'enabled' => true])
+            ->andWhere(['not', ['siteId' => $element->siteId]])
+            ->exists();
     }
 
     /**
@@ -296,9 +312,42 @@ class Clearer extends Component
      */
     public function clearTags(array $tags, string $reason): int
     {
+        $this->markCleared($tags);
         $keys = Plugin::getInstance()->storage->takePagesForTags($tags);
 
         return $this->clearKeys($keys, $reason);
+    }
+
+    /**
+     * Notes when tags were cleared, so a page built from what was there before isn’t saved after the clear.
+     *
+     * @param string[] $tags
+     */
+    private function markCleared(array $tags): void
+    {
+        $now = microtime(true);
+        $cache = Craft::$app->getCache();
+        foreach (array_unique($tags) as $tag) {
+            $cache->set('speedy:cleared:' . md5($tag), $now, 3600);
+        }
+    }
+
+    /**
+     * Whether everything, or any of these tags, was cleared after a time, such as when a page started being built.
+     *
+     * @param string[] $tags
+     */
+    public function clearedSince(float $since, array $tags): bool
+    {
+        $cache = Craft::$app->getCache();
+        $keys = array_merge(['speedy:cleared:all'], array_map(fn($t) => 'speedy:cleared:' . md5((string)$t), array_unique($tags)));
+        foreach ($cache->multiGet($keys) as $at) {
+            if ($at !== false && $at !== null && (float)$at > $since) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -378,6 +427,7 @@ class Clearer extends Component
             }
         }
         $count = $plugin->storage->stats()['pages'];
+        Craft::$app->getCache()->set('speedy:cleared:all', microtime(true), 3600);
         $plugin->storage->clearAll();
         $plugin->cdn->purgeAll();
         $plugin->log->add($reason, $count, []);
@@ -418,6 +468,7 @@ class Clearer extends Component
         $data = $plugin->storage->readData('state');
         $since = (int)($data['lastExpire'] ?? $now - 3600);
 
+        $plugin->storage->pruneLocks();
         $keys = $plugin->storage->takeExpired($now);
         $count = $keys ? $this->clearKeys($keys, Craft::t('speedy', 'Scheduled content changed')) : 0;
         $count += $this->clearWentLive($since, $now);

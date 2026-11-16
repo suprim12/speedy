@@ -80,15 +80,22 @@ class CacheStore
         $this->cache->set($this->k('html', $key), $gz, self::PAGE_TTL);
         $this->cache->set($this->k('meta', $key), $meta, self::PAGE_TTL);
 
-        $this->addToList($this->k('idx', substr(md5($key), 0, 2)), $key, strlen($gz));
-        if (($at = strpos($key, '/' . Storage::QUERY_FOLDER . '/')) !== false) {
-            $this->addToList($this->k('qv', md5(substr($key, 0, $at))), $key, true);
-        }
-        foreach ($tags as $tag) {
-            $this->addToList($this->k('tag', md5($tag)), $key, true);
-        }
-        if ($expires !== null) {
-            $this->addToList($this->k('exp', (string)intdiv($expires, 3600)), $key, true);
+        try {
+            $this->addToList($this->k('idx', substr(md5($key), 0, 2)), $key, strlen($gz));
+            if (($at = strpos($key, '/' . Storage::QUERY_FOLDER . '/')) !== false) {
+                $this->addToList($this->k('qv', md5(substr($key, 0, $at))), $key, true);
+            }
+            foreach ($tags as $tag) {
+                $this->addTag($this->k('tag', md5($tag)), $key);
+            }
+            if ($expires !== null) {
+                $this->addToList($this->k('exp', (string)intdiv($expires, 3600)), $key, true);
+            }
+        } catch (\Throwable $e) {
+            // A page that wouldn’t clear when its content changes mustn’t be sent.
+            $this->cache->delete($this->k('html', $key));
+            $this->cache->delete($this->k('meta', $key));
+            throw $e;
         }
     }
 
@@ -118,22 +125,17 @@ class CacheStore
     {
         $keys = [];
         foreach (array_unique($tags) as $tag) {
-            $name = $this->k('tag', md5($tag));
-            $list = $this->cache->get($name);
-            if (is_array($list)) {
-                $keys += $list;
-                $this->cache->delete($name);
+            foreach ($this->takeTag($this->k('tag', md5($tag))) as $key) {
+                $keys[$key] = true;
             }
         }
 
-        return array_keys($keys);
+        return array_map('strval', array_keys($keys));
     }
 
     public function countPagesForTag(string $tag): int
     {
-        $list = $this->cache->get($this->k('tag', md5($tag)));
-
-        return is_array($list) ? count(array_filter(array_keys($list), fn($k) => $this->exists((string)$k))) : 0;
+        return count(array_filter($this->tagMembers($this->k('tag', md5($tag))), fn($k) => $this->exists($k)));
     }
 
     /**
@@ -162,7 +164,7 @@ class CacheStore
                     }
                 }
                 $keep ? $this->cache->set($name, $keep, self::LIST_TTL) : $this->cache->delete($name);
-            });
+            }, false);
             if (!$this->cache->exists($name)) {
                 $this->removeFromList($this->k('exp', 'hours'), (string)$bucket);
             }
@@ -237,7 +239,7 @@ class CacheStore
             $log = $this->getList('speedy:log');
             $log[] = $entry;
             $this->cache->set('speedy:log', array_slice($log, -self::LOG_MAX));
-        });
+        }, false);
     }
 
     /**
@@ -332,23 +334,120 @@ class CacheStore
 
     private function removeFromList(string $name, string $key): void
     {
+        // Best effort: an entry left behind only points at a page that’s gone.
         $this->locked($name, function() use ($name, $key) {
             $list = $this->getList($name);
             unset($list[$key]);
             $list ? $this->cache->set($name, $list, self::LIST_TTL) : $this->cache->delete($name);
-        });
+        }, false);
+    }
+
+    /**
+     * Redis, when Craft’s cache is Redis: its sets add and take pages in one step, however many pages share a tag,
+     * where a list in the cache would be read and written whole for every page.
+     */
+    private function redis(): ?object
+    {
+        if (class_exists(\yii\redis\Cache::class) && $this->cache instanceof \yii\redis\Cache) {
+            return $this->cache->redis;
+        }
+
+        return null;
+    }
+
+    /**
+     * Runs a Redis command, such as `SADD`.
+     *
+     * @param mixed[] $params
+     */
+    private function command(object $redis, string $name, array $params): mixed
+    {
+        return call_user_func([$redis, 'executeCommand'], $name, $params);
+    }
+
+    private function setKey(string $name): string
+    {
+        /** @var \yii\caching\Cache $cache */
+        $cache = $this->cache;
+
+        return $cache->keyPrefix . 'set:' . $name;
+    }
+
+    private function addTag(string $name, string $key): void
+    {
+        $redis = $this->redis();
+        if ($redis === null) {
+            $this->addToList($name, $key, true);
+            return;
+        }
+        $set = $this->setKey($name);
+        $this->command($redis, 'SADD', [$set, $key]);
+        $this->command($redis, 'EXPIRE', [$set, self::LIST_TTL]);
+    }
+
+    /**
+     * The pages with a tag, removing the tag: a page added at the same moment is kept for the next clear.
+     *
+     * @return string[]
+     */
+    private function takeTag(string $name): array
+    {
+        $redis = $this->redis();
+        if ($redis === null) {
+            $keys = [];
+            $this->locked($name, function() use ($name, &$keys) {
+                $keys = array_keys($this->getList($name));
+                $this->cache->delete($name);
+            });
+            return array_map('strval', $keys);
+        }
+        // Pages cached before 1.1 are in a list in the cache, not a set.
+        $legacy = $this->cache->get($name);
+        if (is_array($legacy)) {
+            $this->cache->delete($name);
+        }
+        // Renamed first, so it’s taken whole: a page added meanwhile goes into a new set.
+        $set = $this->setKey($name);
+        $taken = $set . ':taking:' . bin2hex(random_bytes(6));
+        $keys = is_array($legacy) ? array_keys($legacy) : [];
+        try {
+            $this->command($redis, 'RENAME', [$set, $taken]);
+            $keys = array_merge($keys, (array)$this->command($redis, 'SMEMBERS', [$taken]));
+            $this->command($redis, 'DEL', [$taken]);
+        } catch (\Throwable) {
+            // No set: nothing has this tag yet.
+        }
+
+        return array_values(array_unique(array_map('strval', $keys)));
+    }
+
+    /**
+     * @return string[]
+     */
+    private function tagMembers(string $name): array
+    {
+        $redis = $this->redis();
+        $legacy = array_map('strval', array_keys($this->getList($name)));
+        if ($redis === null) {
+            return $legacy;
+        }
+
+        return array_values(array_unique(array_merge($legacy, array_map('strval', (array)$this->command($redis, 'SMEMBERS', [$this->setKey($name)])))));
     }
 
     /**
      * Runs a read-modify-write of a shared list while holding a lock, so two servers can’t overwrite each other.
      */
-    private function locked(string $name, callable $fn): void
+    private function locked(string $name, callable $fn, bool $required = true): void
     {
         $mutex = Craft::$app->getMutex();
         $lock = 'speedy:list:' . md5($name);
         if (!$mutex->acquire($lock, 5)) {
-            Craft::warning("Couldn’t lock $name; updating it anyway.", 'speedy');
-            $fn();
+            // Updating it anyway could lose another server’s change, and a page left off a list wouldn’t clear.
+            if ($required) {
+                throw new \RuntimeException("Couldn’t lock $name.");
+            }
+            Craft::warning("Couldn’t lock $name; left as it is.", 'speedy');
             return;
         }
         try {

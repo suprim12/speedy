@@ -47,6 +47,9 @@ class Cacher extends Component
     /** Query parameter that makes warming requests miss CDN caches. */
     public const WARM_PARAM = 'speedy-warm';
 
+    /** Marks a page that was just built without being saved, in Craft’s cache. */
+    private const NOT_SAVED = 'speedy:notSaved:';
+
     /** Response headers saved with a page and sent again when PHP serves it. */
     private const KEPT_HEADERS = ['X-Robots-Tag', 'Content-Language', 'Link', 'Content-Security-Policy', 'Referrer-Policy', 'Permissions-Policy', 'X-Frame-Options', 'X-Content-Type-Options'];
 
@@ -343,6 +346,11 @@ class Cacher extends Component
         try {
             $this->storeResponse($response);
         } finally {
+            // Built but not saved, such as a page that sets a cookie or calls skip(): for a minute, visitors build it
+            // side by side instead of waiting in turn for a copy that won’t come.
+            if (!$this->_ownCookies && !Plugin::getInstance()->storage->exists($this->_key)) {
+                Craft::$app->getCache()->set(self::NOT_SAVED . md5($this->_key), true, 60);
+            }
             $this->unlock();
             if ($this->_warming) {
                 try {
@@ -411,6 +419,12 @@ class Cacher extends Component
                 }
             }
             $html = $event->html;
+            if (Plugin::getInstance()->clearer->clearedSince((float)($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true)), $event->tags)) {
+                // Its content changed while it was being built, so this copy may be out of date already.
+                $response->getHeaders()->set(self::HEADER, 'SKIP changed while building');
+                $response->getHeaders()->set('Cache-Control', 'private, no-cache');
+                return;
+            }
             if ($settings->cacheComment) {
                 $html .= "\n<!-- Cached by Speedy Cache on " . date('c') . ' -->';
             }
@@ -430,7 +444,9 @@ class Cacher extends Component
 
         $response->getHeaders()->set(self::HEADER, $this->_warming ? 'WARM' : 'MISS');
         // A warming request has a one-off URL, which CDNs mustn’t keep.
-        $response->getHeaders()->set('Cache-Control', $this->_warming ? 'no-store' : Plugin::getInstance()->cdn->cacheControl());
+        // The saved copy has no cookies, but this response may set one, such as the CSRF cookie: a CDN mustn’t keep it.
+        $setsCookie = $response->getCookies()->count() > 0 || $response->getHeaders()->has('Set-Cookie');
+        $response->getHeaders()->set('Cache-Control', $this->_warming ? 'no-store' : ($setsCookie ? 'private, no-cache' : Plugin::getInstance()->cdn->cacheControl()));
     }
 
     private function uncacheableReason(Response $response): ?string
@@ -604,6 +620,9 @@ class Cacher extends Component
      */
     private function lockOrWait(string $key): bool
     {
+        if (Craft::$app->getCache()->get(self::NOT_SAVED . md5($key))) {
+            return true;
+        }
         $storage = Plugin::getInstance()->storage;
         if ($storage->usesCache()) {
             // Several servers share the cache, so the lock is Craft’s mutex rather than a local file.
@@ -639,8 +658,10 @@ class Cacher extends Component
                 return false;
             }
             if (flock($handle, LOCK_EX | LOCK_NB)) {
-                // The other request finished without saving the page, such as a 404. Build it here.
-                $this->_lock = $handle;
+                // The other request finished without saving the page, such as a 404. Build it here, without holding
+                // the others up.
+                flock($handle, LOCK_UN);
+                fclose($handle);
                 return true;
             }
         }
