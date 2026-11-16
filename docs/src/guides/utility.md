@@ -54,6 +54,8 @@ Each line names what changed: “Saved entry ‘Summer Sale’ → 3 pages”, �
 
 The tab shows how many pages are listed.
 
+![The Repeated queries tab: a locations page ran 61 queries, 21 of them the same query for categories, with the template and line and how to eager-load them](/images/repeated-queries.jpg)
+
 Pages that run the same database query again and again, usually once for each item in a loop. This is called an N+1 query: a news listing of 30 entries that reads each entry’s categories runs 30 extra queries, where eager-loading runs one.
 
 Cached pages are still fast, but these pages are slow to rebuild, and slow for every visitor who isn’t sent a cached page, such as logged-in visitors and shoppers with a cart.
@@ -105,6 +107,8 @@ The details panel of entries, categories, products and other elements with pages
 Select entries, categories or Commerce products, and choose **Clear cached pages** from the actions menu. It clears every cached page that shows them. It needs the **Utilities → Speedy Cache** permission.
 
 ## Dashboard widget
+
+![The Speedy Cache widget: 15 pages cached, caching on, no CDN, and the last three clears](/images/widget.jpg)
 
 Add **Speedy Cache** to your dashboard (**Dashboard → New widget**) for the same at a glance: pages cached, whether caching is on, the CDN Speedy clears, any problems and the last few clears. It needs the same permission as the utility.
 

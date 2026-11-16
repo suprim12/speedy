@@ -34,7 +34,7 @@
 			{% for entry in log %}
 				<li>
 					<span>{{ entry.reason }}</span>
-					<span class="light nowrap">{{ entry.count ? '{count, plural, =1{# page} other{# pages}}'|t('speedy', { count: entry.count }) ~ ' · ' }}{{ entry.time|timestamp('short') }}</span>
+					<span class="light nowrap">{{ entry.count ? '{count, plural, =1{# page} other{# pages}}'|t('speedy', { count: entry.count }) ~ ' · ' }}{{ entry.time|date('Y-m-d') == now|date('Y-m-d') ? entry.time|time('short') : entry.time|date('short') }}</span>
 				</li>
 			{% endfor %}
 		</ul>
