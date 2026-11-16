@@ -13,6 +13,8 @@
 - Importing the other page cache’s settings brings over its included pages and its Cloudflare zone for each site.
 
 ### Fixed
+- On a full disk, a page that’s only partly saved, or whose list of what it depends on couldn’t be saved, is taken out instead of being sent or left uncleared.
+- New pages aren’t cached while the disk has less than 256 MB free, with an error on the utility page.
 - The “queue hasn’t run” alert no longer shows when the control panel is opened after a quiet spell, on sites where the control panel runs the queue. It now shows only if the queue still hasn’t run ten minutes later.
 
 ## 1.0.0 - 2026-11-15

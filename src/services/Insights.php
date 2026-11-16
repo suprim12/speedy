@@ -173,6 +173,9 @@ class Insights extends Component
                 $add('error', Craft::t('speedy', 'Speedy can’t write to {dir}.', ['dir' => $dir]));
             }
         }
+        if ($plugin->storage->diskFull()) {
+            $add('error', Craft::t('speedy', 'The disk is nearly full ({free} MB free), so new pages aren’t being cached. Pages already cached are still sent, and still cleared when content changes.', ['free' => intdiv((int)$plugin->storage->freeSpace(), 1048576)]));
+        }
         // Other full-page caches; getPlugin() only returns enabled ones.
         foreach (['blitz'] as $handle) {
             $other = Craft::$app->getPlugins()->getPlugin($handle);

@@ -33,12 +33,19 @@ class Log extends Component
         }
         $file = $this->file();
         @mkdir(dirname($file), 0775, true);
-        file_put_contents($file, Json::encode($entry) . "\n", FILE_APPEND | LOCK_EX);
+        // The log is a record, not something pages depend on: if it can’t be written, such as on a full disk, carry on.
+        @file_put_contents($file, Json::encode($entry) . "\n", FILE_APPEND | LOCK_EX);
 
         clearstatcache(true, $file);
         if (@filesize($file) > 512 * 1024) {
             $lines = @file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
-            file_put_contents($file, implode("\n", array_slice($lines, -self::MAX)) . "\n", LOCK_EX);
+            $tmp = "$file.tmp";
+            $kept = implode("\n", array_slice($lines, -self::MAX)) . "\n";
+            if (@file_put_contents($tmp, $kept, LOCK_EX) === strlen($kept)) {
+                @rename($tmp, $file);
+            } else {
+                @unlink($tmp);
+            }
         }
     }
 

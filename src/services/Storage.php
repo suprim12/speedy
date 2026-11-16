@@ -145,21 +145,65 @@ class Storage extends Component
         }
 
         $file = $this->htmlFile($key);
-        $this->protectCacheFolder();
-        // Compressed copies, so the web server (gzip_static) and PHP send them without compressing each time.
-        $this->atomicWrite("$file.gz", (string)gzencode($html, 9));
-        if (function_exists('brotli_compress')) {
-            $this->atomicWrite("$file.br", (string)brotli_compress($html, 11));
-        }
-        $this->atomicWrite($file, $html);
-        $this->atomicWrite($this->metaFile($key), Json::encode($meta));
+        try {
+            $this->protectCacheFolder();
+            // Compressed copies, so the web server (gzip_static) and PHP send them without compressing each time.
+            $this->atomicWrite("$file.gz", (string)gzencode($html, 9));
+            if (function_exists('brotli_compress')) {
+                $this->atomicWrite("$file.br", (string)brotli_compress($html, 11));
+            }
+            $this->atomicWrite($file, $html);
+            $this->atomicWrite($this->metaFile($key), Json::encode($meta));
 
-        foreach ($tags as $tag) {
-            $this->appendLine($this->tagFile($tag), $key);
+            foreach ($tags as $tag) {
+                $this->appendLine($this->tagFile($tag), $key);
+            }
+            if ($expires !== null) {
+                $this->appendLine($this->dataRoot() . '/expiry/' . intdiv($expires, 3600) . '.txt', $key);
+            }
+        } catch (Throwable $e) {
+            // Such as a full disk. A page that’s only partly saved, or wouldn’t clear when its content changes,
+            // mustn’t be sent: take it out, so the next visitor gets a page built for them.
+            foreach (["$file.gz", "$file.br", $file, $this->metaFile($key)] as $part) {
+                @unlink($part);
+            }
+            throw $e;
         }
-        if ($expires !== null) {
-            $this->appendLine($this->dataRoot() . '/expiry/' . intdiv($expires, 3600) . '.txt', $key);
+    }
+
+    /** Below this much free space, in bytes, new pages aren’t saved, so the cache never fills the disk. */
+    public const MIN_FREE_BYTES = 256 * 1024 * 1024;
+
+    /**
+     * Free space on the cache folder’s disk, in bytes, checked at most once a minute. Null when it can’t be told.
+     */
+    public function freeSpace(): ?int
+    {
+        if ($this->usesCache()) {
+            return null;
         }
+
+        $free = Craft::$app->getCache()->getOrSet('speedy:freeSpace', function() {
+            $dir = $this->cacheRoot();
+            while (!is_dir($dir) && dirname($dir) !== $dir) {
+                $dir = dirname($dir);
+            }
+            $free = @disk_free_space($dir);
+
+            return $free === false ? -1 : (int)$free;
+        }, 60);
+
+        return $free >= 0 ? (int)$free : null;
+    }
+
+    /**
+     * Whether the disk is nearly full, so new pages shouldn’t be saved.
+     */
+    public function diskFull(): bool
+    {
+        $free = $this->freeSpace();
+
+        return $free !== null && $free < self::MIN_FREE_BYTES;
     }
 
     /**
@@ -477,13 +521,17 @@ class Storage extends Component
     private function appendLine(string $file, string $line): void
     {
         FileHelper::createDirectory(dirname($file));
-        file_put_contents($file, $line . "\n", FILE_APPEND | LOCK_EX);
+        $line .= "\n";
+        if (@file_put_contents($file, $line, FILE_APPEND | LOCK_EX) !== strlen($line)) {
+            throw new \RuntimeException("Couldn’t write to $file. Is the disk full?");
+        }
 
         clearstatcache(true, $file);
         if (@filesize($file) > self::COMPACT_BYTES) {
-            // Keep each page once, and only pages that are still cached.
+            // Keep each page once, and only pages that are still cached. Written to a copy first, so a full disk
+            // can’t leave the list empty.
             $keep = array_filter(array_unique($this->readLines($file)), fn($k) => is_file($this->metaFile($k)));
-            file_put_contents($file, $keep ? implode("\n", $keep) . "\n" : '', LOCK_EX);
+            $this->atomicWrite($file, $keep ? implode("\n", $keep) . "\n" : '');
         }
     }
 
@@ -538,9 +586,14 @@ APACHE);
         try {
             // A folder can be removed by a page being cleared at the same moment, so make it again if so.
             FileHelper::createDirectory(dirname($file));
-            if (@file_put_contents($tmp, $contents) === false) {
+            $written = @file_put_contents($tmp, $contents);
+            if ($written === false) {
                 FileHelper::createDirectory(dirname($file));
-                file_put_contents($tmp, $contents);
+                $written = @file_put_contents($tmp, $contents);
+            }
+            // A full disk can write part of the file and stop: never put that in place.
+            if ($written !== strlen($contents)) {
+                throw new \RuntimeException("Couldn’t write $file. Is the disk full?");
             }
             rename($tmp, $file);
         } catch (Throwable $e) {

@@ -13,6 +13,8 @@ Speedy only caches pages it can be sure are the same for everyone.
 | Hosts that aren’t a site’s | A request with someone else’s domain in its `Host` header. Sites whose base URL is `@web` accept any host |
 | URLs with a query string | `?q=`, `?page=` and filters usually change the page. Tracking parameters (`utm_*`, `gclid`, `fbclid`…) are ignored, and the ones you list in `cachedParams` are cached ([Pagination and filters](#pagination-and-filters)) |
 | URLs matching **Never cache** | Such as `checkout/*` or `account*` |
+| URLs not matching **Only cache** | When **Only cache** lists any pages |
+| Any page while the disk is nearly full | Under 256 MB free on the cache folder’s disk. Cached pages are still sent ([Troubleshooting](/getting-started/troubleshooting#the-disk-is-nearly-full)) |
 | Pages that set a cookie | A cookie usually means something personal. Craft’s CSRF and session cookies are fine |
 | Pages marked private | `Cache-Control: private` or `no-store`, from your template or a plugin |
 | Responses that aren’t a 200 HTML page | 404s, redirects, JSON and feeds |

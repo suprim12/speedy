@@ -57,6 +57,14 @@ The rules aren’t being used yet:
 
 Pages are plain HTML, typically 20–100 KB each. **Utilities → Speedy Cache** shows the total. Clear everything any time; pages are rebuilt as they’re visited.
 
+## The disk is nearly full
+
+When the cache folder’s disk has less than 256 MB free, Speedy stops saving new pages, so it never fills the disk itself. Pages say `X-Speedy: SKIP disk full`, and the utility page shows an error with the space left. Pages already cached are still sent and still cleared when content changes, and clearing frees space.
+
+If a save fails part-way, such as when the disk fills during it, the half-saved page is taken out rather than sent, and the next visitor gets a page built for them. Speedy’s log of clears and its report of repeated queries are kept small and can’t fill a disk.
+
+Once there’s room again, pages are cached as before, within a minute.
+
 ## Logs
 
 - **Recent clears** on the utility page and in `php craft speedy/status`: what was cleared, why, and which pages, plus pages that couldn’t be rebuilt and CDN errors. It keeps the last 1,000 entries.

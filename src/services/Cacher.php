@@ -369,6 +369,12 @@ class Cacher extends Component
             return;
         }
 
+        if (Plugin::getInstance()->storage->diskFull()) {
+            $response->getHeaders()->set(self::HEADER, 'SKIP disk full');
+            $response->getHeaders()->set('Cache-Control', 'private, no-cache');
+            return;
+        }
+
         $tags = $dependency->tags ?? [];
         $settings = Plugin::getInstance()->getSettings();
         $ttls = array_filter([$duration, $this->_templateTtl, $settings->defaultTtl], fn($t) => $t !== null && $t > 0);
