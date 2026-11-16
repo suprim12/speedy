@@ -51,7 +51,7 @@ To cache a few sections and leave the rest alone, list them in **Only cache** on
 
 Pages that don’t match aren’t cached, and **Never cache** still applies to the ones that do. Leave it empty to cache every page.
 
-On multi-site, patterns match the path within each site too: for a site at `/de/`, `/` is its homepage and `news*` matches `/de/news/…`. To cache a section on one site only, include its folder, such as `de/news*`.
+On multi-site, **Never cache** and **Only cache** patterns match the path within each site too: for a site at `/de/`, `/` is its homepage and `news*` matches `/de/news/…`. To match one site only, include its folder, such as `de/news*`.
 
 ## Multi-page forms and flash messages
 

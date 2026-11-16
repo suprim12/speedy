@@ -12,6 +12,7 @@
 - `allowedHosts`, to list the host names to cache for a site whose base URL is `@web`.
 
 ### Fixed
+- **Never cache** matches the path within each site, such as for a site at `/de/`.
 - Fixed cases where a page could stay out of date.
 - Saving pages stays fast when thousands of them share a tag.
 - Fixed a “queue hasn’t run” alert that showed when it shouldn’t.

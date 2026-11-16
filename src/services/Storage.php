@@ -362,6 +362,7 @@ class Storage extends Component
      */
     public function clearAll(): void
     {
+        Craft::$app->getCache()->delete($this->statsCacheKey());
         if ($this->usesCache()) {
             $this->cache()->clearAll();
             return;
@@ -459,6 +460,31 @@ class Storage extends Component
                 yield preg_replace('#/_index$#', '', $relative);
             }
         }
+    }
+
+    private const STATS_CACHE = 'speedy:stats';
+
+    /**
+     * How many pages are cached and their size, counted at most every five minutes. Counting reads the whole cache
+     * folder, which takes seconds on a site with a hundred thousand pages, so the control panel uses this.
+     *
+     * @return array{pages: int, bytes: int}
+     */
+    public function cachedStats(): array
+    {
+        $cache = Craft::$app->getCache();
+        $stats = $cache->get($this->statsCacheKey());
+        if (!is_array($stats) || !isset($stats['pages'], $stats['bytes'])) {
+            $stats = $this->stats();
+            $cache->set($this->statsCacheKey(), $stats, 300);
+        }
+
+        return ['pages' => (int)$stats['pages'], 'bytes' => (int)$stats['bytes']];
+    }
+
+    private function statsCacheKey(): string
+    {
+        return self::STATS_CACHE . ':' . md5($this->usesCache() ? 'craftCache' : $this->cacheRoot());
     }
 
     /**

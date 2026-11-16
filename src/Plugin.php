@@ -217,7 +217,7 @@ class Plugin extends BasePlugin
             'configured' => $this->cdn->configured(),
             'cdnLast' => $this->cdn->lastResults(),
             'cdnNames' => $this->cdn->names(),
-            'stats' => $this->storage->stats(),
+            'stats' => $this->storage->cachedStats(),
             'configRows' => $this->configRows(),
             'ephemeral' => App::isEphemeral(),
             'cacheInfo' => CacheStore::describe(),

@@ -254,10 +254,10 @@ class Cacher extends Component
             }
         }
         $path = $request->getFullPath();
-        if ($reason === null && $this->matchesAny($path, $settings->getNeverCache())) {
+        // Patterns match the path within the site as well, so `/` and `news*` work for a site in a folder such as /de/.
+        if ($reason === null && ($never = $settings->getNeverCache()) && ($this->matchesAny($path, $never) || $this->matchesAny($request->getPathInfo(), $never))) {
             $reason = 'never cache';
         }
-        // Only cache matches the path within the site as well, so `/` and `news*` work for a site in a folder such as /de/.
         if ($reason === null && ($only = $settings->getOnlyCache()) && !$this->matchesAny($path, $only) && !$this->matchesAny($request->getPathInfo(), $only)) {
             $reason = 'not in only cache';
         }

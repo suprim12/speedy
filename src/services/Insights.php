@@ -116,11 +116,11 @@ class Insights extends Component
         if (!$settings->isEnabled()) {
             return ['state' => 'off', 'label' => Craft::t('speedy', 'Caching is off'), 'detail' => null, 'pages' => $pages];
         }
-        $pattern = Cacher::matchingPattern($path, $settings->getNeverCache());
+        $sitePath = $element->uri === '__home__' ? '' : (string)$element->uri;
+        $pattern = Cacher::matchingPattern($path, $settings->getNeverCache()) ?? Cacher::matchingPattern($sitePath, $settings->getNeverCache());
         if ($pattern !== null) {
             return ['state' => 'never', 'label' => Craft::t('speedy', 'Never cached'), 'detail' => Craft::t('speedy', 'Matches {pattern}', ['pattern' => $pattern]), 'pages' => $pages];
         }
-        $sitePath = $element->uri === '__home__' ? '' : (string)$element->uri;
         if ($settings->getOnlyCache() && Cacher::matchingPattern($path, $settings->getOnlyCache()) === null && Cacher::matchingPattern($sitePath, $settings->getOnlyCache()) === null) {
             return ['state' => 'never', 'label' => Craft::t('speedy', 'Never cached'), 'detail' => Craft::t('speedy', 'Not in Only cache'), 'pages' => $pages];
         }
@@ -235,7 +235,7 @@ class Insights extends Component
         $plugin = Plugin::getInstance();
         $settings = $plugin->getSettings();
         $craft = Craft::$app;
-        $stats = $plugin->storage->stats();
+        $stats = $plugin->storage->cachedStats();
         $set = fn(string $v) => $v !== '' ? 'set' : 'not set';
         $lines = [
             '# Speedy Cache support report',

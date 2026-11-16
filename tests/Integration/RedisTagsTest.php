@@ -90,4 +90,24 @@ class RedisTagsTest extends TestCase
         $this->assertSame(600, count($this->storage->takePagesForTags(['speedy-test-tag'])));
         $this->assertLessThan($first * 3, $second, 'The second 300 cost about the same as the first.');
     }
+
+    public function testPagesThatAreGoneDropOutOfASet(): void
+    {
+        for ($i = 0; $i < 50; $i++) {
+            $this->write("speedy-test.example/gone$i", ['speedy-test-tag']);
+            // Gone by itself, as an expired page is: still in the tag’s set.
+            $this->storage->delete("speedy-test.example/gone$i");
+        }
+        $this->assertSame(0, $this->storage->countPagesForTag('speedy-test-tag'));
+        for ($i = 0; $i < 400; $i++) {
+            $this->write("speedy-test.example/live$i", ['speedy-test-tag']);
+        }
+        $redis = Craft::$app->getCache()->redis;
+        $gen = (int)(Craft::$app->getCache()->get('speedy:gen') ?: 1);
+        $size = (int)$redis->executeCommand('SCARD', [Craft::$app->getCache()->keyPrefix . 'set:{speedy:' . $gen . ':tag:' . md5('speedy-test-tag') . '}']);
+        $this->assertLessThan(450, $size, 'Some of the 50 gone pages were dropped along the way.');
+        $taken = $this->storage->takePagesForTags(['speedy-test-tag']);
+        $live = array_map(fn($i) => "speedy-test.example/live$i", range(0, 399));
+        $this->assertSame([], array_diff($live, $taken), 'Every page still cached is still there.');
+    }
 }

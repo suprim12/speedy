@@ -50,7 +50,7 @@ class SpeedyUtility extends Utility
             'page' => $page,
             'perPage' => $perPage,
             'settings' => $plugin->getSettings(),
-            'stats' => $plugin->storage->stats(),
+            'stats' => $plugin->storage->cachedStats(),
             'detected' => $plugin->cdn->detected(),
             'configured' => $plugin->cdn->configured(),
             'cdnLast' => $plugin->cdn->lastResults(),

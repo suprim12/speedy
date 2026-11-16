@@ -384,6 +384,14 @@ class CacheStore
         $set = $this->setKey($name);
         $this->command($redis, 'SADD', [$set, $key]);
         $this->command($redis, 'EXPIRE', [$set, self::LIST_TTL]);
+        // Now and then, drop a few pages that have gone by themselves, such as expired ones, so a tag that’s rarely
+        // cleared doesn’t keep growing. A little at a time, however big the set.
+        if (random_int(1, 50) === 1) {
+            $gone = array_filter(array_map('strval', (array)$this->command($redis, 'SRANDMEMBER', [$set, 100])), fn($k) => !$this->exists($k));
+            if ($gone) {
+                $this->command($redis, 'SREM', array_merge([$set], array_values($gone)));
+            }
+        }
     }
 
     /**

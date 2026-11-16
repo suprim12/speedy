@@ -98,4 +98,17 @@ class FileStorageTest extends TestCase
         $storage->deleteTrash();
         $this->assertDirectoryDoesNotExist("$this->tmp/data/trash");
     }
+
+    public function testThePageCountIsCachedUntilEverythingIsCleared(): void
+    {
+        $storage = $this->plugin()->storage;
+        $storage->write('example.com/a', 'a', 'https://example.com/a', [], null);
+        $this->assertSame(1, $storage->cachedStats()['pages']);
+        $storage->write('example.com/b', 'b', 'https://example.com/b', [], null);
+        $this->assertSame(1, $storage->cachedStats()['pages'], 'Counted at most every five minutes.');
+        $this->assertSame(2, $storage->stats()['pages']);
+
+        $storage->clearAll();
+        $this->assertSame(0, $storage->cachedStats()['pages'], 'Counted again after clearing everything.');
+    }
 }

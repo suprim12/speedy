@@ -34,4 +34,24 @@ class OnlyCacheTest extends TestCase
         $this->assertSame('never', $status['state']);
         $this->assertSame('Not in Only cache', $status['detail']);
     }
+
+    public function testNeverCacheMatchesThePathWithinASiteToo(): void
+    {
+        $entry = new class() extends Entry {
+            public function getUrl(): ?string
+            {
+                return 'https://example.com/de/account/orders';
+            }
+        };
+        $entry->id = 999999;
+        $entry->uri = 'account/orders';
+
+        $this->settings()->neverCache = ['account*'];
+        $status = $this->plugin()->insights->forElement($entry);
+        $this->assertSame('never', $status['state'], 'account* matches /de/account/… too.');
+        $this->assertSame('Matches account*', $status['detail']);
+
+        $this->settings()->neverCache = ['de/account*'];
+        $this->assertSame('never', $this->plugin()->insights->forElement($entry)['state'], 'The full path still matches.');
+    }
 }
