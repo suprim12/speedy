@@ -20,6 +20,8 @@ When a site’s queue stops, most page caches stop clearing and visitors see old
 - builds expired pages for their next visitor instead of waiting for the queue;
 - shows an alert across the control panel, and an error on the utility page, until the queue runs again.
 
+When the control panel runs the queue (Craft’s default `runQueueAutomatically`), jobs simply wait while nobody has it open, which is normal on a quiet site. The alert then only shows if the queue still hasn’t run ten minutes after someone opens the control panel.
+
 Set `clearInRequest` to `true` to always clear straight away, such as on a small site with no queue runner, or `false` to always wait for the queue.
 
 ## Cron
