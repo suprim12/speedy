@@ -9,14 +9,12 @@
 - Important pages are rebuilt first after clearing everything.
 - `rebuildAfterDeploy`, to rebuild cached pages after a deploy.
 - `cloudflareZones`, for a Cloudflare zone per domain.
+- `allowedHosts`, to list the host names to cache for a site whose base URL is `@web`.
 
 ### Fixed
 - Fixed cases where a page could stay out of date.
 - Saving pages stays fast when thousands of them share a tag.
 - Fixed a “queue hasn’t run” alert that showed when it shouldn’t.
-
-### Security
-- Fixed a security issue with request headers. Sites whose base URL is `@web` can list their hosts in the new `allowedHosts` setting.
 
 ## 1.0.0 - 2026-11-15
 
