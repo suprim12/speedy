@@ -64,8 +64,8 @@ class SpeedyWidget extends Widget
             return null;
         }
         $plugin = Plugin::getInstance();
-        // Counting pages reads the cache folder, so it’s counted at most once a minute.
-        $stats = Craft::$app->getCache()->getOrSet('speedy:widgetStats', fn() => $plugin->storage->stats(), 60);
+        // Counting pages reads the whole cache folder, slow on big sites, so it’s counted at most every ten minutes.
+        $stats = Craft::$app->getCache()->getOrSet('speedy:widgetStats', fn() => $plugin->storage->stats(), 600);
 
         return Craft::$app->getView()->renderTemplate('speedy/_widget', [
             'settings' => $plugin->getSettings(),

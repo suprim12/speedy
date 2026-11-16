@@ -38,7 +38,7 @@ class Settings extends Model
      * `['example.com' => '$CF_ZONE_COM', 'example.de' => '$CF_ZONE_DE']`. A domain covers its subdomains, such as www.
      * Other URLs use `cloudflareZoneId`.
      */
-    public array $cloudflareZones = [];
+    public array|string|null $cloudflareZones = [];
 
     /** CloudFront distribution ID. */
     public string $cloudfrontDistributionId = '';
@@ -272,6 +272,16 @@ class Settings extends Model
     }
 
     /**
+     * The domains given their own Cloudflare zone in `cloudflareZones`.
+     *
+     * @return string[]
+     */
+    public function getCloudflareZoneDomains(): array
+    {
+        return array_values(array_filter(array_keys($this->getCloudflareZones()), fn($d) => $d !== '*'));
+    }
+
+    /**
      * Every Cloudflare zone ID, by domain, with `*` for `cloudflareZoneId`.
      *
      * @return array<string, string>
@@ -279,7 +289,25 @@ class Settings extends Model
     public function getCloudflareZones(): array
     {
         $zones = [];
-        foreach ($this->cloudflareZones as $domain => $zone) {
+        $value = $this->cloudflareZones;
+        // From an environment variable: JSON, or `example.com=zone1,example.de=zone2`.
+        if (is_string($value)) {
+            $value = trim((string)App::parseEnv($value));
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                $value = $decoded;
+            } else {
+                $pairs = [];
+                foreach (preg_split('/[\s,]+/', $value) ?: [] as $pair) {
+                    if (str_contains($pair, '=')) {
+                        [$domain, $zone] = explode('=', $pair, 2);
+                        $pairs[$domain] = $zone;
+                    }
+                }
+                $value = $pairs;
+            }
+        }
+        foreach ((array)$value as $domain => $zone) {
             $zone = (string)App::parseEnv((string)$zone);
             $domain = strtolower(trim((string)$domain, ". \t"));
             if ($zone !== '' && $domain !== '') {

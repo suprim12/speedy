@@ -120,7 +120,8 @@ class Insights extends Component
         if ($pattern !== null) {
             return ['state' => 'never', 'label' => Craft::t('speedy', 'Never cached'), 'detail' => Craft::t('speedy', 'Matches {pattern}', ['pattern' => $pattern]), 'pages' => $pages];
         }
-        if ($settings->getOnlyCache() && Cacher::matchingPattern($path, $settings->getOnlyCache()) === null) {
+        $sitePath = $element->uri === '__home__' ? '' : (string)$element->uri;
+        if ($settings->getOnlyCache() && Cacher::matchingPattern($path, $settings->getOnlyCache()) === null && Cacher::matchingPattern($sitePath, $settings->getOnlyCache()) === null) {
             return ['state' => 'never', 'label' => Craft::t('speedy', 'Never cached'), 'detail' => Craft::t('speedy', 'Not in Only cache'), 'pages' => $pages];
         }
         $key = $plugin->storage->key($parts['host'] ?? '', $path);

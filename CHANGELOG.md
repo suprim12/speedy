@@ -6,13 +6,14 @@
 - **Repeated queries**: the utility page lists pages that run the same database query again and again (N+1 queries), with the template and line, and how to fix it. Counted while Speedy rebuilds pages, never on visitors’ requests.
 - The utility page has tabs for cached pages, recent clears, repeated queries and setup, under the totals and actions.
 - A dashboard widget with the pages cached, recent clears, the CDN and any problems.
-- **Only cache**: cache just the pages that match, such as `news*`, with `/` for the homepage. Empty caches every page, as before.
+- **Only cache**: cache just the pages that match, such as `news*`, with `/` for each site’s homepage. Empty caches every page, as before.
 - `rebuildAfterDeploy` rebuilds cached pages in the background when a deploy applies project config changes.
 - After clearing everything, the homepage and top pages are rebuilt first, using the sitemap’s priorities.
-- A Cloudflare zone for each domain, with `cloudflareZones`, for sites on several domains.
+- A Cloudflare zone for each domain, with `cloudflareZones`, for sites on several domains. It can come from one environment variable.
 - Importing the other page cache’s settings brings over its included pages and its Cloudflare zone for each site.
 
 ### Fixed
+- Writing the list of what a page depends on is locked, so a page added while the list is tidied or cleared is never lost, and a line cut short by a full disk is taken back off.
 - On a full disk, a page that’s only partly saved, or whose list of what it depends on couldn’t be saved, is taken out instead of being sent or left uncleared.
 - New pages aren’t cached while the disk has less than 256 MB free, with an error on the utility page.
 - The “queue hasn’t run” alert no longer shows when the control panel is opened after a quiet spell, on sites where the control panel runs the queue. It now shows only if the queue still hasn’t run ten minutes later.

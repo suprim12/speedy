@@ -227,6 +227,17 @@ class HooksTest extends TestCase
         $this->assertSame('Project config changes applied', $this->plugin()->log->recent(1)[0]['reason']);
     }
 
+    public function testIncludedPatternsForSomeSitesArentImported(): void
+    {
+        $import = new BlitzImport();
+        $mapped = $import->map(['includedUriPatterns' => [['siteId' => '', 'uriPattern' => '.*'], ['siteId' => '', 'uriPattern' => 'blog/.*']]]);
+        $this->assertArrayNotHasKey('onlyCache', $mapped['settings'], 'One row caches everything, so the others mustn’t limit it.');
+        $this->assertStringContainsString('set onlyCache by hand', implode(' ', $mapped['notes']));
+
+        $mapped = $import->map(['includedUriPatterns' => [['siteId' => '1', 'uriPattern' => 'blog/.*']]]);
+        $this->assertArrayNotHasKey('onlyCache', $mapped['settings'], 'A pattern for one site would stop the others being cached.');
+    }
+
     public function testCountsQueryVersionsOfAPage(): void
     {
         $storage = $this->plugin()->storage;

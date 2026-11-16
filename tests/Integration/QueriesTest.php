@@ -82,6 +82,42 @@ class QueriesTest extends TestCase
         $this->assertSame($profiling, $db->enableProfiling);
     }
 
+    public function testNamesTheTemplateAndLineEvenInsideAnEmbed(): void
+    {
+        $dir = \Craft::getAlias('@templates/speedy-tests-' . bin2hex(random_bytes(3)));
+        $name = basename($dir);
+        mkdir($dir, 0775, true);
+        file_put_contents("$dir/_card.twig", "<div>{% block body %}{% endblock %}</div>");
+        file_put_contents("$dir/page.twig", implode("\n", [
+            '<h1>Page</h1>',
+            '{% embed "' . $name . '/_card" %}',
+            '  {% block body %}',
+            '    {% for i in 1..12 %}{{ craft.users().id(i).one() ? "" }}{% endfor %}',
+            '  {% endblock %}',
+            '{% endembed %}',
+            '{% for i in 1..12 %}{{ craft.users().id(i).cache(60).one() ? "" }}{% endfor %}',
+        ]));
+        $view = \Craft::$app->getView();
+        $mode = $view->getTemplateMode();
+        $view->setTemplateMode(\craft\web\View::TEMPLATE_MODE_SITE);
+        $queries = $this->plugin()->queries;
+        try {
+            $queries->start();
+            $view->renderTemplate("$name/page");
+            $queries->finish('https://example.com/embed');
+        } finally {
+            $view->setTemplateMode($mode);
+            foreach (glob("$dir/*") ?: [] as $file) {
+                unlink($file);
+            }
+            rmdir($dir);
+        }
+
+        $report = $queries->report();
+        $this->assertCount(1, $report[0]['repeated'] ?? [], 'Queries from the query cache aren’t counted as repeated.');
+        $this->assertSame("$name/page, line 4", $report[0]['repeated'][0]['at'], 'The line inside the embed, in the page’s own template.');
+    }
+
     public function testOffMeansNothingIsCounted(): void
     {
         $this->settings()->queryReport = false;

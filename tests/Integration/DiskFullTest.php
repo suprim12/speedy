@@ -29,12 +29,12 @@ class DiskFullTest extends TestCase
         // The tag list can’t be written, as on a full disk.
         $tags = "$this->tmp/data/tags";
         foreach (glob("$tags/*") ?: [] as $dir) {
-            foreach (glob("$dir/*") ?: [] as $file) {
-                unlink($file);
-            }
-            rmdir($dir);
+            \craft\helpers\FileHelper::removeDirectory($dir);
         }
         chmod($tags, 0555);
+        if (is_writable($tags)) {
+            $this->markTestSkipped('Running as root, so a read-only folder can’t be simulated.');
+        }
 
         try {
             $storage->write('example.com/a', 'new', 'https://example.com/a', ['element::1'], null);

@@ -19,7 +19,10 @@ class CountedCommand extends Command
 {
     protected function queryInternal($method, $fetchMode = null)
     {
-        Plugin::getInstance()->queries->note($this->getRawSql(), debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 60));
+        // Queries that may come from the query cache don’t reach the database each time, so aren’t counted.
+        if ($this->db->getQueryCacheInfo($this->queryCacheDuration, $this->queryCacheDependency) === null) {
+            Plugin::getInstance()->queries->note($this->getRawSql(), debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 60));
+        }
 
         return parent::queryInternal($method, $fetchMode);
     }

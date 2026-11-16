@@ -46,6 +46,20 @@ class SettingsTest extends TestCase
         $this->assertNull(Cacher::matchingPattern('about/team', $only));
     }
 
+    public function testCloudflareZonesFromAnEnvironmentVariable(): void
+    {
+        putenv('SPEEDY_TEST_ZONES={"example.com":"z1","example.de":"z2"}');
+        try {
+            $settings = new Settings(['cloudflareZones' => '$SPEEDY_TEST_ZONES', 'cloudflareZoneId' => 'z0']);
+            $this->assertSame(['example.com' => 'z1', 'example.de' => 'z2', '*' => 'z0'], $settings->getCloudflareZones());
+            $this->assertSame(['example.com', 'example.de'], $settings->getCloudflareZoneDomains());
+        } finally {
+            putenv('SPEEDY_TEST_ZONES');
+        }
+        $this->assertSame(['example.com' => 'z1', 'www.example.de' => 'z2'], (new Settings(['cloudflareZones' => 'example.com=z1, www.example.de=z2']))->getCloudflareZones());
+        $this->assertSame([], (new Settings(['cloudflareZones' => null]))->getCloudflareZones(), 'An unset variable is no zones, not an error.');
+    }
+
     public function testOffOnTemporaryDisksUnlessUsingCraftsCache(): void
     {
         putenv('CRAFT_EPHEMERAL=true');

@@ -248,7 +248,8 @@ class Cacher extends Component
         if ($reason === null && $this->matchesAny($path, $settings->getNeverCache())) {
             $reason = 'never cache';
         }
-        if ($reason === null && ($only = $settings->getOnlyCache()) && !$this->matchesAny($path, $only)) {
+        // Only cache matches the path within the site as well, so `/` and `news*` work for a site in a folder such as /de/.
+        if ($reason === null && ($only = $settings->getOnlyCache()) && !$this->matchesAny($path, $only) && !$this->matchesAny($request->getPathInfo(), $only)) {
             $reason = 'not in only cache';
         }
         if ($reason !== null) {
@@ -333,8 +334,13 @@ class Cacher extends Component
         } finally {
             $this->unlock();
             if ($this->_warming) {
-                $request = Craft::$app->getRequest();
-                Plugin::getInstance()->queries->finish(strtok($request->getAbsoluteUrl(), '?') . ($this->_query ? '?' . http_build_query($this->_query) : ''));
+                try {
+                    $request = Craft::$app->getRequest();
+                    Plugin::getInstance()->queries->finish(strtok($request->getAbsoluteUrl(), '?') . ($this->_query ? '?' . http_build_query($this->_query) : ''));
+                } catch (Throwable $e) {
+                    // The report is extra: never let it fail a rebuild.
+                    Craft::warning('Couldn’t update the repeated queries report: ' . $e->getMessage(), 'speedy');
+                }
             }
         }
     }

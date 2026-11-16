@@ -120,7 +120,7 @@
 				}) }}
 				{{ forms.autosuggestField({
 					label: 'Zone ID'|t('speedy'),
-					instructions: settings.cloudflareZones ? 'For domains not in `cloudflareZones` in config/speedy.php: {domains}.'|t('speedy', { domains: settings.cloudflareZones|keys|join(', ') }) : 'On the domain’s overview page. For a zone per domain, use `cloudflareZones` in config/speedy.php.'|t('speedy'),
+					instructions: settings.getCloudflareZoneDomains() ? 'For domains not in `cloudflareZones` in config/speedy.php: {domains}.'|t('speedy', { domains: settings.getCloudflareZoneDomains()|join(', ') }) : 'On the domain’s overview page. For a zone per domain, use `cloudflareZones` in config/speedy.php.'|t('speedy'),
 					name: 'cloudflareZoneId',
 					value: settings.cloudflareZoneId,
 					suggestEnvVars: true,

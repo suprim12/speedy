@@ -88,11 +88,16 @@ class BlitzImport extends Component
         if ($never) {
             $settings['neverCache'] = array_values(array_unique($never));
         }
-        $included = array_filter((array)($blitz['includedUriPatterns'] ?? []), function($row) {
-            $pattern = is_array($row) ? ($row['uriPattern'] ?? $row[1] ?? '') : (string)$row;
-            return !in_array($pattern, ['', '.*', '.+', '*'], true);
-        });
-        if ($included) {
+        $rows = (array)($blitz['includedUriPatterns'] ?? []);
+        $patternOf = fn($row) => (string)(is_array($row) ? ($row['uriPattern'] ?? $row[1] ?? '') : $row);
+        $included = array_filter($rows, fn($row) => !in_array($patternOf($row), ['', '.*', '.+', '*'], true));
+        // A row that caches everything, or rows for particular sites, can’t become one Only cache list without
+        // leaving some sites uncached.
+        $catchAll = count($included) < count($rows);
+        $perSite = (bool)array_filter($rows, fn($row) => is_array($row) && !empty($row['siteId'] ?? $row[0] ?? null));
+        if ($included && ($catchAll || $perSite)) {
+            $notes[] = 'Included URI patterns differ between sites, or one includes everything. Speedy caches every page; to cache only some, set onlyCache by hand.';
+        } elseif ($included) {
             $only = [];
             foreach ($included as $row) {
                 $pattern = is_array($row) ? ($row['uriPattern'] ?? $row[1] ?? '') : (string)$row;

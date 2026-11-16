@@ -40,6 +40,16 @@ A multi-site install on several domains has a Cloudflare zone for each. Give Spe
 ],
 ```
 
+To keep the zones in `.env`, give `cloudflareZones` one variable, as JSON or as `domain=zone` pairs:
+
+```php
+'cloudflareZones' => '$CLOUDFLARE_ZONES',
+```
+
+```bash
+CLOUDFLARE_ZONES="example.com=abc123,example.de=def456"
+```
+
 Each page is cleared from its own domain’s zone. A domain covers its subdomains, so `example.com` covers `www.example.com`. Pages on other domains use the **Zone ID** from the settings page, if there is one, and are otherwise left alone.
 
 ## How clearing works

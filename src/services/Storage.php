@@ -188,7 +188,15 @@ class Storage extends Component
             while (!is_dir($dir) && dirname($dir) !== $dir) {
                 $dir = dirname($dir);
             }
-            $free = @disk_free_space($dir);
+            // Some hosts disable disk_free_space(); calling it then throws, which @ doesn’t stop.
+            if (!function_exists('disk_free_space')) {
+                return -1;
+            }
+            try {
+                $free = @disk_free_space($dir);
+            } catch (Throwable) {
+                return -1;
+            }
 
             return $free === false ? -1 : (int)$free;
         }, 60);
@@ -245,10 +253,14 @@ class Storage extends Component
             if (!is_file($file)) {
                 continue;
             }
-            foreach ($this->readLines($file) as $key) {
+            // Read and remove it in one go, so a page added meanwhile isn’t lost.
+            foreach ($this->withListLock($file, function() use ($file) {
+                $lines = $this->readLines($file);
+                @unlink($file);
+                return $lines;
+            }) as $key) {
                 $keys[$key] = true;
             }
-            @unlink($file);
         }
 
         return array_keys($keys);
@@ -293,19 +305,22 @@ class Storage extends Component
             if ($bucket > $hour) {
                 continue;
             }
-            $keep = [];
-            foreach ($this->readLines($file) as $key) {
-                $expires = $this->meta($key)['expires'] ?? null;
-                if ($expires === null) {
-                    continue;
+            $this->withListLock($file, function() use ($file, $now, &$keys) {
+                $keep = [];
+                foreach ($this->readLines($file) as $key) {
+                    $expires = $this->meta($key)['expires'] ?? null;
+                    if ($expires === null) {
+                        continue;
+                    }
+                    if ($expires <= $now) {
+                        $keys[$key] = true;
+                    } else {
+                        $keep[] = $key;
+                    }
                 }
-                if ($expires <= $now) {
-                    $keys[$key] = true;
-                } else {
-                    $keep[] = $key;
-                }
-            }
-            $keep ? file_put_contents($file, implode("\n", $keep) . "\n", LOCK_EX) : @unlink($file);
+                // Through a copy, so a full disk can’t empty the list.
+                $keep ? $this->atomicWrite($file, implode("\n", $keep) . "\n") : @unlink($file);
+            });
         }
 
         return array_keys($keys);
@@ -521,17 +536,51 @@ class Storage extends Component
     private function appendLine(string $file, string $line): void
     {
         FileHelper::createDirectory(dirname($file));
-        $line .= "\n";
-        if (@file_put_contents($file, $line, FILE_APPEND | LOCK_EX) !== strlen($line)) {
-            throw new \RuntimeException("Couldn’t write to $file. Is the disk full?");
-        }
+        $this->withListLock($file, function() use ($file, $line) {
+            $handle = @fopen($file, 'ab');
+            if ($handle === false) {
+                throw new \RuntimeException("Couldn’t open $file.");
+            }
+            try {
+                clearstatcache(true, $file);
+                $size = (int)@filesize($file);
+                $line .= "\n";
+                if (@fwrite($handle, $line) !== strlen($line)) {
+                    // A full disk can stop part-way through the line: take it back off, so the next line isn’t joined to it.
+                    @ftruncate($handle, $size);
+                    throw new \RuntimeException("Couldn’t write to $file. Is the disk full?");
+                }
+            } finally {
+                fclose($handle);
+            }
 
-        clearstatcache(true, $file);
-        if (@filesize($file) > self::COMPACT_BYTES) {
-            // Keep each page once, and only pages that are still cached. Written to a copy first, so a full disk
-            // can’t leave the list empty.
-            $keep = array_filter(array_unique($this->readLines($file)), fn($k) => is_file($this->metaFile($k)));
-            $this->atomicWrite($file, $keep ? implode("\n", $keep) . "\n" : '');
+            clearstatcache(true, $file);
+            if (@filesize($file) > self::COMPACT_BYTES) {
+                // Keep each page once, and only pages that are still cached. Written to a copy first, so a full disk
+                // can’t leave the list empty.
+                $keep = array_filter(array_unique($this->readLines($file)), fn($k) => is_file($this->metaFile($k)));
+                $this->atomicWrite($file, $keep ? implode("\n", $keep) . "\n" : '');
+            }
+        });
+    }
+
+    /**
+     * Runs $fn while no other request adds to, compacts or takes the list in $file. A lock file per folder, as a
+     * compacted list replaces the file and a lock on the file itself would go with it.
+     */
+    private function withListLock(string $file, callable $fn): mixed
+    {
+        $lock = @fopen(dirname($file) . '/.lock', 'c');
+        if ($lock !== false) {
+            flock($lock, LOCK_EX);
+        }
+        try {
+            return $fn();
+        } finally {
+            if ($lock !== false) {
+                flock($lock, LOCK_UN);
+                fclose($lock);
+            }
         }
     }
 

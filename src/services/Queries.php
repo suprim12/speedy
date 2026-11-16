@@ -286,12 +286,16 @@ class Queries extends Component
      */
     public function templateLine(array $traces): ?string
     {
-        foreach ($traces as $trace) {
+        $traces = array_values($traces);
+        foreach ($traces as $i => $trace) {
             $file = (string)($trace['file'] ?? '');
             if (!str_contains($file, 'compiled_templates')) {
                 continue;
             }
-            $class = $this->templateClass($file);
+            // The code at this frame belongs to the next frame’s class: an {% embed %} has a class of its own in the
+            // same file, so the file alone can name the wrong one.
+            $next = (string)($traces[$i + 1]['class'] ?? '');
+            $class = str_starts_with($next, '__TwigTemplate_') ? $next : $this->templateClass($file);
             if ($class === null || !class_exists($class, false)) {
                 continue;
             }
