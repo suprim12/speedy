@@ -11,6 +11,7 @@ namespace suprim\speedy\services;
 
 use Craft;
 use craft\base\Component;
+use suprim\speedy\db\CountedCommand;
 use suprim\speedy\Plugin;
 use yii\log\Logger;
 use yii\log\Target;
@@ -27,13 +28,11 @@ class Queries extends Component
     /** How many pages the report keeps, the worst first. */
     private const KEEP = 100;
 
-    /** How many calls to note with each query, to find the template that ran it. */
-    private const TRACE = 60;
-
     /** @var array<int, array{sql: string, at: ?string}>|null The queries run so far, while counting. */
     private ?array $_sql = null;
 
-    private int $_traceLevel = 0;
+    /** @var array{driver: string, class: mixed}|null Craft’s command class, while Speedy’s counts in its place. */
+    private ?array $_command = null;
 
     private bool $_profiling = false;
 
@@ -46,19 +45,22 @@ class Queries extends Component
             return;
         }
         $this->_sql = [];
-        $this->_profiling = Craft::$app->getDb()->enableProfiling;
-        Craft::$app->getDb()->enableProfiling = true;
-        // With the calls that led to each query, the template and line that ran it can be named.
+        $db = Craft::$app->getDb();
+        $driver = $db->getDriverName();
+        if (($db->commandMap[$driver] ?? null) === \craft\db\Command::class) {
+            // Craft’s own command, counting each query and where it was run from. Nothing else changes.
+            $this->_command = ['driver' => $driver, 'class' => $db->commandMap[$driver]];
+            $db->commandMap[$driver] = CountedCommand::class;
+            return;
+        }
+
+        // Another plugin has its own command class: count the queries Yii profiles instead, without where they ran.
         $logger = Craft::getLogger();
         // Messages logged before now aren’t this page’s.
         $logger->flush();
-        $this->_traceLevel = $logger->traceLevel;
-        $logger->traceLevel = max($logger->traceLevel, self::TRACE);
-        $note = function(string $sql, array $traces) {
-            $this->_sql[] = ['sql' => $sql, 'at' => $this->templateLine($traces)];
-        };
-        // A log target that only keeps the SQL of each query, as Yii logs it when profiling is on.
-        $logger->dispatcher->targets['speedy-queries'] = new class($note) extends Target {
+        $this->_profiling = $db->enableProfiling;
+        $db->enableProfiling = true;
+        $logger->dispatcher->targets['speedy-queries'] = new class(fn(string $sql) => $this->note($sql)) extends Target {
             /** @var callable */
             private $note;
 
@@ -72,7 +74,7 @@ class Queries extends Component
             {
                 foreach ($messages as $message) {
                     if (($message[2] ?? null) === 'yii\db\Command::query' && ($message[1] ?? null) === Logger::LEVEL_PROFILE_BEGIN) {
-                        ($this->note)((string)$message[0], (array)($message[4] ?? []));
+                        ($this->note)((string)$message[0]);
                     }
                 }
             }
@@ -84,6 +86,18 @@ class Queries extends Component
     }
 
     /**
+     * Notes a query, with the calls that led to it.
+     *
+     * @param array<int, array<string, mixed>> $traces
+     */
+    public function note(string $sql, array $traces = []): void
+    {
+        if ($this->_sql !== null) {
+            $this->_sql[] = ['sql' => $sql, 'at' => $traces ? $this->templateLine($traces) : null];
+        }
+    }
+
+    /**
      * Stops counting and notes the page in the report.
      */
     public function finish(string $url): void
@@ -91,11 +105,16 @@ class Queries extends Component
         if ($this->_sql === null) {
             return;
         }
-        $logger = Craft::getLogger();
-        $logger->flush();
-        unset($logger->dispatcher->targets['speedy-queries']);
-        $logger->traceLevel = $this->_traceLevel;
-        Craft::$app->getDb()->enableProfiling = $this->_profiling;
+        $db = Craft::$app->getDb();
+        if ($this->_command !== null) {
+            $db->commandMap[$this->_command['driver']] = $this->_command['class'];
+            $this->_command = null;
+        } else {
+            $logger = Craft::getLogger();
+            $logger->flush();
+            unset($logger->dispatcher->targets['speedy-queries']);
+            $db->enableProfiling = $this->_profiling;
+        }
         $sql = $this->_sql;
         $this->_sql = null;
         $start = $_SERVER['REQUEST_TIME_FLOAT'] ?? null;

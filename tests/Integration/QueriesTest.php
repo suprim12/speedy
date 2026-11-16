@@ -63,6 +63,25 @@ class QueriesTest extends TestCase
         $this->assertSame([], $queries->report());
     }
 
+    public function testLeavesCraftAsItWas(): void
+    {
+        $db = \Craft::$app->getDb();
+        $driver = $db->getDriverName();
+        $command = $db->commandMap[$driver];
+        $traceLevel = \Craft::getLogger()->traceLevel;
+        $profiling = $db->enableProfiling;
+
+        $queries = $this->plugin()->queries;
+        $queries->start();
+        $this->assertSame(\suprim\speedy\db\CountedCommand::class, $db->commandMap[$driver], 'Counted through Craft’s own command.');
+        $this->assertSame($traceLevel, \Craft::getLogger()->traceLevel, 'Other log messages don’t get call traces.');
+        (new Query())->from('{{%elements}}')->limit(1)->one();
+        $queries->finish('https://example.com/a');
+
+        $this->assertSame($command, $db->commandMap[$driver]);
+        $this->assertSame($profiling, $db->enableProfiling);
+    }
+
     public function testOffMeansNothingIsCounted(): void
     {
         $this->settings()->queryReport = false;
