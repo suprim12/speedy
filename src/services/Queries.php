@@ -28,8 +28,13 @@ class Queries extends Component
     /** How many pages the report keeps, the worst first. */
     private const KEEP = 100;
 
-    /** @var array<int, array{sql: string, at: ?string}>|null The queries run so far, while counting. */
-    private ?array $_sql = null;
+    /**
+     * @var array<string, array{count: int, example: string, at: array<string, int>}>|null The queries run so far, grouped
+     * by their shape as they run, so a page with thousands of queries doesn’t keep each one. Null when not counting.
+     */
+    private ?array $_groups = null;
+
+    private int $_count = 0;
 
     /** @var array{driver: string, class: mixed}|null Craft’s command class, while Speedy’s counts in its place. */
     private ?array $_command = null;
@@ -41,10 +46,11 @@ class Queries extends Component
      */
     public function start(): void
     {
-        if ($this->_sql !== null || !Plugin::getInstance()->getSettings()->queryReport) {
+        if ($this->_groups !== null || !Plugin::getInstance()->getSettings()->queryReport) {
             return;
         }
-        $this->_sql = [];
+        $this->_groups = [];
+        $this->_count = 0;
         $db = Craft::$app->getDb();
         $driver = $db->getDriverName();
         if (($db->commandMap[$driver] ?? null) === \craft\db\Command::class) {
@@ -92,8 +98,9 @@ class Queries extends Component
      */
     public function note(string $sql, array $traces = []): void
     {
-        if ($this->_sql !== null) {
-            $this->_sql[] = ['sql' => $sql, 'at' => $traces ? $this->templateLine($traces) : null];
+        if ($this->_groups !== null) {
+            $this->_count++;
+            $this->group($this->_groups, $sql, $traces ? $this->templateLine($traces) : null);
         }
     }
 
@@ -102,7 +109,7 @@ class Queries extends Component
      */
     public function finish(string $url): void
     {
-        if ($this->_sql === null) {
+        if ($this->_groups === null) {
             return;
         }
         $db = Craft::$app->getDb();
@@ -115,10 +122,10 @@ class Queries extends Component
             unset($logger->dispatcher->targets['speedy-queries']);
             $db->enableProfiling = $this->_profiling;
         }
-        $sql = $this->_sql;
-        $this->_sql = null;
+        $groups = $this->_groups;
+        $this->_groups = null;
         $start = $_SERVER['REQUEST_TIME_FLOAT'] ?? null;
-        $this->save($url, $this->analyse($sql) + ['ms' => $start ? (int)round((microtime(true) - (float)$start) * 1000) : null]);
+        $this->save($url, $this->summarise($groups, $this->_count) + ['ms' => $start ? (int)round((microtime(true) - (float)$start) * 1000) : null]);
     }
 
     /**
@@ -132,13 +139,34 @@ class Queries extends Component
         $groups = [];
         foreach ($queries as $query) {
             $query = is_string($query) ? ['sql' => $query, 'at' => null] : $query;
-            $shape = $this->shape($query['sql']);
-            $groups[$shape] ??= ['count' => 0, 'example' => $query['sql'], 'at' => []];
-            $groups[$shape]['count']++;
-            if ($query['at'] !== null) {
-                $groups[$shape]['at'][$query['at']] = ($groups[$shape]['at'][$query['at']] ?? 0) + 1;
-            }
+            $this->group($groups, $query['sql'], $query['at']);
         }
+
+        return $this->summarise($groups, count($queries));
+    }
+
+    /**
+     * Adds a query to its group.
+     *
+     * @param array<string, array{count: int, example: string, at: array<string, int>}> $groups
+     */
+    private function group(array &$groups, string $sql, ?string $at): void
+    {
+        $shape = $this->shape($sql);
+        // One example of each, kept short: only its tables are read.
+        $groups[$shape] ??= ['count' => 0, 'example' => substr($sql, 0, 4000), 'at' => []];
+        $groups[$shape]['count']++;
+        if ($at !== null) {
+            $groups[$shape]['at'][$at] = ($groups[$shape]['at'][$at] ?? 0) + 1;
+        }
+    }
+
+    /**
+     * @param array<string, array{count: int, example: string, at: array<string, int>}> $groups
+     * @return array{queries: int, repeated: array<int, array{count: int, sql: string, at: ?string, tip: string}>}
+     */
+    private function summarise(array $groups, int $count): array
+    {
         $repeated = [];
         foreach ($groups as $shape => $group) {
             if ($group['count'] >= self::REPEATED) {
@@ -152,7 +180,7 @@ class Queries extends Component
         }
         usort($repeated, fn($a, $b) => $b['count'] <=> $a['count']);
 
-        return ['queries' => count($queries), 'repeated' => array_slice($repeated, 0, 5)];
+        return ['queries' => $count, 'repeated' => array_slice($repeated, 0, 5)];
     }
 
     /**
@@ -187,7 +215,8 @@ class Queries extends Component
             return;
         }
         $mutex = Craft::$app->getMutex();
-        if (!$mutex->acquire('speedy:queries', 5)) {
+        // Another rebuild is saving: skip this time rather than hold up the request. It’s checked again next rebuild.
+        if (!$mutex->acquire('speedy:queries', 1)) {
             return;
         }
         try {
