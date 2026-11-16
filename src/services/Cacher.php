@@ -103,6 +103,9 @@ class Cacher extends Component
     /** Whether the request has cookies that could change the page, so it’s built for this visitor alone. */
     private bool $_ownCookies = false;
 
+    /** The page’s address, as stored: built from its key, so it always rebuilds the same page. */
+    private ?string $_url = null;
+
     /** @var string[]|false|null The sites’ hosts, or false when a site answers on any host. */
     private array|false|null $_siteHosts = null;
 
@@ -232,7 +235,7 @@ class Cacher extends Component
             $this->hasCookie($request, self::STATE_COOKIE) => 'session',
             $this->hasCookieContaining($settings->skipCookies) => 'cookie',
             $this->isAjax($request) => 'ajax',
-            !$this->isSiteHost((string)$request->getHostName()) => 'unknown host',
+            !$this->isSiteHost((string)$request->getHostName(), $request->getPort()) => 'unknown host',
             default => null,
         };
         $this->_query = [];
@@ -266,6 +269,14 @@ class Cacher extends Component
             $this->_skipReason = 'too many query strings';
             $key = null;
         }
+
+        if ($key !== null && $this->_warming && !$this->warmTokenMatches($request, $key)) {
+            // A rebuild token for another page, or an old one.
+            $this->_warming = false;
+            $this->_skipReason = 'rebuild token';
+            $key = null;
+        }
+        $this->_url = $key !== null ? rtrim($request->getHostInfo() . $request->getBaseUrl(), '/') . '/' . ($path === '' ? '' : implode('/', array_map('rawurlencode', explode('/', $path)))) . ($this->_query ? '?' . http_build_query($this->_query) : '') : null;
 
         return $key;
     }
@@ -335,8 +346,7 @@ class Cacher extends Component
             $this->unlock();
             if ($this->_warming) {
                 try {
-                    $request = Craft::$app->getRequest();
-                    Plugin::getInstance()->queries->finish(strtok($request->getAbsoluteUrl(), '?') . ($this->_query ? '?' . http_build_query($this->_query) : ''));
+                    Plugin::getInstance()->queries->finish((string)$this->_url);
                 } catch (Throwable $e) {
                     // The report is extra: never let it fail a rebuild.
                     Craft::warning('Couldn’t update the repeated queries report: ' . $e->getMessage(), 'speedy');
@@ -366,7 +376,7 @@ class Cacher extends Component
 
         if ($this->_ownCookies) {
             // Build the copy for everyone in the background, from a request without cookies.
-            $url = strtok(Craft::$app->getRequest()->getAbsoluteUrl(), '?') . ($this->_query ? '?' . http_build_query($this->_query) : '');
+            $url = (string)$this->_url;
             if (Craft::$app->getCache()->add('speedy:building:' . md5((string)$this->_key), true, 60)) {
                 Plugin::getInstance()->warmer->queue([$url], false);
             }
@@ -390,7 +400,7 @@ class Cacher extends Component
             $html = $this->prepareHtml((string)$response->content);
             // The address as requested, without the query string. (Building it from the site’s base URL would
             // repeat a subfolder such as /de/ on multi-site.)
-            $url = strtok(Craft::$app->getRequest()->getAbsoluteUrl(), '?') . ($this->_query ? '?' . http_build_query($this->_query) : '');
+            $url = (string)$this->_url;
             $tags = array_merge($tags, $this->_customTags);
             $event = new CachePageEvent(['key' => $this->_key, 'url' => $url, 'html' => $html, 'tags' => $tags, 'expires' => $expires]);
             if ($this->hasEventHandlers(self::EVENT_BEFORE_CACHE)) {
@@ -693,26 +703,59 @@ class Cacher extends Component
      * Whether the host belongs to a site, so a forged Host header can’t fill the disk with copies.
      * Sites whose base URL is `@web` answer on any host, so any host is accepted then.
      */
-    private function isSiteHost(string $host): bool
+    /**
+     * Whether pages are cached for this host, and port when it isn’t 80 or 443: a site’s, or one in `allowedHosts`.
+     * When a site’s base URL is `@web`, which answers to any host, any host is cached unless `allowedHosts` lists them.
+     */
+    public function isSiteHost(string $host, ?int $port = null): bool
     {
-        $hosts = $this->_siteHosts;
-        if ($hosts === null) {
-            $hosts = [];
-            foreach (Craft::$app->getSites()->getAllSites() as $site) {
-                $raw = (string)App::parseEnv((string)$site->getBaseUrl(false));
-                if ($raw === '' || str_contains($raw, '@web')) {
-                    $hosts = false;
-                    break;
-                }
-                $siteHost = parse_url((string)Craft::getAlias($raw), PHP_URL_HOST);
-                if ($siteHost) {
-                    $hosts[] = strtolower($siteHost);
-                }
+        $host = strtolower($host);
+        $withPort = $port !== null && !in_array($port, [80, 443], true) ? "$host:$port" : $host;
+        $hosts = $this->siteHosts();
+        if ($hosts === false) {
+            $allowed = Plugin::getInstance()->getSettings()->getAllowedHosts();
+            if ($allowed) {
+                return in_array($withPort, $allowed, true);
             }
-            $this->_siteHosts = $hosts;
+            // Any host, but only on the usual ports: a made-up port would end up in the page’s links.
+            return $withPort === $host;
         }
 
-        return $hosts === false || in_array(strtolower($host), $hosts, true);
+        return in_array($withPort, $hosts, true);
+    }
+
+    /**
+     * The sites’ hosts, with their port when it isn’t the usual one, or false when a site’s base URL is `@web`.
+     *
+     * @return string[]|false
+     */
+    private function siteHosts(): array|false
+    {
+        if ($this->_siteHosts !== null) {
+            return $this->_siteHosts;
+        }
+        $hosts = [];
+        foreach (Craft::$app->getSites()->getAllSites(true) as $site) {
+            // Sites without pages have no base URL, and say nothing about which hosts are fine.
+            if (!$site->hasUrls) {
+                continue;
+            }
+            $raw = (string)App::parseEnv((string)$site->getBaseUrl(false));
+            if ($raw === '') {
+                continue;
+            }
+            if (str_contains($raw, '@web')) {
+                return $this->_siteHosts = false;
+            }
+            $parts = parse_url((string)Craft::getAlias($raw));
+            if (!empty($parts['host'])) {
+                $port = $parts['port'] ?? null;
+                $hosts[] = strtolower($parts['host']) . ($port !== null && !in_array($port, [80, 443], true) ? ":$port" : '');
+            }
+        }
+        $hosts = array_merge($hosts, Plugin::getInstance()->getSettings()->getAllowedHosts());
+
+        return $this->_siteHosts = array_values(array_unique($hosts));
     }
 
     /**
@@ -743,11 +786,22 @@ class Cacher extends Component
         return ($parts['path'] ?? '/') . (isset($parts['query']) ? '?' . $parts['query'] : '');
     }
 
+    /**
+     * Whether the request carries a rebuild token that hasn’t expired. Which page it’s for is checked once the page’s
+     * key is known, in warmTokenMatches().
+     */
     private function isWarmRequest(Request $request): bool
     {
-        $given = $request->getHeaders()->get('X-Speedy-Warm');
+        $given = (string)$request->getHeaders()->get('X-Speedy-Warm');
 
-        return is_string($given) && hash_equals(Plugin::getInstance()->warmer->secret(), $given);
+        return (bool)preg_match('/^(\d+)\.[a-f0-9]{64}$/', $given, $m) && (int)$m[1] >= time();
+    }
+
+    private function warmTokenMatches(Request $request, string $key): bool
+    {
+        [$expires] = explode('.', (string)$request->getHeaders()->get('X-Speedy-Warm'), 2);
+
+        return hash_equals(Plugin::getInstance()->warmer->token($key, (int)$expires), (string)$request->getHeaders()->get('X-Speedy-Warm'));
     }
 
     /**

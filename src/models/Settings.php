@@ -27,6 +27,13 @@ class Settings extends Model
     /** @var string[]|string URL patterns to cache, when only some pages should be, such as `news/*`. Empty caches every page. `*` matches anything; `/` is the homepage. */
     public array|string $onlyCache = [];
 
+    /**
+     * @var string[]|string Host names pages are cached for, such as `example.com`, when a site’s base URL is `@web`
+     * and so answers to any host. Empty caches any host for those sites, as before. Add a port when it isn’t 80 or
+     * 443, such as `localhost:8080`.
+     */
+    public array|string $allowedHosts = [];
+
     /** Cloudflare API token with the Zone → Cache Purge permission. Environment variables are supported. */
     public string $cloudflareToken = '';
 
@@ -167,6 +174,14 @@ class Settings extends Model
     public function getNeverCache(): array
     {
         return $this->patterns($this->neverCache);
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getAllowedHosts(): array
+    {
+        return array_map('strtolower', $this->patterns(is_string($this->allowedHosts) ? str_replace(',', "\n", (string)App::parseEnv($this->allowedHosts)) : $this->allowedHosts));
     }
 
     /**

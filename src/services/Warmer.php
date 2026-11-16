@@ -33,11 +33,12 @@ class Warmer extends Component
     public const EVENT_AFTER_WARM = 'afterWarm';
 
     /**
-     * The value of the X-Speedy-Warm header, so only Speedy’s own requests can rebuild pages.
+     * The value of the X-Speedy-Warm header, so only Speedy’s own requests can rebuild pages. It’s for one page and
+     * a short time, so if it ever reached anyone else it couldn’t be used to build any other page.
      */
-    public function secret(): string
+    public function token(string $key, int $expires): string
     {
-        return hash_hmac('sha256', 'speedy-warm', Craft::$app->getConfig()->getGeneral()->securityKey);
+        return $expires . '.' . hash_hmac('sha256', "speedy-warm|$key|$expires", Craft::$app->getConfig()->getGeneral()->securityKey);
     }
 
     /**
@@ -85,11 +86,20 @@ class Warmer extends Component
         $total = count($urls);
         $done = 0;
 
-        $requests = function() use ($urls) {
+        $storage = $plugin->storage;
+        $skipped = [];
+        $requests = function() use ($urls, $storage, $plugin, &$skipped) {
             foreach ($urls as $url) {
+                $key = $storage->keyForUrl($url);
+                $parts = parse_url($url);
+                // Only the sites’ own pages, so a made-up address can’t send requests elsewhere.
+                if ($key === null || !$plugin->cacher->isSiteHost((string)($parts['host'] ?? ''), $parts['port'] ?? null)) {
+                    $skipped[] = $url;
+                    continue;
+                }
                 // A one-off query string makes CDNs pass the request on, rather than answer with their old copy.
                 $warmUrl = $url . (str_contains($url, '?') ? '&' : '?') . Cacher::WARM_PARAM . '=' . bin2hex(random_bytes(4));
-                yield $url => new PsrRequest('GET', $warmUrl, ['X-Speedy-Warm' => $this->secret(), 'User-Agent' => 'SpeedyCache/1.0 (warming)']);
+                yield $url => new PsrRequest('GET', $warmUrl, ['X-Speedy-Warm' => $this->token($key, time() + 900), 'User-Agent' => 'SpeedyCache/1.0 (warming)']);
             }
         };
         $pool = new Pool($client, $requests(), [
@@ -117,6 +127,7 @@ class Warmer extends Component
             },
         ]);
         $pool->promise()->wait();
+        $failed = array_merge($failed, $skipped);
 
         if ($rebuild) {
             // A page that can’t be rebuilt (now a 404, now private…) mustn’t stay cached.

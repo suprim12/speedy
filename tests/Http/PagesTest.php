@@ -50,6 +50,7 @@ class PagesTest extends TestCase
             'raw-cookie' => '{% do craft.app.response.headers.add("Set-Cookie", "tracker=abc; Path=/") %}<html><body>Raw cookie</body></html>',
             'loop' => "<html><body>\n{% for i in 1..12 %}{{ craft.users().id(i).one() ? '' }}{% endfor %}\n</body></html>",
             'disk' => '<html><body>Disk</body></html>',
+            'param' => '<html><body>Param</body></html>',
             'no-loop' => '<html><body>{{ craft.users().id([1, 2, 3]).all()|length }}</body></html>',
         ];
         foreach ($templates as $name => $twig) {
@@ -239,6 +240,49 @@ class PagesTest extends TestCase
         } finally {
             Craft::$app->getCache()->delete('speedy:freeSpace');
         }
+    }
+
+    public function testMadeUpHostsAndPortsArentCached(): void
+    {
+        $webroot = (string)\Craft::getAlias('@webroot');
+        $before = is_file("$webroot/index.html");
+        // Whether the server passes these on or not, nothing may be written outside the cache folder.
+        foreach (['..', '.', 'attacker.example', parse_url(self::$base, PHP_URL_HOST) . ':1'] as $host) {
+            $response = $this->get('plain', ['headers' => ['X-Forwarded-Host' => $host]]);
+            $this->assertSame(200, $response->getStatusCode());
+        }
+        $this->assertSame($before, is_file("$webroot/index.html"), 'Nothing was written outside the cache folder.');
+        $this->assertFileDoesNotExist(dirname(Plugin::getInstance()->storage->cacheRoot()) . '/index.html.gz');
+    }
+
+    public function testRebuildTokensAreForOnePage(): void
+    {
+        $warmer = Plugin::getInstance()->warmer;
+        $host = (string)parse_url(self::$base, PHP_URL_HOST);
+        $other = $warmer->token("$host/" . self::$prefix . '/other', time() + 900);
+        $this->assertNotSame('WARM', $this->speedy($this->get('plain?speedy-warm=1', ['headers' => ['X-Speedy-Warm' => $other]])), 'A token for another page doesn’t rebuild this one.');
+
+        $expired = $warmer->token("$host/" . self::$prefix . '/plain', time() - 1);
+        $this->assertNotSame('WARM', $this->speedy($this->get('plain?speedy-warm=1', ['headers' => ['X-Speedy-Warm' => $expired]])), 'An old token doesn’t either.');
+
+        $good = $warmer->token("$host/" . self::$prefix . '/plain', time() + 900);
+        $this->assertSame('WARM', $this->speedy($this->get('plain?speedy-warm=1', ['headers' => ['X-Speedy-Warm' => $good]])));
+    }
+
+    public function testThePathParameterCantPointAPageAtTheWrongAddress(): void
+    {
+        $pathParam = \Craft::$app->getConfig()->getGeneral()->pathParam;
+        if (!$pathParam) {
+            $this->markTestSkipped('No path parameter on this site.');
+        }
+        $this->client()->get('/?' . $pathParam . '=' . self::$prefix . '/param');
+        $storage = Plugin::getInstance()->storage;
+        $key = $storage->key((string)parse_url(self::$base, PHP_URL_HOST), self::$prefix . '/param');
+        $meta = $storage->meta((string)$key);
+        if ($meta === null) {
+            $this->markTestSkipped('This server doesn’t route the path parameter.');
+        }
+        $this->assertSame(self::$base . '/' . self::$prefix . '/param', $meta['url'], 'Stored with its own address, so it rebuilds itself.');
     }
 
     public function testApiIsOffWithoutAKey(): void

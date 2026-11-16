@@ -47,7 +47,8 @@ class Storage extends Component
     public function key(string $host, string $path, array $query = []): ?string
     {
         $host = strtolower($host);
-        if (!preg_match('/^[a-z0-9.-]+(:\d+)?$/', $host)) {
+        // Dot-separated labels of letters, digits and hyphens: never `.` or `..`, which would leave the cache folder.
+        if (!preg_match('/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*(:\d+)?$/', $host)) {
             return null;
         }
         $path = trim($path, '/');
@@ -67,7 +68,12 @@ class Storage extends Component
             if ($string === '' || strlen($string) > 200) {
                 return null;
             }
-            $key .= '/' . self::QUERY_FOLDER . '/' . rawurlencode($string);
+            $folder = rawurlencode($string);
+            // A folder name can’t be longer than 255 bytes.
+            if (strlen($folder) > 240) {
+                return null;
+            }
+            $key .= '/' . self::QUERY_FOLDER . '/' . $folder;
         }
 
         return $key;
@@ -95,7 +101,8 @@ class Storage extends Component
         parse_str($parts['query'] ?? '', $query);
         unset($query[Cacher::WARM_PARAM]);
 
-        return $this->key($parts['host'] ?? '', $parts['path'] ?? '', array_map('strval', array_filter($query, 'is_scalar')));
+        // Keys are made from the decoded path, as Craft gives it, so `/caf%C3%A9` is the page `café`.
+        return $this->key($parts['host'] ?? '', rawurldecode($parts['path'] ?? ''), array_map('strval', array_filter($query, 'is_scalar')));
     }
 
     public function htmlFile(string $key): string
