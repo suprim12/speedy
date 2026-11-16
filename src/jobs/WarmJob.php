@@ -22,11 +22,14 @@ class WarmJob extends BaseJob
     public array $urls = [];
     public bool $rebuild = false;
 
+    /** @var array<string, string> The pages’ keys by URL, when known. */
+    public array $keys = [];
+
     public function execute($queue): void
     {
         Plugin::getInstance()->warmer->warm($this->urls, $this->rebuild, function(int $done, int $total) use ($queue) {
             $this->setProgress($queue, $done / max(1, $total), Craft::t('speedy', '{done} of {total}', ['done' => $done, 'total' => $total]));
-        });
+        }, $this->keys);
     }
 
     protected function defaultDescription(): ?string

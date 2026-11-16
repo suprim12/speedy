@@ -38,6 +38,7 @@ class StaleAndLocksTest extends TestCase
         touch($old, time() - 7200);
         touch($new);
 
+        \Craft::$app->getCache()->delete('speedy:prunedLocks');
         $storage->pruneLocks();
         $this->assertFileDoesNotExist($old);
         $this->assertFileExists($new, 'Recent ones stay.');

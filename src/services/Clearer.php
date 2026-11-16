@@ -327,6 +327,7 @@ class Clearer extends Component
     {
         $now = microtime(true);
         $cache = Craft::$app->getCache();
+        $cache->set('speedy:cleared:any', $now, 3600);
         foreach (array_unique($tags) as $tag) {
             $cache->set('speedy:cleared:' . md5($tag), $now, 3600);
         }
@@ -340,7 +341,11 @@ class Clearer extends Component
     public function clearedSince(float $since, array $tags): bool
     {
         $cache = Craft::$app->getCache();
-        $keys = array_merge(['speedy:cleared:all'], array_map(fn($t) => 'speedy:cleared:' . md5((string)$t), array_unique($tags)));
+        $tags = array_unique($tags);
+        // A page with hundreds of tags, such as a long listing, checks whether anything was cleared instead of each tag.
+        $keys = count($tags) > 100
+            ? ['speedy:cleared:all', 'speedy:cleared:any']
+            : array_merge(['speedy:cleared:all'], array_map(fn($t) => 'speedy:cleared:' . md5((string)$t), $tags));
         foreach ($cache->multiGet($keys) as $at) {
             if ($at !== false && $at !== null && (float)$at > $since) {
                 return true;
@@ -368,6 +373,7 @@ class Clearer extends Component
         }
         $storage = $plugin->storage;
         $rebuild = [];
+        $rebuildKeys = [];
         $purge = [];
         $count = 0;
 
@@ -381,6 +387,7 @@ class Clearer extends Component
             if ($url && ($this->_rebuild ?? $plugin->getSettings()->rebuildCleared)) {
                 // Keep the old copy until the new one is ready, so nobody waits for it.
                 $rebuild[] = $url;
+                $rebuildKeys[$url] = $key;
             } else {
                 $storage->delete($key);
                 if ($url) {
@@ -393,7 +400,7 @@ class Clearer extends Component
             $plugin->cdn->purgeUrls($purge);
         }
         if ($rebuild) {
-            $plugin->warmer->queue($rebuild, true);
+            $plugin->warmer->queue($rebuild, true, $rebuildKeys);
         }
         if ($count) {
             $plugin->log->add($reason, $count, array_merge($rebuild, $purge));
@@ -445,14 +452,16 @@ class Clearer extends Component
     {
         $plugin = Plugin::getInstance();
         $urls = [];
+        $keys = [];
         foreach ($plugin->storage->allKeys() as $key) {
             $url = $plugin->storage->meta($key)['url'] ?? null;
             if ($url) {
                 $urls[] = $url;
+                $keys[$url] = $key;
             }
         }
         $urls = $plugin->warmer->importantFirst($urls);
-        $plugin->warmer->queue($urls, true);
+        $plugin->warmer->queue($urls, true, $keys);
         $plugin->log->add($reason, count($urls), $urls);
 
         return count($urls);

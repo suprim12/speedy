@@ -370,7 +370,8 @@ class CacheStore
         /** @var \yii\caching\Cache $cache */
         $cache = $this->cache;
 
-        return $cache->keyPrefix . 'set:' . $name;
+        // In braces, so the set and its renamed copy are on the same Redis Cluster node.
+        return $cache->keyPrefix . 'set:{' . $name . '}';
     }
 
     private function addTag(string $name, string $key): void
@@ -414,8 +415,11 @@ class CacheStore
             $this->command($redis, 'RENAME', [$set, $taken]);
             $keys = array_merge($keys, (array)$this->command($redis, 'SMEMBERS', [$taken]));
             $this->command($redis, 'DEL', [$taken]);
-        } catch (\Throwable) {
-            // No set: nothing has this tag yet.
+        } catch (\Throwable $e) {
+            // No set: nothing has this tag yet. Anything else, such as a lost connection, mustn’t look like nothing to clear.
+            if (stripos($e->getMessage(), 'no such key') === false) {
+                throw $e;
+            }
         }
 
         return array_values(array_unique(array_map('strval', $keys)));

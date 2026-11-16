@@ -258,14 +258,13 @@ class PagesTest extends TestCase
     public function testRebuildTokensAreForOnePage(): void
     {
         $warmer = Plugin::getInstance()->warmer;
-        $host = (string)parse_url(self::$base, PHP_URL_HOST);
-        $other = $warmer->token("$host/" . self::$prefix . '/other', time() + 900);
+        $other = $warmer->token(self::$base . '/' . self::$prefix . '/other', time() + 900);
         $this->assertNotSame('WARM', $this->speedy($this->get('plain?speedy-warm=1', ['headers' => ['X-Speedy-Warm' => $other]])), 'A token for another page doesn’t rebuild this one.');
 
-        $expired = $warmer->token("$host/" . self::$prefix . '/plain', time() - 1);
+        $expired = $warmer->token(self::$base . '/' . self::$prefix . '/plain', time() - 1);
         $this->assertNotSame('WARM', $this->speedy($this->get('plain?speedy-warm=1', ['headers' => ['X-Speedy-Warm' => $expired]])), 'An old token doesn’t either.');
 
-        $good = $warmer->token("$host/" . self::$prefix . '/plain', time() + 900);
+        $good = $warmer->token(self::$base . '/' . self::$prefix . '/plain?speedy-warm=1', time() + 900);
         $this->assertSame('WARM', $this->speedy($this->get('plain?speedy-warm=1', ['headers' => ['X-Speedy-Warm' => $good]])));
     }
 
@@ -301,6 +300,19 @@ class PagesTest extends TestCase
         } else {
             $this->assertNotSame('', $response->getHeaderLine('Cache-Control'));
         }
+    }
+
+    public function testAPageThatCantBeRebuiltIsRemovedByItsOwnKey(): void
+    {
+        $storage = Plugin::getInstance()->storage;
+        $host = (string)parse_url(self::$base, PHP_URL_HOST);
+        // Its stored address doesn’t lead back to its key, as with Craft in a subfolder or an address 1.0 stored.
+        $key = (string)$storage->key($host, self::$prefix . '/old-copy');
+        $url = self::$base . '/' . self::$prefix . '/does-not-exist';
+        $storage->write($key, '<html>Old</html>', $url, ['element::999999'], null);
+
+        Plugin::getInstance()->warmer->warm([$url], true, null, [$url => $key]);
+        $this->assertFalse($storage->exists($key), 'Gone, rather than sent forever.');
     }
 
     public function testApiIsOffWithoutAKey(): void

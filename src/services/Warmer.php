@@ -36,16 +36,35 @@ class Warmer extends Component
      * The value of the X-Speedy-Warm header, so only Speedy’s own requests can rebuild pages. It’s for one page and
      * a short time, so if it ever reached anyone else it couldn’t be used to build any other page.
      */
-    public function token(string $key, int $expires): string
+    public function token(string $url, int $expires): string
     {
-        return $expires . '.' . hash_hmac('sha256', "speedy-warm|$key|$expires", Craft::$app->getConfig()->getGeneral()->securityKey);
+        $parts = parse_url($url);
+        parse_str($parts['query'] ?? '', $query);
+
+        return $this->tokenFor((string)($parts['host'] ?? ''), (string)($parts['path'] ?? ''), $query, $expires);
+    }
+
+    /**
+     * The token for a request’s host, path and query. Speedy’s rebuild request and the site work it out the same
+     * way from the same address, whether or not Craft is in a subfolder.
+     *
+     * @param array<string, mixed> $query
+     */
+    public function tokenFor(string $host, string $path, array $query, int $expires): string
+    {
+        unset($query[Cacher::WARM_PARAM]);
+        ksort($query);
+        $address = strtolower($host) . '/' . trim(rawurldecode($path), '/') . ($query ? '?' . http_build_query($query) : '');
+
+        return $expires . '.' . hash_hmac('sha256', "speedy-warm|$address|$expires", Craft::$app->getConfig()->getGeneral()->securityKey);
     }
 
     /**
      * @param string[] $urls
      * @param bool $rebuild Whether these pages are being replaced: they’re removed if they can’t be rebuilt, and cleared from the CDN once rebuilt.
+     * @param array<string, string> $keys The pages’ keys by URL, when known, so a page that can’t be rebuilt is removed by its own key.
      */
-    public function queue(array $urls, bool $rebuild): void
+    public function queue(array $urls, bool $rebuild, array $keys = []): void
     {
         $urls = array_values(array_unique(array_filter($urls)));
         if (!$urls) {
@@ -60,7 +79,7 @@ class Warmer extends Component
             $urls = array_values(array_unique(array_filter($event->urls)));
         }
         foreach (array_chunk($urls, 200) as $chunk) {
-            Queue::push(new WarmJob(['urls' => $chunk, 'rebuild' => $rebuild]), 1025);
+            Queue::push(new WarmJob(['urls' => $chunk, 'rebuild' => $rebuild, 'keys' => array_intersect_key($keys, array_flip($chunk))]), 1025);
         }
     }
 
@@ -68,9 +87,10 @@ class Warmer extends Component
      * Requests the pages so they’re cached.
      *
      * @param string[] $urls
+     * @param array<string, string> $keys The pages’ keys by URL, when known.
      * @return array{built: int, failed: int}
      */
-    public function warm(array $urls, bool $rebuild, ?callable $progress = null): array
+    public function warm(array $urls, bool $rebuild, ?callable $progress = null, array $keys = []): array
     {
         $plugin = Plugin::getInstance();
         $client = Craft::createGuzzleClient(array_filter([
@@ -83,31 +103,33 @@ class Warmer extends Component
         ], fn($v) => $v !== null));
         $built = [];
         $failed = [];
+        $changed = [];
         $total = count($urls);
         $done = 0;
 
-        $storage = $plugin->storage;
         $skipped = [];
-        $requests = function() use ($urls, $storage, $plugin, &$skipped) {
+        $requests = function() use ($urls, $plugin, &$skipped) {
             foreach ($urls as $url) {
-                $key = $storage->keyForUrl($url);
                 $parts = parse_url($url);
                 // Only the sites’ own pages, so a made-up address can’t send requests elsewhere.
-                if ($key === null || !$plugin->cacher->isSiteHost((string)($parts['host'] ?? ''), $parts['port'] ?? null)) {
+                if (empty($parts['host']) || !$plugin->cacher->isSiteHost((string)$parts['host'], $parts['port'] ?? null)) {
                     $skipped[] = $url;
                     continue;
                 }
                 // A one-off query string makes CDNs pass the request on, rather than answer with their old copy.
                 $warmUrl = $url . (str_contains($url, '?') ? '&' : '?') . Cacher::WARM_PARAM . '=' . bin2hex(random_bytes(4));
-                yield $url => new PsrRequest('GET', $warmUrl, ['X-Speedy-Warm' => $this->token($key, time() + 900), 'User-Agent' => 'SpeedyCache/1.0 (warming)']);
+                yield $url => new PsrRequest('GET', $warmUrl, ['X-Speedy-Warm' => $this->token($url, time() + 900), 'User-Agent' => 'SpeedyCache/1.0 (warming)']);
             }
         };
         $pool = new Pool($client, $requests(), [
             'concurrency' => max(1, $plugin->getSettings()->warmConcurrency),
-            'fulfilled' => function(ResponseInterface $response, string $url) use (&$built, &$failed, &$done, $total, $progress) {
+            'fulfilled' => function(ResponseInterface $response, string $url) use (&$built, &$failed, &$changed, &$done, $total, $progress) {
                 $state = $response->getHeaderLine(Cacher::HEADER);
                 if ($state === 'WARM' || $state === 'MISS') {
                     $built[] = $url;
+                } elseif ($state === 'SKIP changed while building') {
+                    // Changed again meanwhile: that change rebuilds it, so the copy there is kept until then.
+                    $changed[] = $url;
                 } else {
                     $failed[] = $url;
                     Craft::info("Couldn’t build $url: status {$response->getStatusCode()}" . ($state !== '' ? ", $state" : ''), 'speedy');
@@ -132,7 +154,7 @@ class Warmer extends Component
         if ($rebuild) {
             // A page that can’t be rebuilt (now a 404, now private…) mustn’t stay cached.
             foreach ($failed as $url) {
-                $key = $plugin->storage->keyForUrl($url);
+                $key = $keys[$url] ?? $plugin->storage->keyForUrl($url);
                 if ($key) {
                     $plugin->storage->delete($key);
                 }

@@ -327,7 +327,12 @@ class Storage extends Component
                     }
                 }
                 // Through a copy, so a full disk can’t empty the list.
-                $keep ? $this->atomicWrite($file, implode("\n", $keep) . "\n") : @unlink($file);
+                if ($keep) {
+                    $this->atomicWrite($file, implode("\n", $keep) . "\n");
+                } else {
+                    @unlink($file);
+                    @unlink("$file.size");
+                }
             });
         }
 
@@ -410,6 +415,9 @@ class Storage extends Component
      */
     public function pruneLocks(): void
     {
+        if (!Craft::$app->getCache()->add('speedy:prunedLocks', true, 3600)) {
+            return;
+        }
         $dir = $this->dataRoot() . '/locks';
         $old = time() - 3600;
         foreach (glob("$dir/*.lock", GLOB_NOSORT) ?: [] as $file) {
@@ -598,24 +606,37 @@ class Storage extends Component
                 $this->atomicWrite($file, $contents);
                 @file_put_contents("$file.size", (string)strlen($contents));
             }
-        });
+        }, true);
     }
 
     /**
      * Runs $fn while no other request adds to, compacts or takes the list in $file. A lock file per folder, as a
      * compacted list replaces the file and a lock on the file itself would go with it.
      */
-    private function withListLock(string $file, callable $fn): mixed
+    private function withListLock(string $file, callable $fn, bool $required = false): mixed
     {
         $lock = @fopen(dirname($file) . '/.lock', 'c');
+        $locked = false;
         if ($lock !== false) {
-            flock($lock, LOCK_EX);
+            // Up to five seconds: a lock that never comes, such as on some network drives, mustn’t hang the request.
+            $until = microtime(true) + 5;
+            while (!($locked = flock($lock, LOCK_EX | LOCK_NB)) && microtime(true) < $until) {
+                usleep(20000);
+            }
+        }
+        if (!$locked && $required) {
+            if ($lock !== false) {
+                fclose($lock);
+            }
+            throw new \RuntimeException("Couldn’t lock the list $file.");
         }
         try {
             return $fn();
         } finally {
             if ($lock !== false) {
-                flock($lock, LOCK_UN);
+                if ($locked) {
+                    flock($lock, LOCK_UN);
+                }
                 fclose($lock);
             }
         }

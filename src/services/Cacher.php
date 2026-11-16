@@ -241,7 +241,7 @@ class Cacher extends Component
             $this->hasCookie($request, self::STATE_COOKIE) => 'session',
             $this->hasCookieContaining($settings->skipCookies) => 'cookie',
             $this->isAjax($request) => 'ajax',
-            !$this->isSiteHost((string)$request->getHostName(), $request->getPort()) => 'unknown host',
+            !$this->isSiteHost((string)$request->getHostName(), parse_url($request->getHostInfo() ?? '', PHP_URL_PORT), $request->getIsSecureConnection() ? $request->getSecurePort() : $request->getPort()) => 'unknown host',
             default => null,
         };
         $this->_query = [];
@@ -276,7 +276,7 @@ class Cacher extends Component
             $key = null;
         }
 
-        if ($key !== null && $this->_warming && !$this->warmTokenMatches($request, $key)) {
+        if ($key !== null && $this->_warming && !$this->warmTokenMatches($request)) {
             // A rebuild token for another page, or an old one.
             $this->_warming = false;
             $this->_skipReason = 'rebuild token';
@@ -309,7 +309,7 @@ class Cacher extends Component
                 return false;
             }
             if (Craft::$app->getCache()->add('speedy:rebuilding:' . md5($key), true, 60)) {
-                Plugin::getInstance()->warmer->queue([$meta['url']], true);
+                Plugin::getInstance()->warmer->queue([$meta['url']], true, [$meta['url'] => $key]);
             }
             $state = 'STALE';
         }
@@ -376,8 +376,9 @@ class Cacher extends Component
         $duration = is_int($scheduled) && $scheduled > 0 ? $scheduled : null;
 
         $reason = $this->uncacheableReason($response);
-        // The page itself can’t be cached, rather than this copy: no visitor will save it either.
-        $this->_neverSaved = $reason !== null;
+        // The page itself can’t be cached, rather than this copy: no visitor will save it either. Not for errors, which
+        // may be gone in a moment.
+        $this->_neverSaved = $reason !== null && (in_array($reason, ['template', 'not html', 'too large', 'private', 'vary', 'sets a cookie'], true) || in_array($response->getStatusCode(), [301, 302, 303, 307, 308, 404, 410], true));
         if ($reason !== null) {
             $headers = $response->getHeaders();
             $headers->set(self::HEADER, 'SKIP ' . $reason);
@@ -625,7 +626,7 @@ class Cacher extends Component
      */
     private function lockOrWait(string $key): bool
     {
-        if (Craft::$app->getCache()->get(self::NOT_SAVED . md5($key))) {
+        if ($this->markedNotSaved($key)) {
             return true;
         }
         $storage = Plugin::getInstance()->storage;
@@ -645,10 +646,13 @@ class Cacher extends Component
 
             return true;
         }
-        $handle = @fopen($storage->lockFile($key), 'c');
+        $lockFile = $storage->lockFile($key);
+        $handle = @fopen($lockFile, 'c');
         if ($handle === false) {
             return true;
         }
+        // Marks it as in use, so old ones can be tidied away.
+        @touch($lockFile);
         if (flock($handle, LOCK_EX | LOCK_NB)) {
             $this->_lock = $handle;
             return true;
@@ -666,7 +670,7 @@ class Cacher extends Component
                 // The other request finished without saving the page. If the page can never be saved, such as one
                 // that sets a cookie, build it without holding the others up; otherwise build it here, and the others
                 // wait for this copy.
-                if (Craft::$app->getCache()->get(self::NOT_SAVED . md5($key))) {
+                if ($this->markedNotSaved($key)) {
                     flock($handle, LOCK_UN);
                     fclose($handle);
                     return true;
@@ -678,6 +682,16 @@ class Cacher extends Component
         fclose($handle);
 
         return true;
+    }
+
+    /**
+     * Whether the page was just built and couldn’t be saved, by this or another request.
+     *
+     * @phpstan-impure
+     */
+    private function markedNotSaved(string $key): bool
+    {
+        return (bool)Craft::$app->getCache()->get(self::NOT_SAVED . md5($key));
     }
 
     private function unlock(): void
@@ -737,8 +751,11 @@ class Cacher extends Component
     /**
      * Whether pages are cached for this host, and port when it isn’t 80 or 443: a site’s, or one in `allowedHosts`.
      * When a site’s base URL is `@web`, which answers to any host, any host is cached unless `allowedHosts` lists them.
+     *
+     * @param int|null $port The port in the address, such as `8080` in `example.com:8080`. Null when there isn’t one.
+     * @param int|null $serverPort The port the server really took the request on.
      */
-    public function isSiteHost(string $host, ?int $port = null): bool
+    public function isSiteHost(string $host, ?int $port = null, ?int $serverPort = null): bool
     {
         $host = strtolower($host);
         $withPort = $port !== null && !in_array($port, [80, 443], true) ? "$host:$port" : $host;
@@ -748,8 +765,9 @@ class Cacher extends Component
             if ($allowed) {
                 return in_array($withPort, $allowed, true);
             }
-            // Any host, but only on the usual ports: a made-up port would end up in the page’s links.
-            return $withPort === $host;
+            // Any host, on the usual ports or the one the server is on: a made-up port in the Host header would end
+            // up in the page’s links.
+            return $withPort === $host || $port === $serverPort;
         }
 
         return in_array($withPort, $hosts, true);
@@ -828,11 +846,13 @@ class Cacher extends Component
         return (bool)preg_match('/^(\d+)\.[a-f0-9]{64}$/', $given, $m) && (int)$m[1] >= time();
     }
 
-    private function warmTokenMatches(Request $request, string $key): bool
+    private function warmTokenMatches(Request $request): bool
     {
-        [$expires] = explode('.', (string)$request->getHeaders()->get('X-Speedy-Warm'), 2);
+        $given = (string)$request->getHeaders()->get('X-Speedy-Warm');
+        [$expires] = explode('.', $given, 2);
+        $path = (string)parse_url($request->getUrl(), PHP_URL_PATH);
 
-        return hash_equals(Plugin::getInstance()->warmer->token($key, (int)$expires), (string)$request->getHeaders()->get('X-Speedy-Warm'));
+        return hash_equals(Plugin::getInstance()->warmer->tokenFor((string)$request->getHostName(), $path, $request->getQueryParams(), (int)$expires), $given);
     }
 
     /**
