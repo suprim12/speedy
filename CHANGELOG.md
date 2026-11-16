@@ -1,6 +1,6 @@
 # Release Notes for Speedy Cache
 
-## Unreleased
+## 1.1.0 - 2026-11-16
 
 ### Added
 - A report of pages that run the same database query in a loop (N+1 queries), with the template and line.
