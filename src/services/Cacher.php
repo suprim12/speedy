@@ -106,6 +106,9 @@ class Cacher extends Component
     /** Whether the request has cookies that could change the page, so it’s built for this visitor alone. */
     private bool $_ownCookies = false;
 
+    /** Whether this page can’t be cached however often it’s built, such as one that sets a cookie. */
+    private bool $_neverSaved = false;
+
     /** The page’s address, as stored: built from its key, so it always rebuilds the same page. */
     private ?string $_url = null;
 
@@ -348,7 +351,7 @@ class Cacher extends Component
         } finally {
             // Built but not saved, such as a page that sets a cookie or calls skip(): for a minute, visitors build it
             // side by side instead of waiting in turn for a copy that won’t come.
-            if (!$this->_ownCookies && !Plugin::getInstance()->storage->exists($this->_key)) {
+            if ($this->_neverSaved) {
                 Craft::$app->getCache()->set(self::NOT_SAVED . md5($this->_key), true, 60);
             }
             $this->unlock();
@@ -373,6 +376,8 @@ class Cacher extends Component
         $duration = is_int($scheduled) && $scheduled > 0 ? $scheduled : null;
 
         $reason = $this->uncacheableReason($response);
+        // The page itself can’t be cached, rather than this copy: no visitor will save it either.
+        $this->_neverSaved = $reason !== null;
         if ($reason !== null) {
             $headers = $response->getHeaders();
             $headers->set(self::HEADER, 'SKIP ' . $reason);
@@ -658,10 +663,15 @@ class Cacher extends Component
                 return false;
             }
             if (flock($handle, LOCK_EX | LOCK_NB)) {
-                // The other request finished without saving the page, such as a 404. Build it here, without holding
-                // the others up.
-                flock($handle, LOCK_UN);
-                fclose($handle);
+                // The other request finished without saving the page. If the page can never be saved, such as one
+                // that sets a cookie, build it without holding the others up; otherwise build it here, and the others
+                // wait for this copy.
+                if (Craft::$app->getCache()->get(self::NOT_SAVED . md5($key))) {
+                    flock($handle, LOCK_UN);
+                    fclose($handle);
+                    return true;
+                }
+                $this->_lock = $handle;
                 return true;
             }
         }
