@@ -3,24 +3,20 @@
 ## Unreleased
 
 ### Added
-- **Repeated queries**: the utility page lists pages that run the same database query again and again (N+1 queries), with the template and line, and how to fix it. Counted while Speedy rebuilds pages, never on visitors’ requests.
-- The utility page has tabs for cached pages, recent clears, repeated queries and setup, under the totals and actions.
-- A dashboard widget with the pages cached, recent clears, the CDN and any problems.
-- **Only cache**: cache just the pages that match, such as `news*`, with `/` for each site’s homepage. Empty caches every page, as before.
-- `rebuildAfterDeploy` rebuilds cached pages in the background when a deploy applies project config changes.
-- After clearing everything, the homepage and top pages are rebuilt first, using the sitemap’s priorities.
-- A Cloudflare zone for each domain, with `cloudflareZones`, for sites on several domains. It can come from one environment variable.
-- Importing the other page cache’s settings brings over its included pages and its Cloudflare zone for each site.
+- A report of pages that run the same database query in a loop (N+1 queries), with the template and line.
+- Tabs on the utility page, and a dashboard widget.
+- **Only cache**, to cache only the pages you choose.
+- Important pages are rebuilt first after clearing everything.
+- `rebuildAfterDeploy`, to rebuild cached pages after a deploy.
+- `cloudflareZones`, for a Cloudflare zone per domain.
 
 ### Fixed
-- Security: a crafted `Host` or `X-Forwarded-Host` header could make Speedy save a page outside its cache folder. Only real host names are cached, and only the sites’ own where their base URLs name them. A base URL of `@web` answers to any host: list yours in `allowedHosts`.
-- Rebuild requests use a short-lived token for each page, and only go to the sites’ own hosts.
-- Pages no longer stay out of date when a change is saved while they’re being built, when an entry is saved on a site where it’s disabled, when they were requested with `?p=`, or when their address has characters such as `é`.
-- On a full disk, a page that’s only partly saved is never sent, and new pages aren’t cached until there’s room.
-- Saving stays fast when thousands of cached pages share a tag, with files or Redis.
-- Visitors no longer wait in turn for a page that can’t be cached, such as one that sets a cookie.
-- Responses that set a cookie are never sent with a public `Cache-Control`.
-- The “queue hasn’t run” alert no longer shows just because the control panel hasn’t been opened for a while.
+- Fixed cases where a page could stay out of date.
+- Saving pages stays fast when thousands of them share a tag.
+- Fixed a “queue hasn’t run” alert that showed when it shouldn’t.
+
+### Security
+- Fixed a security issue with request headers. Sites whose base URL is `@web` can list their hosts in the new `allowedHosts` setting.
 
 ## 1.0.0 - 2026-11-15
 
