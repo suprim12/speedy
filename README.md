@@ -11,7 +11,7 @@ Full-page caching that works with your templates as they are, keeps your databas
 - **Static pages, no database tables.** Pages are saved as HTML files. What each page depends on is stored next to it, so the database never grows.
 - **Served without PHP.** Generated Nginx and Apache rules let the web server send cached pages directly, in a millisecond or two. A live check confirms it works.
 - **Smart clearing.** Uses Craft’s own cache tags: saving an entry clears the pages that show it and the pages that list its section, and nothing else.
-- **Never a slow first visit.** Cleared pages are rebuilt in the background before the old copy is replaced, and again after a deploy changes project config. After clearing everything, the homepage and top pages come first.
+- **Never a slow first visit.** Cleared pages are rebuilt in the background before the old copy is replaced, and can be after every deploy that changes project config. After clearing everything, the homepage and top pages come first.
 - **Safe by default.** Logged-in visitors, carts, form steps, flash messages and pages that set cookies are never cached, and a made-up cookie can’t reach the copy everyone gets. Drafts, autosaves and saves that change nothing never clear live pages.
 - **Query strings, your way.** Not cached unless you list them, such as `page`, with a cap per page so the disk can’t fill.
 - **Commerce stock.** Orders, control panel edits and transfers clear the product’s pages.
