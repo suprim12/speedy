@@ -186,7 +186,7 @@ class Insights extends Component
         }
         $slow = $settings->queryReport ? count($plugin->queries->report()) : 0;
         if ($slow) {
-            $add('hint', Craft::t('speedy', '{count, plural, =1{# page runs} other{# pages run}} the same database query again and again, usually in a loop. See [Repeated queries](#speedy-queries).', ['count' => $slow]));
+            $add('hint', Craft::t('speedy', '{count, plural, =1{# page runs} other{# pages run}} the same database query again and again, usually in a loop. See [Repeated queries](#queries).', ['count' => $slow]));
         }
         $failed = $this->failedJobs();
         if ($failed) {
@@ -217,7 +217,7 @@ class Insights extends Component
             $add('warning', Craft::t('speedy', 'devMode is on in production.'));
         }
         if (!$usesCache && !($plugin->storage->readData('state')['serverChecked'] ?? false)) {
-            $add('hint', Craft::t('speedy', 'Add the server rules below so cached pages are sent without PHP, then click “Check server serving”.'));
+            $add('hint', Craft::t('speedy', 'Add the [server rules](#setup) so cached pages are sent without PHP, then click “Check server serving”.'));
         }
 
         return $checks;

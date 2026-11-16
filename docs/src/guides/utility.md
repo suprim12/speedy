@@ -2,16 +2,16 @@
 
 **Utilities → Speedy Cache** shows what’s cached and lets you clear it. It needs the **Utilities → Speedy Cache** permission.
 
-![The Speedy Cache utility page](/images/utility.jpg)
+![The Speedy Cache utility page: totals, tips and actions at the top, then the Pages, Recent clears, Repeated queries and Setup tabs](/images/utility.jpg)
 
 ## At the top
 
+- **Caching:** on or off.
 - **Pages cached** and their size on disk.
 - **CDN:** the one Speedy detected, and whether it can clear it.
 - **CloudFront paths this month,** when CloudFront is set up.
-- The last result from each CDN.
 
-## Checks and tips
+### Checks and tips
 
 Under the totals, Speedy lists anything that needs attention, most important first:
 
@@ -19,7 +19,9 @@ Under the totals, Speedy lists anything that needs attention, most important fir
 - **Checks:** caching turned off, `devMode` on in production, CloudFront close to its free paths.
 - **Tips:** your site is behind a CDN Speedy could clear, pages that clear whenever any entry is saved (a query without `.section()`), image transforms generated on first view, and server rules not checked yet.
 
-## Actions
+A tip that mentions a tab, such as **Repeated queries**, links straight to it.
+
+### Actions
 
 | Button | What it does |
 |---|---|
@@ -27,10 +29,12 @@ Under the totals, Speedy lists anything that needs attention, most important fir
 | **Rebuild all pages** | Rebuilds every cached page in the background. Visitors keep getting the old copies until the new ones are ready, so a busy site never has a moment with nothing cached |
 | **Clear URL** | Clears one page, such as `https://example.com/news` |
 | **Warm pages** | Builds the pages in your `warm` list now. Shown when `warm` is set |
-| **Check server serving** | Checks that the web server is serving cached pages without PHP. See [Server rules](/getting-started/server-rules) |
-| **Test Cloudflare / Test CloudFront** | Checks the CDN details. Shown when they’re set |
 
-## Cached pages
+## Tabs
+
+Below the actions, the page has four tabs. Each has its own address, such as `utilities/speedy#queries`, to link to or bookmark.
+
+### Pages
 
 Every cached page, sorted by URL, with a search box. For each page:
 
@@ -38,19 +42,17 @@ Every cached page, sorted by URL, with a search box. For each page:
 - **Clears when these change:** what the page depends on, in words: “Entries: News”, “Entry: Summer Sale”, “Any of: Entries”. A page with nothing listed only clears when everything is cleared, such as a page from a template with no entries.
 - **Clear:** clears that page.
 
-## On each entry
+### Recent clears
 
-![The details panel of an entry: Page cache, Cached, 26 seconds ago, shown on 3 cached pages](/images/entry-status.jpg)
+The last clears, with when, why, how many pages and which URLs. The latest 10 are shown, with **Show more** for the rest:
 
-The details panel of entries, categories, products and other elements with pages shows a **Page cache** line: whether its page is cached and when, or why it isn’t (caching off, or a **Never cache** pattern), and how many cached pages show it.
+![Recent clears](/images/log.jpg)
 
-## Clear from an element index
+Each line names what changed: “Saved entry ‘Summer Sale’ → 3 pages”, “Resaved 1,200 entries → 340 pages”, “Cleared from the command line”. CDN failures show here too.
 
-![The actions menu of the entries index, with Clear cached pages](/images/element-action.jpg)
+### Repeated queries
 
-Select entries, categories or Commerce products, and choose **Clear cached pages** from the actions menu. It clears every cached page that shows them. It needs the **Utilities → Speedy Cache** permission.
-
-## Repeated queries
+The tab shows how many pages are listed.
 
 Pages that run the same database query again and again, usually once for each item in a loop. This is called an N+1 query: a news listing of 30 entries that reads each entry’s categories runs 30 extra queries, where eager-loading runs one.
 
@@ -80,23 +82,27 @@ A page drops off the list the next time it’s rebuilt without repeated queries.
 'queryReport' => false,
 ```
 
-## Support report
+### Setup
+
+Things you need once, or when something is wrong:
+
+- **Serve pages without PHP:** the rules for your web server, ready to copy, and **Check server serving**, which checks that the web server sends cached pages without PHP. See [Server rules](/getting-started/server-rules).
+- **CDN:** the last result from each CDN, and a **Test** button for each one that’s set up.
+- **Support report:** **Copy support report** copies a plain-text summary to paste into a support email: versions, settings, CDN status, checks, recent clears, repeated queries and installed plugins. Keys and tokens only appear as “set”.
 
 ![The support report: versions, caching settings, CDN, checks, recent clears and plugins](/images/report.jpg)
 
-**Copy support report** copies a plain-text summary to paste into a support email: versions, settings, CDN status, checks, recent clears and installed plugins. Keys and tokens only appear as “set”.
+## On each entry
 
-## Recent clears
+![The details panel of an entry: Page cache, Cached, 26 seconds ago, shown on 3 cached pages](/images/entry-status.jpg)
 
-The last clears, with when, why, how many pages and which URLs:
+The details panel of entries, categories, products and other elements with pages shows a **Page cache** line: whether its page is cached and when, or why it isn’t (caching off, or a **Never cache** pattern), and how many cached pages show it.
 
-![Recent clears](/images/log.jpg)
+## Clear from an element index
 
-Each line names what changed: “Saved entry ‘Summer Sale’ → 3 pages”, “Resaved 1,200 entries → 340 pages”, “Cleared from the command line”. CDN failures show here too.
+![The actions menu of the entries index, with Clear cached pages](/images/element-action.jpg)
 
-## Serve pages without PHP
-
-The rules for your web server, ready to copy.
+Select entries, categories or Commerce products, and choose **Clear cached pages** from the actions menu. It clears every cached page that shows them. It needs the **Utilities → Speedy Cache** permission.
 
 ## Dashboard widget
 
