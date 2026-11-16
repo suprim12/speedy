@@ -48,6 +48,9 @@ class PagesTest extends TestCase
             'analytics' => '<html><body>Analytics</body></html>',
             'theme' => '<html><body>Theme {{ craft.app.request.rawCookies.getValue("theme") ?? "default" }}</body></html>',
             'raw-cookie' => '{% do craft.app.response.headers.add("Set-Cookie", "tracker=abc; Path=/") %}<html><body>Raw cookie</body></html>',
+            'loop' => "<html><body>\n{% for i in 1..12 %}{{ craft.users().id(i).one() ? '' }}{% endfor %}\n</body></html>",
+            'disk' => '<html><body>Disk</body></html>',
+            'no-loop' => '<html><body>{{ craft.users().id([1, 2, 3]).all()|length }}</body></html>',
         ];
         foreach ($templates as $name => $twig) {
             file_put_contents(self::$dir . "/$name.twig", $twig);
@@ -62,6 +65,14 @@ class PagesTest extends TestCase
             }
             rmdir(self::$dir);
             Plugin::getInstance()->clearer->clearTags([], 'tests');
+            // This class’s pages in the repeated queries report.
+            $storage = Plugin::getInstance()->storage;
+            $report = $storage->readData('queries');
+            $kept = array_filter($report, fn($url) => !str_contains((string)$url, self::$prefix), ARRAY_FILTER_USE_KEY);
+            if (count($kept) !== count($report)) {
+                $storage->writeData('queries', $kept);
+            }
+            Craft::$app->getCache()->delete('speedy:freeSpace');
             foreach (Plugin::getInstance()->storage->allKeys() as $key) {
                 if (str_contains($key, self::$prefix)) {
                     Plugin::getInstance()->storage->delete($key);
@@ -189,6 +200,45 @@ class PagesTest extends TestCase
         $render = fn(array $tokens) => json_decode((string)$this->client()->post('/actions/speedy/dynamic/render', ['json' => ['tokens' => $tokens]])->getBody(), true);
         $this->assertStringContainsString('Part for Alex', (string)$render([$token])['parts'][0]);
         $this->assertNull($render([$token . 'x'])['parts'][0], 'Tampered tokens render nothing.');
+    }
+
+    public function testRebuildsReportQueriesRunInALoop(): void
+    {
+        if (!Plugin::getInstance()->getSettings()->queryReport) {
+            $this->markTestSkipped('queryReport is off on this site.');
+        }
+        $url = self::$base . '/' . self::$prefix . '/loop';
+        $fine = self::$base . '/' . self::$prefix . '/no-loop';
+        $this->assertSame(['built' => 2, 'failed' => 0], Plugin::getInstance()->warmer->warm([$url, $fine], false));
+
+        $report = array_column(Plugin::getInstance()->queries->report(), null, 'url');
+        $this->assertArrayHasKey($url, $report, 'The page with a loop is listed.');
+        $this->assertArrayNotHasKey($fine, $report, 'One query for them all isn’t.');
+        $repeat = $report[$url]['repeated'][0];
+        $this->assertGreaterThanOrEqual(12, $repeat['count']);
+        $this->assertSame(self::$prefix . '/loop, line 2', $repeat['at'], 'The template and line that ran it.');
+        $this->assertStringContainsString('Users are fetched one item at a time', $repeat['tip']);
+        $this->assertStringNotContainsString("'", $repeat['sql'], 'No values are kept.');
+
+        // Visitors’ requests aren’t counted: take this page off the report, then visit it.
+        $storage = Plugin::getInstance()->storage;
+        $storage->writeData('queries', array_diff_key($storage->readData('queries'), [$url => true]));
+        $storage->delete((string)$storage->keyForUrl($url));
+        $this->assertSame('MISS', $this->speedy($this->get('loop')));
+        $this->assertArrayNotHasKey($url, array_column(Plugin::getInstance()->queries->report(), null, 'url'));
+    }
+
+    public function testNewPagesArentSavedOnANearlyFullDisk(): void
+    {
+        Craft::$app->getCache()->set('speedy:freeSpace', 10 * 1024 * 1024, 60);
+        try {
+            $page = $this->get('disk');
+            $this->assertSame('SKIP disk full', $this->speedy($page), 'Not saved, but the visitor still gets the page.');
+            $this->assertStringContainsString('Disk', (string)$page->getBody());
+            $this->assertSame('SKIP disk full', $this->speedy($this->get('disk')), 'Still not saved.');
+        } finally {
+            Craft::$app->getCache()->delete('speedy:freeSpace');
+        }
     }
 
     public function testApiIsOffWithoutAKey(): void
