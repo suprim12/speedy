@@ -40,8 +40,17 @@ class Clearer extends Component
     /** Commerce’s catalog prices, each with the dates it applies between. */
     private const COMMERCE_PRICES = '{{%commerce_catalogpricing}}';
 
+    /** What Commerce has still to price: rows of purchasable or pricing rule IDs, each taken by one price job. */
+    private const COMMERCE_PRICE_QUEUE = '{{%commerce_catalogpricing_queue}}';
+
+    /** @var array<int, array{type: string, ids: int[]|null, before: int[]}>|null Commerce’s rows waiting to be priced, before a price job. */
+    private ?array $_priceRows = null;
+
     /** Marks a page waiting to be rebuilt after a run of changes, until its rebuild starts. */
     public const REBUILD_LATER = 'speedy:rebuildLater:';
+
+    /** How long past its time a waiting rebuild is still expected, such as on a busy queue, before another may be queued. */
+    public const REBUILD_LATER_GRACE = 600;
 
     /** Whether pages cleared now are rebuilt, overriding the setting, such as while clearing without the queue. */
     private ?bool $_rebuild = null;
@@ -442,9 +451,9 @@ class Clearer extends Component
         }
         if ($later) {
             // A listing cleared by any entry is rebuilt once after a run of changes, such as an import, not after each.
-            // The mark lasts until the rebuild starts, however late the queue runs it (an hour at most).
+            // The mark lasts until the rebuild starts, or ten minutes past it, so a lost job doesn’t hold the page back.
             $cache = Craft::$app->getCache();
-            $later = array_values(array_filter($later, fn($url) => $cache->add(self::REBUILD_LATER . md5($url), true, $delay + 3600)));
+            $later = array_values(array_filter($later, fn($url) => $cache->add(self::REBUILD_LATER . md5($url), true, $delay + self::REBUILD_LATER_GRACE)));
             $plugin->warmer->queue($later, true, $rebuildKeys, $delay);
             $rebuild = array_merge($rebuild, $later);
         }
@@ -523,25 +532,33 @@ class Clearer extends Component
     /**
      * Clears everything, including the CDN.
      */
-    public function clearAll(string $reason): void
+    /**
+     * @return bool False when nothing could be cleared, as the cache folder isn’t Speedy’s own.
+     */
+    public function clearAll(string $reason): bool
     {
         $plugin = Plugin::getInstance();
         if ($this->hasEventHandlers(self::EVENT_BEFORE_CLEAR)) {
             $before = new BeforeClearEvent(['reason' => $reason, 'all' => true]);
             $this->trigger(self::EVENT_BEFORE_CLEAR, $before);
             if (!$before->isValid) {
-                return;
+                return true;
             }
         }
         $count = $plugin->storage->stats()['pages'];
         Craft::$app->getCache()->set('speedy:cleared:all', microtime(true), 3600);
-        $plugin->storage->clearAll();
+        if (!$plugin->storage->clearAll()) {
+            $plugin->log->add(Craft::t('speedy', 'Couldn’t clear: the cache folder isn’t Speedy’s own'), 0, []);
+            return false;
+        }
         $plugin->cdn->purgeAll();
         $plugin->log->add($reason, $count, []);
         $this->afterClear($reason, $count, [], true);
         if ($plugin->getSettings()->warm) {
             $plugin->warmer->queue($plugin->warmer->warmList(), false);
         }
+
+        return true;
     }
 
     /**
@@ -653,17 +670,70 @@ class Clearer extends Component
     }
 
     /**
-     * The purchasables with prices from a Commerce pricing rule.
+     * The purchasables with prices from Commerce pricing rules.
      *
+     * @param int|int[] $ruleIds
      * @return int[]
      */
-    public function purchasablesPricedBy(int $ruleId): array
+    public function purchasablesPricedBy(int|array $ruleIds): array
     {
-        if (!$this->hasCatalogPricing()) {
+        if (!$this->hasCatalogPricing() || $ruleIds === []) {
             return [];
         }
 
-        return array_map('intval', (new \craft\db\Query())->select(['purchasableId'])->distinct()->from(self::COMMERCE_PRICES)->where(['catalogPricingRuleId' => $ruleId])->column());
+        return array_map('intval', (new \craft\db\Query())->select(['purchasableId'])->distinct()->from(self::COMMERCE_PRICES)->where(['catalogPricingRuleId' => $ruleIds])->column());
+    }
+
+    /**
+     * Before a Commerce price job: notes what’s waiting to be priced, as the job takes one row of it and deletes it.
+     */
+    public function beforePriceJob(): void
+    {
+        $this->_priceRows = null;
+        if (!$this->hasCatalogPricing() || !Craft::$app->getDb()->tableExists(self::COMMERCE_PRICE_QUEUE)) {
+            return;
+        }
+        $rows = [];
+        foreach ((new \craft\db\Query())->select(['id', 'type', 'ids'])->from(self::COMMERCE_PRICE_QUEUE)->where(['reserved' => false])->all() as $row) {
+            $ids = $row['ids'] === null ? null : array_map('intval', (array)\craft\helpers\Json::decodeIfJson($row['ids']));
+            $rows[(int)$row['id']] = [
+                'type' => (string)$row['type'],
+                'ids' => $ids,
+                // A rule’s old prices are gone once it’s priced again, such as when it no longer applies.
+                'before' => $row['type'] === 'rule' && $ids ? $this->purchasablesPricedBy($ids) : [],
+            ];
+        }
+        $this->_priceRows = $rows;
+    }
+
+    /**
+     * After a Commerce price job: clears the pages of the purchasables it priced, and only those.
+     *
+     * @param int[]|null $purchasableIds The job’s own IDs, in Commerce versions that gave them to the job.
+     * @param int[]|null $ruleIds
+     */
+    public function afterPriceJob(?array $purchasableIds, ?array $ruleIds): void
+    {
+        $rows = $this->_priceRows ?? [];
+        $this->_priceRows = null;
+        if ($purchasableIds !== null || $ruleIds !== null) {
+            $this->pricesRecalculated(array_values(array_unique(array_merge($purchasableIds ?? [], $this->purchasablesPricedBy($ruleIds ?? [])))));
+            return;
+        }
+        // The job took one of the rows noted before it: the one that’s gone.
+        $left = $rows ? array_map('intval', (new \craft\db\Query())->select(['id'])->from(self::COMMERCE_PRICE_QUEUE)->where(['id' => array_keys($rows)])->column()) : [];
+        $ids = [];
+        foreach (array_diff_key($rows, array_flip($left)) as $row) {
+            if ($row['ids'] === null) {
+                // Everything was priced again.
+                $this->pricesRecalculated(null);
+                return;
+            }
+            $ids = array_merge($ids, $row['type'] === 'rule' ? array_merge($row['before'], $this->purchasablesPricedBy($row['ids'])) : $row['ids']);
+        }
+        if ($ids) {
+            $this->pricesRecalculated(array_values(array_unique($ids)));
+        }
     }
 
     /**

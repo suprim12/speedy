@@ -59,6 +59,9 @@ class Warmer extends Component
         return $expires . '.' . hash_hmac('sha256', "speedy-warm|$address|$expires", Craft::$app->getConfig()->getGeneral()->securityKey);
     }
 
+    /** Seconds before a page that changed while it was being rebuilt is rebuilt again. */
+    public const REBUILD_AGAIN = 10;
+
     /**
      * @param string[] $urls
      * @param bool $rebuild Whether these pages are being replaced: they’re removed if they can’t be rebuilt, and cleared from the CDN once rebuilt.
@@ -139,7 +142,7 @@ class Warmer extends Component
                 if ($state === 'WARM' || $state === 'MISS') {
                     $built[] = $url;
                 } elseif ($state === 'SKIP changed while building') {
-                    // Changed again meanwhile: that change rebuilds it, so the copy there is kept until then.
+                    // Changed again meanwhile: the copy there is kept, and rebuilt again below.
                     $changed[] = $url;
                 } else {
                     $failed[] = $url;
@@ -183,6 +186,13 @@ class Warmer extends Component
             }
             $this->noteResult(count($built), $failed, $why);
             $plugin->cdn->purgeUrls(array_merge($built, $failed));
+            // The change made while it was being built couldn’t find it: its tags were let go when it was cleared.
+            // Rebuild it again shortly, once, however many changes come meanwhile.
+            $cache = Craft::$app->getCache();
+            $again = array_values(array_filter($changed, fn($url) => $cache->add(Clearer::REBUILD_LATER . md5($url), true, self::REBUILD_AGAIN + Clearer::REBUILD_LATER_GRACE)));
+            if ($again) {
+                $this->queue($again, true, array_intersect_key($keys, array_flip($again)), self::REBUILD_AGAIN);
+            }
         }
 
         if ($this->hasEventHandlers(self::EVENT_AFTER_WARM)) {

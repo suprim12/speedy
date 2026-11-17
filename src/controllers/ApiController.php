@@ -74,7 +74,9 @@ class ApiController extends Controller
             return $this->asJson(['success' => true, 'cleared' => $count]);
         }
         $count = Plugin::getInstance()->storage->stats()['pages'];
-        $clearer->clearAll(Craft::t('speedy', 'Cleared with the API key'));
+        if (!$clearer->clearAll(Craft::t('speedy', 'Cleared with the API key'))) {
+            return $this->asJson(['success' => false, 'error' => 'The cache folder isn’t a folder of Speedy’s own, so nothing was cleared.'])->setStatusCode(500);
+        }
 
         return $this->asJson(['success' => true, 'cleared' => $count]);
     }

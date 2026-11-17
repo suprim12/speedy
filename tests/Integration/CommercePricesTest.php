@@ -118,6 +118,44 @@ class CommercePricesTest extends TestCase
         $this->assertContains("element::$this->variantId", $tags, 'After Commerce worked out the prices, not before.');
     }
 
+    /**
+     * Commerce 5.7 and later push price jobs without IDs: each takes a row of IDs from its own table.
+     */
+    public function testAJobClearsOnlyWhatItPriced(): void
+    {
+        if (!Craft::$app->getDb()->tableExists('{{%commerce_catalogpricing_queue}}')) {
+            $this->markTestSkipped('Needs Commerce 5.7 or later.');
+        }
+        $queue = '{{%commerce_catalogpricing_queue}}';
+        $row = function(?array $ids) use ($queue): int {
+            Craft::$app->getDb()->createCommand()->insert($queue, ['storeId' => null, 'type' => 'purchasable', 'ids' => $ids === null ? null : \craft\helpers\Json::encode($ids), 'reserved' => false])->execute();
+            return (int)Craft::$app->getDb()->getLastInsertID();
+        };
+        $clearer = $this->plugin()->clearer;
+        $mine = $row([$this->variantId]);
+        $waiting = $row([987654321]);
+        try {
+            $clearer->beforePriceJob();
+            // The job takes its row and deletes it.
+            Db::delete($queue, ['id' => $mine]);
+            $clearer->afterPriceJob(null, null);
+            $this->assertEqualsCanonicalizing(["element::$this->variantId", "element::$this->productId"], $this->pending(), 'Only what it priced: saving one product doesn’t clear the whole shop.');
+
+            $this->reset();
+            $clearer->beforePriceJob();
+            $clearer->afterPriceJob(null, null);
+            $this->assertSame([], $this->pending(), 'A job that found nothing to do clears nothing.');
+
+            $all = $row(null);
+            $clearer->beforePriceJob();
+            Db::delete($queue, ['id' => $all]);
+            $clearer->afterPriceJob(null, null);
+            $this->assertContains('element::craft\commerce\elements\Product', $this->pending(), 'Every price worked out again.');
+        } finally {
+            Db::delete($queue, ['id' => [$mine, $waiting, $all ?? 0]]);
+        }
+    }
+
     public function testPricesThatStartOrEndClearTheirPages(): void
     {
         $storage = $this->plugin()->storage;

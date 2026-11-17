@@ -58,7 +58,10 @@ class ClearController extends Controller
             $this->stdout("Rebuilding $count pages in the background. Visitors get the old copies until then.\n", Console::FG_GREEN);
             return ExitCode::OK;
         }
-        $clearer->clearAll('Cleared from the command line');
+        if (!$clearer->clearAll('Cleared from the command line')) {
+            $this->stderr("Nothing was cleared: the cache folder isn’t a folder of Speedy’s own. Set cachePath to one, such as @webroot/speedy.\n", Console::FG_RED);
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
         $this->stdout("Cleared every cached page.\n", Console::FG_GREEN);
 
         return ExitCode::OK;

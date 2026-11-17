@@ -388,16 +388,19 @@ class Storage extends Component
     /**
      * Removes every cached page and index.
      */
-    public function clearAll(): void
+    /**
+     * @return bool False when the cache folder isn’t Speedy’s own, such as the web root, so nothing was cleared.
+     */
+    public function clearAll(): bool
     {
         Craft::$app->getCache()->delete($this->statsCacheKey());
         if ($this->usesCache()) {
             $this->cache()->clearAll();
-            return;
+            return true;
         }
         // Never move away a folder that isn't Speedy's, such as the web root.
         if ($this->unsafeFolder() !== null) {
-            return;
+            return false;
         }
 
         // Moving a folder is instant however many pages it holds, so clearing never times out half-way.
@@ -419,6 +422,8 @@ class Storage extends Component
         if ($moved) {
             \craft\helpers\Queue::push(new \suprim\speedy\jobs\DeleteTrashJob(), 2048);
         }
+
+        return true;
     }
 
     /**
@@ -439,6 +444,20 @@ class Storage extends Component
      * Deletes cleared pages that have waited in the trash longer than this many seconds, for when the queue job that
      * deletes them hasn’t run: every “Clear all” would otherwise leave another full copy of the cache on the disk.
      */
+    /**
+     * Whether there are pages left over from clearing everything, older than the queue job should have taken.
+     */
+    public function hasOldTrash(int $age = 600): bool
+    {
+        foreach (glob($this->dataRoot() . '/trash/*', GLOB_ONLYDIR) ?: [] as $dir) {
+            if ((int)@filemtime($dir) < time() - $age) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function deleteOldTrash(int $age = 600): void
     {
         if (!self::isOwnFolder($this->dataRoot())) {
@@ -643,8 +662,42 @@ class Storage extends Component
                 return false;
             }
         }
+        // Nor uploads or Craft’s published resources, nor a folder inside them: emptying it would delete files.
+        foreach (self::filesFolders() as $path) {
+            if ($folder === $path || str_starts_with($path . '/', $folder . '/') || str_starts_with($folder . '/', $path . '/')) {
+                return false;
+            }
+        }
 
         return true;
+    }
+
+    /**
+     * Folders that hold files someone else put there: local asset filesystems and Craft’s published resources.
+     *
+     * @return string[]
+     */
+    private static function filesFolders(): array
+    {
+        $folders = [Craft::$app->getConfig()->getGeneral()->resourceBasePath];
+        try {
+            foreach (Craft::$app->getFs()->getAllFilesystems() as $fs) {
+                if ($fs instanceof \craft\fs\Local) {
+                    $folders[] = $fs->getRootPath();
+                }
+            }
+        } catch (\Throwable) {
+            // Filesystems can’t be read, such as before Craft is installed.
+        }
+        $paths = [];
+        foreach ($folders as $folder) {
+            $path = Craft::getAlias((string)$folder, false);
+            if (is_string($path) && $path !== '') {
+                $paths[] = rtrim(FileHelper::normalizePath($path), '/');
+            }
+        }
+
+        return array_filter($paths, fn($p) => substr_count($p, '/') >= 1);
     }
 
     public function cacheRoot(): string

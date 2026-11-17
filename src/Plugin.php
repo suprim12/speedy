@@ -105,6 +105,13 @@ class Plugin extends BasePlugin
         $this->registerClearing();
         // Craft's garbage collection runs by itself now and then, and from cron: clear out old trash then too.
         Event::on(\craft\services\Gc::class, \craft\services\Gc::EVENT_RUN, function() {
+            // Craft runs it at the end of a visitor’s request now and then: don’t make them wait for the deleting.
+            if (!Craft::$app->getRequest()->getIsConsoleRequest()) {
+                if ($this->storage->hasOldTrash()) {
+                    \craft\helpers\Queue::push(new \suprim\speedy\jobs\DeleteTrashJob());
+                }
+                return;
+            }
             $this->storage->deleteOldTrash();
         });
         $this->registerControlPanel();
@@ -345,9 +352,14 @@ class Plugin extends BasePlugin
         // Commerce works out catalog prices in a queue job, such as after a pricing rule is saved, without saying the
         // prices changed.
         if (class_exists(\craft\commerce\queue\jobs\CatalogPricing::class)) {
+            Event::on(Queue::class, Queue::EVENT_BEFORE_EXEC, function(\yii\queue\ExecEvent $event) {
+                if ($event->job instanceof \craft\commerce\queue\jobs\CatalogPricing) {
+                    $this->clearer->beforePriceJob();
+                }
+            });
             Event::on(Queue::class, Queue::EVENT_AFTER_EXEC, function(\yii\queue\ExecEvent $event) {
                 if ($event->job instanceof \craft\commerce\queue\jobs\CatalogPricing) {
-                    $this->clearer->pricesRecalculated($event->job->purchasableIds);
+                    $this->clearer->afterPriceJob($event->job->purchasableIds, $event->job->catalogPricingRuleIds);
                     $this->clearer->flush();
                 }
             });

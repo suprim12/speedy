@@ -217,11 +217,35 @@ class FileStorageTest extends TestCase
             $storage->write('example.com/news', '<html>News</html>', 'https://example.com/news', [], null);
             $this->assertFileDoesNotExist("$site/.gitignore", 'Not marked as ignored.');
             $this->assertFileDoesNotExist("$site/example.com/news/index.html", 'Nothing written.');
-            $storage->clearAll();
+            $this->assertFalse($storage->clearAll(), 'Says so.');
+            $this->assertFalse($this->plugin()->clearer->clearAll('test'), 'And so does clearing everything.');
             $this->assertFileExists("$site/templates/index.twig", 'Not moved away.');
             $this->assertStringContainsString('holds other files', implode(' ', array_column($this->plugin()->insights->checks(), 'message')));
         } finally {
             \Craft::setAlias('@templates', $templates);
         }
+    }
+
+    public function testUploadAndResourceFoldersAreNeverTheCacheFolder(): void
+    {
+        $resources = (string)\Craft::getAlias(\Craft::$app->getConfig()->getGeneral()->resourceBasePath);
+        $this->assertFalse(\suprim\speedy\services\Storage::isOwnFolder($resources), 'Craft’s published resources.');
+        $this->assertFalse(\suprim\speedy\services\Storage::isOwnFolder("$resources/speedy"), 'Nor a folder inside them.');
+        foreach (\Craft::$app->getFs()->getAllFilesystems() as $fs) {
+            if ($fs instanceof \craft\fs\Local) {
+                $this->assertFalse(\suprim\speedy\services\Storage::isOwnFolder($fs->getRootPath()), "Uploads: {$fs->name}.");
+            }
+        }
+        $this->assertTrue(\suprim\speedy\services\Storage::isOwnFolder((string)\Craft::getAlias('@webroot/speedy')), 'The usual folder still is.');
+    }
+
+    public function testOldTrashIsFound(): void
+    {
+        $storage = $this->plugin()->storage;
+        $this->settings()->dataPath = "$this->tmp/data";
+        \craft\helpers\FileHelper::createDirectory("$this->tmp/data/trash/1");
+        $this->assertFalse($storage->hasOldTrash(), 'Recent: the queue job takes it.');
+        touch("$this->tmp/data/trash/1", time() - 3600);
+        $this->assertTrue($storage->hasOldTrash());
     }
 }

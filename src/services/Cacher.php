@@ -575,7 +575,7 @@ class Cacher extends Component
         $cache = Craft::$app->getCache();
         $tries = 'speedy:transformRebuilds:' . md5($url);
         $count = (int)$cache->get($tries);
-        if ($count >= self::TRANSFORM_REBUILDS || !$cache->add(Clearer::REBUILD_LATER . md5($url), true, 60 + 3600)) {
+        if ($count >= self::TRANSFORM_REBUILDS || !$cache->add(Clearer::REBUILD_LATER . md5($url), true, 60 + Clearer::REBUILD_LATER_GRACE)) {
             return;
         }
         $cache->set($tries, $count + 1, 86400);
@@ -840,6 +840,29 @@ class Cacher extends Component
             // Any host, on the usual ports or the one the server is on: a made-up port in the Host header would end
             // up in the page’s links.
             return $withPort === $host || $port === $serverPort;
+        }
+
+        return in_array($withPort, $hosts, true);
+    }
+
+    /**
+     * Whether a host is one of the sites’ own, known for certain: from their base URLs, `allowedHosts`, or, when a
+     * base URL is `@web`, the host of this request. Never any host, unlike isSiteHost(), so it’s safe for requests
+     * Speedy makes itself to an address someone entered.
+     */
+    public function isKnownSiteHost(string $host, ?int $port = null): bool
+    {
+        $host = strtolower($host);
+        $withPort = $port !== null && !in_array($port, [80, 443], true) ? "$host:$port" : $host;
+        $hosts = $this->siteHosts();
+        if ($hosts === false) {
+            $hosts = Plugin::getInstance()->getSettings()->getAllowedHosts();
+            $request = Craft::$app->getRequest();
+            if (!$hosts && !$request->getIsConsoleRequest()) {
+                $requestPort = parse_url((string)$request->getHostInfo(), PHP_URL_PORT);
+                $requestHost = strtolower((string)$request->getHostName());
+                $hosts = [$requestPort !== null && !in_array($requestPort, [80, 443], true) ? "$requestHost:$requestPort" : $requestHost];
+            }
         }
 
         return in_array($withPort, $hosts, true);

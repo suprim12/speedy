@@ -34,7 +34,9 @@ class UtilityController extends Controller
 
     public function actionClearAll(): ?Response
     {
-        Plugin::getInstance()->clearer->clearAll(Craft::t('speedy', 'Cleared by {user}', ['user' => (string)Craft::$app->getUser()->getIdentity()]));
+        if (!Plugin::getInstance()->clearer->clearAll(Craft::t('speedy', 'Cleared by {user}', ['user' => (string)Craft::$app->getUser()->getIdentity()]))) {
+            return $this->asFailure(Craft::t('speedy', 'Nothing was cleared: the cache folder isn’t a folder of Speedy’s own. Set `cachePath` to one, such as `@webroot/speedy`.'));
+        }
 
         return $this->asSuccess(Craft::t('speedy', 'Every cached page was cleared.'));
     }

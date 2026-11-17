@@ -29,7 +29,7 @@ class PageCheck extends Component
         $url = $this->absolute(trim($url));
         $result = ['url' => $url, 'cached' => false, 'answer' => '', 'why' => null, 'fix' => null, 'notes' => [], 'visits' => []];
         $parts = parse_url($url);
-        if (empty($parts['host']) || !in_array($parts['scheme'] ?? '', ['http', 'https'], true) || !Plugin::getInstance()->cacher->isSiteHost((string)$parts['host'], $parts['port'] ?? null)) {
+        if (empty($parts['host']) || !in_array($parts['scheme'] ?? '', ['http', 'https'], true) || !Plugin::getInstance()->cacher->isKnownSiteHost((string)$parts['host'], $parts['port'] ?? null)) {
             // Only the sites’ own pages, so this can’t be used to send requests elsewhere.
             $result['answer'] = Craft::t('speedy', 'That isn’t one of this site’s addresses.');
             $result['fix'] = Craft::t('speedy', 'Enter a page of the site, such as {example}.', ['example' => '`' . $this->absolute('/') . '`']);

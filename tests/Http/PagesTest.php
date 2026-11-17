@@ -53,6 +53,8 @@ class PagesTest extends TestCase
             'disk' => '<html><body>Disk</body></html>',
             'param' => '<html><body>Param</body></html>',
             'no-loop' => '<html><body>{{ craft.users().id([1, 2, 3]).all()|length }}</body></html>',
+            // Its content changes while it's built, such as an editor saving during a rebuild.
+            'churn' => '{% do craft.speedy.tag("speedy-test-churn") %}{% do craft.app.plugins.getPlugin("speedy").clearer.clearTags([craft.app.plugins.getPlugin("speedy").cacher.customTag("speedy-test-churn")], "test") %}<html><body>Churn</body></html>',
             'broad' => "<html><body>\n{{ craft.entries.relatedTo(1).limit(1).ids()|length }}\n{{ craft.entries.section('*').limit(1).ids()|length }}\n</body></html>",
         ];
         foreach ($templates as $name => $twig) {
@@ -135,6 +137,32 @@ class PagesTest extends TestCase
 
         $analytics = CookieJar::fromArray(['_ga' => 'GA1.1.1', '_ga_ABC' => 'GS1'], parse_url(self::$base, PHP_URL_HOST));
         $this->assertSame('MISS', $this->speedy($this->get('analytics', [], $analytics)), 'Analytics cookies don’t stop a visitor building pages.');
+    }
+
+    public function testAPageThatChangedWhileItWasRebuiltIsRebuiltAgain(): void
+    {
+        $url = self::$base . '/' . self::$prefix . '/churn';
+        $cache = Craft::$app->getCache();
+        $cache->delete(\suprim\speedy\services\Clearer::REBUILD_LATER . md5($url));
+        $pushed = [];
+        $listener = function(\yii\queue\PushEvent $e) use (&$pushed) {
+            foreach ($e->job->urls ?? [] as $u) {
+                $pushed[] = [$u, (int)$e->delay];
+            }
+            $e->handled = true;
+        };
+        Craft::$app->getQueue()->on(\yii\queue\Queue::EVENT_BEFORE_PUSH, $listener);
+        try {
+            Plugin::getInstance()->warmer->warm([$url], true);
+            $this->assertSame([[$url, \suprim\speedy\services\Warmer::REBUILD_AGAIN]], $pushed, 'The change couldn’t find it: it’s queued again.');
+            // That rebuild runs, and the page changes during it too: it's queued once more, until the changes stop.
+            Plugin::getInstance()->warmer->warm([$url], true);
+            $this->assertCount(2, $pushed);
+            $this->assertNotFalse(Craft::$app->getCache()->get(\suprim\speedy\services\Clearer::REBUILD_LATER . md5($url)), 'Marked as waiting, so other changes don’t queue it again meanwhile.');
+        } finally {
+            Craft::$app->getQueue()->off(\yii\queue\Queue::EVENT_BEFORE_PUSH, $listener);
+            $cache->delete(\suprim\speedy\services\Clearer::REBUILD_LATER . md5($url));
+        }
     }
 
     public function testCheckingAPageOpensItAsAVisitor(): void

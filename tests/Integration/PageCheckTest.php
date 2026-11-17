@@ -47,6 +47,28 @@ class PageCheckTest extends TestCase
         $this->assertSame([], $this->sent);
     }
 
+    public function testWithAnyHostSitesOnlyKnownHostsAreOpened(): void
+    {
+        // A site whose base URL is @web answers to any host; the check still only opens hosts known for certain.
+        $cacher = $this->plugin()->cacher;
+        $hosts = new \ReflectionProperty($cacher, '_siteHosts');
+        $was = $hosts->getValue($cacher);
+        $hosts->setValue($cacher, false);
+        try {
+            $this->settings()->allowedHosts = [];
+            $result = $this->check('http://169.254.169.254/latest/meta-data/', []);
+            $this->assertSame('That isn’t one of this site’s addresses.', $result['answer']);
+            $this->assertSame([], $this->sent, 'Nothing was requested, and no basic authentication sent.');
+            $this->assertFalse($cacher->isKnownSiteHost('10.0.0.5'));
+
+            $this->settings()->allowedHosts = ['example.com'];
+            $this->assertTrue($cacher->isKnownSiteHost('example.com'));
+            $this->assertFalse($cacher->isKnownSiteHost('example.com', 8080), 'Nor another port.');
+        } finally {
+            $hosts->setValue($cacher, $was);
+        }
+    }
+
     public function testAPathIsOnTheSite(): void
     {
         $result = $this->check('/speedy-test-check', [new Response(200, ['X-Speedy' => 'STATIC'])]);
