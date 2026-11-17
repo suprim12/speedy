@@ -108,6 +108,8 @@ If Craft paginates with a query string (`pageTrigger` set to `'?page='` in `conf
 
 Each combination is cached separately: `/news?page=2` and `/news?page=2&category=shoes` are two pages, whatever order the parameters come in. Tracking parameters are still ignored. Only the parameters you list are cached, with one short value each, and at most `maxQueryPages` versions of a page (100), so made-up query strings can’t fill the disk. Any other query string is passed to Craft as usual.
 
+These pages are sent from the cache by Craft, in a few milliseconds, rather than by the [server rules](/getting-started/server-rules): only Craft can put the parameters in order and leave out tracking ones, so `?a=1&b=2` and `?b=2&a=1` share one copy.
+
 Search is best left out: nearly every search is different, so cached results are rarely used again.
 
 ### Which parameters to list
