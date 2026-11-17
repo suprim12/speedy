@@ -17,6 +17,7 @@ use craft\web\Request;
 use craft\web\Response;
 use suprim\speedy\events\CacheableRequestEvent;
 use suprim\speedy\events\CachePageEvent;
+use suprim\speedy\helpers\InstantLinks;
 use suprim\speedy\Plugin;
 use Throwable;
 use yii\base\Event;
@@ -423,6 +424,10 @@ class Cacher extends Component
 
         try {
             $html = $this->prepareHtml((string)$response->content);
+            if ($settings->instantLinks) {
+                $sitePath = (string)parse_url((string)Craft::$app->getSites()->getCurrentSite()->getBaseUrl(), PHP_URL_PATH);
+                $html = InstantLinks::add($html, $response->getHeaders()->toArray(), $settings->getNeverCache(), $settings->getOnlyCache(), $sitePath);
+            }
             // The address as requested, without the query string. (Building it from the site’s base URL would
             // repeat a subfolder such as /de/ on multi-site.)
             $url = (string)$this->_url;

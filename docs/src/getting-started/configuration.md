@@ -58,6 +58,7 @@ return [
 | `refreshCsrf` | `true` | Refresh CSRF tokens on cached pages ([Forms](/guides/forms)) |
 | `rebuildCleared` | `true` | Rebuild cleared pages in the background before replacing them ([Warming](/guides/warming)) |
 | `broadRebuildDelay` | `60` | Seconds a page that clears on any change waits before it’s rebuilt, so an import rebuilds it once. Visitors get the old copy meanwhile. `0` rebuilds straight away |
+| `instantLinks` | `false` | Browsers fetch a page as soon as a visitor points at its link, so it opens straight away ([Instant Links](/guides/instant-links)) |
 | `rebuildAfterDeploy` | `false` | Rebuild every cached page in the background when a deploy applies project config changes ([Deploy script](/recipes/deploy)) |
 | `queryReport` | `true` | Count the queries of pages Speedy rebuilds, and list pages that run the same query again and again ([Repeated queries](/guides/utility#repeated-queries)) |
 | `warm` | `false` | Pages to build after a full clear: `'sitemap'` or a list of URLs |

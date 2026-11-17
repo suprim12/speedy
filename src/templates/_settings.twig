@@ -34,6 +34,15 @@
 	warning: 'enabled' in overrides ? configWarning('enabled'),
 }) }}
 
+{{ forms.lightswitchField({
+	label: 'Instant links'|t('speedy'),
+	instructions: 'Browsers fetch a page as soon as a visitor points at its link, so it opens straight away. Only its HTML is fetched; links that do something when opened, such as signing out, are left alone. Add `data-no-prefetch` to a link or its container to leave it out.'|t('speedy'),
+	name: 'instantLinks',
+	on: settings.instantLinks,
+	disabled: 'instantLinks' in overrides,
+	warning: 'instantLinks' in overrides ? configWarning('instantLinks'),
+}) }}
+
 <div class="flex-fields speedy-paths">
 	{{ forms.editableTableField({
 		label: 'Never cache'|t('speedy'),

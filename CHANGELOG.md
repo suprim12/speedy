@@ -4,6 +4,7 @@
 
 ### Added
 - `maxCacheSize`, a limit on the disk space cached pages may use.
+- Instant links: browsers fetch a page as soon as a visitor points at its link, so it opens straight away (`instantLinks`, off by default).
 - Pages that clear whenever anything of their type changes wait a minute before they’re rebuilt, so an import rebuilds them once (`broadRebuildDelay`).
 
 ### Fixed

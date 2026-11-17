@@ -50,6 +50,7 @@ export default defineConfig({
           { text: 'CloudFront', link: '/guides/cloudfront' },
           { text: 'Fastly, Bunny and Varnish', link: '/guides/other-cdns' },
           { text: 'Warming and Rebuilding', link: '/guides/warming' },
+          { text: 'Instant Links', link: '/guides/instant-links' },
           { text: 'Scheduled Content', link: '/guides/scheduled' },
           { text: 'The Utility Page', link: '/guides/utility' },
           { text: 'Templates', link: '/guides/templates' },

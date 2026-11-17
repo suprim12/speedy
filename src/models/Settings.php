@@ -87,6 +87,12 @@ class Settings extends Model
     public bool $rebuildCleared = true;
 
     /**
+     * Whether browsers fetch a page as soon as a visitor points at its link, so it opens straight away. Only the page’s
+     * HTML is fetched, and never for links that do something when opened, such as signing out.
+     */
+    public bool $instantLinks = false;
+
+    /**
      * Seconds a page that clears on any change, such as a listing of every entry, waits before it’s rebuilt, so an
      * import or several saves close together rebuild it once. Visitors get the old copy meanwhile. 0 rebuilds it straight away.
      */
@@ -242,8 +248,10 @@ class Settings extends Model
                 $values[$name] = $this->patterns(array_map(fn($row) => is_array($row) ? (string)($row['pattern'] ?? '') : (string)$row, $values[$name]));
             }
         }
-        if (isset($values['rebuildCleared']) && is_string($values['rebuildCleared'])) {
-            $values['rebuildCleared'] = $values['rebuildCleared'] === '1';
+        foreach (['rebuildCleared', 'instantLinks'] as $name) {
+            if (isset($values[$name]) && is_string($values[$name])) {
+                $values[$name] = $values[$name] === '1';
+            }
         }
         parent::setAttributes($values, $safeOnly);
     }

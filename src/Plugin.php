@@ -233,6 +233,44 @@ class Plugin extends BasePlugin
         return array_map(fn($r) => ['name' => $r[0], 'value' => $show($r[1]), 'info' => $r[2]], $rows);
     }
 
+    public function afterSaveSettings(): void
+    {
+        parent::afterSaveSettings();
+        $this->checkInstantLinks();
+    }
+
+    /**
+     * Instant links are part of each cached page, so turning them on or off rebuilds the pages: after the settings
+     * are saved in the control panel, or a deploy applies them. Compared with what the cached pages were built with,
+     * so it doesn’t matter how the change arrived.
+     */
+    public function checkInstantLinks(): void
+    {
+        $file = Craft::$app->getConfig()->getConfigFromFile('speedy');
+        $value = array_key_exists('instantLinks', $file) ? $file['instantLinks'] : Craft::$app->getProjectConfig()->get('plugins.speedy.settings.instantLinks');
+        if ($this->instantLinksChanged(filter_var($value, FILTER_VALIDATE_BOOLEAN))) {
+            $on = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+            $this->clearer->rebuildAllLater($on ? Craft::t('speedy', 'Instant links turned on') : Craft::t('speedy', 'Instant links turned off'));
+        }
+    }
+
+    /**
+     * Whether the cached pages were built with instant links the other way, noting that they’re now as given.
+     */
+    public function instantLinksChanged(bool $on): bool
+    {
+        $state = $this->storage->readData('state');
+        // Pages cached before there were instant links don’t have them.
+        $was = (bool)($state['instantLinks'] ?? false);
+        if ($was === $on) {
+            return false;
+        }
+        $state['instantLinks'] = $on;
+        $this->storage->writeData('state', $state);
+
+        return true;
+    }
+
     protected function settingsHtml(): ?string
     {
         return Craft::$app->getView()->renderTemplate('speedy/_settings', [
@@ -282,6 +320,7 @@ class Plugin extends BasePlugin
 
         // A deploy that applies project config changes, such as a new field in a template’s section, rebuilds pages.
         Event::on(\craft\services\ProjectConfig::class, \craft\services\ProjectConfig::EVENT_AFTER_APPLY_CHANGES, function() {
+            $this->checkInstantLinks();
             if ($this->getSettings()->rebuildAfterDeploy) {
                 $this->clearer->rebuildAllLater(Craft::t('speedy', 'Project config changes applied'));
             }
