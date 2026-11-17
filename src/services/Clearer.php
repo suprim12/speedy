@@ -61,6 +61,9 @@ class Clearer extends Component
     private ?string $_rebuildAll = null;
     private int $_bulkDepth = 0;
 
+    /** Whether the pages being cleared are cleared by content changing, so pages that clear on any change wait to be rebuilt. */
+    private bool $_fromChange = false;
+
     /**
      * Collects the tags from Craft’s invalidation event, without clearing yet.
      */
@@ -333,8 +336,12 @@ class Clearer extends Component
     {
         $this->markCleared($tags);
         $keys = Plugin::getInstance()->storage->takePagesForTags($tags);
-
-        return $this->clearKeys($keys, $reason);
+        $this->_fromChange = true;
+        try {
+            return $this->clearKeys($keys, $reason);
+        } finally {
+            $this->_fromChange = false;
+        }
     }
 
     /**
@@ -393,7 +400,9 @@ class Clearer extends Component
         $storage = $plugin->storage;
         $rebuild = [];
         $rebuildKeys = [];
+        $later = [];
         $purge = [];
+        $delay = $this->_fromChange ? $plugin->getSettings()->broadRebuildDelay : 0;
         $count = 0;
 
         foreach ($keys as $key) {
@@ -405,8 +414,12 @@ class Clearer extends Component
             $url = $meta['url'] ?? null;
             if ($url && ($this->_rebuild ?? $plugin->getSettings()->rebuildCleared)) {
                 // Keep the old copy until the new one is ready, so nobody waits for it.
-                $rebuild[] = $url;
                 $rebuildKeys[$url] = $key;
+                if ($delay > 0 && self::clearsOnAnyChange($meta['tags'] ?? [])) {
+                    $later[] = $url;
+                } else {
+                    $rebuild[] = $url;
+                }
             } else {
                 $storage->delete($key);
                 if ($url) {
@@ -421,12 +434,35 @@ class Clearer extends Component
         if ($rebuild) {
             $plugin->warmer->queue($rebuild, true, $rebuildKeys);
         }
+        if ($later) {
+            // A listing cleared by any entry is rebuilt once after a run of changes, such as an import, not after each.
+            $cache = Craft::$app->getCache();
+            $later = array_values(array_filter($later, fn($url) => $cache->add('speedy:rebuildLater:' . md5($url), true, $delay)));
+            $plugin->warmer->queue($later, true, $rebuildKeys, $delay);
+            $rebuild = array_merge($rebuild, $later);
+        }
         if ($count) {
             $plugin->log->add($reason, $count, array_merge($rebuild, $purge));
             $this->afterClear($reason, $count, array_merge($rebuild, $purge), false);
         }
 
         return $count;
+    }
+
+    /**
+     * Whether a page with these tags is cleared by any change to a type of element, such as a listing of every entry.
+     *
+     * @param array<mixed> $tags
+     */
+    public static function clearsOnAnyChange(array $tags): bool
+    {
+        foreach ($tags as $tag) {
+            if (is_string($tag) && str_starts_with($tag, 'element::') && str_ends_with($tag, '::*')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

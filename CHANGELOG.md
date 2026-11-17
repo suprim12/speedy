@@ -4,6 +4,7 @@
 
 ### Added
 - `maxCacheSize`, a limit on the disk space cached pages may use.
+- Pages that clear whenever anything of their type changes wait a minute before they’re rebuilt, so an import rebuilds them once (`broadRebuildDelay`).
 
 ### Fixed
 - Cached pages are kept out of git, so `git add` no longer picks them up.

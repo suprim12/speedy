@@ -8,6 +8,8 @@ When content changes, Speedy rebuilds the affected pages in a queue job, then sw
 
 If a rebuild fails (the page now errors or is a 404), the old copy is removed instead.
 
+A page that clears whenever anything of its type changes, such as a listing of every entry, waits a minute before it’s rebuilt. An import or a run of saves then rebuilds it once, not after every entry. Change the wait, in seconds, with `broadRebuildDelay` (`0` rebuilds straight away). Clearing the page by hand rebuilds it at once.
+
 Turn this off with `rebuildCleared`, and changed pages are simply removed:
 
 ```php

@@ -57,4 +57,47 @@ class ClearerTest extends TestCase
             $storage->delete($other);
         }
     }
+
+    public function testPagesClearedByAnyChangeAreRebuiltOnceAfterARunOfChanges(): void
+    {
+        $this->settings()->rebuildCleared = true;
+        $storage = $this->plugin()->storage;
+        $cache = \Craft::$app->getCache();
+        $all = 'https://example.com/speedy-test-all-lots';
+        $lot = 'https://example.com/speedy-test-lot';
+        $cache->delete('speedy:rebuildLater:' . md5($all));
+        $pushed = [];
+        $queue = function(\yii\queue\PushEvent $e) use (&$pushed) {
+            foreach ($e->job->urls ?? [] as $url) {
+                $pushed[] = [$url, (int)$e->delay];
+            }
+            $e->handled = true;
+        };
+        \Craft::$app->getQueue()->on(\yii\queue\Queue::EVENT_BEFORE_PUSH, $queue);
+        try {
+            foreach ([1, 2, 3] as $import) {
+                $storage->write('example.com/speedy-test-all-lots', '<html>Old</html>', $all, ['element::craft\elements\Entry::*'], null);
+                $storage->write('example.com/speedy-test-lot', '<html>Old</html>', $lot, ['element::42'], null);
+                $this->plugin()->clearer->clearTags(['element::42', 'element::craft\elements\Entry::*'], "Import $import");
+            }
+            $this->assertSame([[$lot, 0], [$all, 60], [$lot, 0], [$lot, 0]], $pushed, 'The listing waits a minute, once; the entry’s own page doesn’t wait.');
+            $this->assertTrue($storage->exists('example.com/speedy-test-all-lots'), 'Visitors get the old copy meanwhile.');
+
+            $pushed = [];
+            $this->plugin()->clearer->clearUrl($all);
+            $this->assertSame([[$all, 0]], $pushed, 'Clearing it by hand rebuilds it straight away.');
+
+            $cache->delete('speedy:rebuildLater:' . md5($all));
+            $this->settings()->broadRebuildDelay = 0;
+            $pushed = [];
+            $storage->write('example.com/speedy-test-all-lots', '<html>Old</html>', $all, ['element::craft\elements\Entry::*'], null);
+            $this->plugin()->clearer->clearTags(['element::craft\elements\Entry::*'], 'Saved');
+            $this->assertSame([[$all, 0]], $pushed, '0 turns the wait off.');
+        } finally {
+            \Craft::$app->getQueue()->off(\yii\queue\Queue::EVENT_BEFORE_PUSH, $queue);
+            $cache->delete('speedy:rebuildLater:' . md5($all));
+            $storage->delete('example.com/speedy-test-all-lots');
+            $storage->delete('example.com/speedy-test-lot');
+        }
+    }
 }

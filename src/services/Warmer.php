@@ -63,8 +63,9 @@ class Warmer extends Component
      * @param string[] $urls
      * @param bool $rebuild Whether these pages are being replaced: they’re removed if they can’t be rebuilt, and cleared from the CDN once rebuilt.
      * @param array<string, string> $keys The pages’ keys by URL, when known, so a page that can’t be rebuilt is removed by its own key.
+     * @param int $delay Seconds to wait before warming them.
      */
-    public function queue(array $urls, bool $rebuild, array $keys = []): void
+    public function queue(array $urls, bool $rebuild, array $keys = [], int $delay = 0): void
     {
         $urls = array_values(array_unique(array_filter($urls)));
         if (!$urls) {
@@ -79,7 +80,7 @@ class Warmer extends Component
             $urls = array_values(array_unique(array_filter($event->urls)));
         }
         foreach (array_chunk($urls, 200) as $chunk) {
-            Queue::push(new WarmJob(['urls' => $chunk, 'rebuild' => $rebuild, 'keys' => array_intersect_key($keys, array_flip($chunk))]), 1025);
+            Queue::push(new WarmJob(['urls' => $chunk, 'rebuild' => $rebuild, 'keys' => array_intersect_key($keys, array_flip($chunk))]), 1025, $delay ?: null);
         }
     }
 

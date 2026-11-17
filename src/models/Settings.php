@@ -87,6 +87,12 @@ class Settings extends Model
     public bool $rebuildCleared = true;
 
     /**
+     * Seconds a page that clears on any change, such as a listing of every entry, waits before it’s rebuilt, so an
+     * import or several saves close together rebuild it once. Visitors get the old copy meanwhile. 0 rebuilds it straight away.
+     */
+    public int $broadRebuildDelay = 60;
+
+    /**
      * Rebuild every cached page in the background when project config changes are applied, such as by `craft up` in a
      * deploy. Off by default, as on a large site that’s a lot of rebuilding after each deploy.
      */
@@ -387,6 +393,7 @@ class Settings extends Model
             [['warmConcurrency'], 'integer', 'min' => 1, 'max' => 10],
             [['maxQueryPages'], 'integer', 'min' => 1],
             [['maxCacheSize'], 'integer', 'min' => 1],
+            [['broadRebuildDelay'], 'integer', 'min' => 0],
             [['cachePath', 'dataPath'], function(string $attribute) {
                 if (!\suprim\speedy\services\Storage::isOwnFolder((string)Craft::getAlias($this->$attribute))) {
                     $this->addError($attribute, Craft::t('speedy', 'Use a folder of its own, such as {example}: Speedy empties it when clearing everything.', ['example' => $attribute === 'cachePath' ? '@webroot/speedy' : '@storage/speedy']));

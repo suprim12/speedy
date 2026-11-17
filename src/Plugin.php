@@ -210,6 +210,7 @@ class Plugin extends BasePlugin
             ['ignoredCookies', $s->ignoredCookies, Craft::t('speedy', 'Cookies that never change pages. Requests with other cookies are sent cached pages but don’t save them.')],
             ['maxQueryPages', $s->maxQueryPages, Craft::t('speedy', 'The most query string versions of one page to keep.')],
             ['maxCacheSize', $s->maxCacheSize, Craft::t('speedy', 'The most disk space cached pages may use, in MB. Empty for no limit.')],
+            ['broadRebuildDelay', $s->broadRebuildDelay, Craft::t('speedy', 'Seconds a page cleared by any change waits before it’s rebuilt, so an import rebuilds it once.')],
             ['ignoredElementTypes', $s->ignoredElementTypes, Craft::t('speedy', 'Element types whose changes never clear pages.')],
             ['clearInRequest', $s->clearInRequest, Craft::t('speedy', 'Clear pages without the queue: auto does so only while the queue isn’t running.')],
             ['ignoreUnchangedSaves', $s->ignoreUnchangedSaves, Craft::t('speedy', 'Saves that change nothing don’t clear pages.')],
