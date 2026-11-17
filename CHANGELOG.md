@@ -6,8 +6,12 @@
 - The utility page names query parameters that often keep pages out of the cache, and says whether to cache or ignore them.
 - A Query strings settings tab: parameters to cache, such as `view` for a tab, parameters to ignore, and the ones seen keeping pages out of the cache, added in one click.
 - Clearer CDN settings, with one row for each CDN.
+- The utility page lists the slowest pages, and the template line of each query that makes a page clear whenever anything of its type is saved.
+- Captchas and form tokens are refreshed on cached pages for supported form plugins, so pages with those forms are cached too.
+- **Email support** on the utility page, with the support report.
 
 ### Fixed
+- **Clear URL** clears the page’s query string versions too, such as `?page=2`.
 - Craft’s garbage collection, which some importers run before each import, no longer clears every cached page.
 - “Rebuild all pages” builds the pages to warm when nothing is cached, instead of rebuilding 0 pages.
 - When pages can’t be rebuilt in the background, the log and the utility page say why, such as a password on the site.

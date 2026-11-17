@@ -63,10 +63,10 @@
 	{% set tabs = {
 		pages: 'Pages'|t('speedy'),
 		clears: 'Recent clears'|t('speedy'),
-	}|merge(settings.queryReport ? { queries: 'Repeated queries'|t('speedy') } : {})|merge({
+	}|merge(settings.queryReport ? { queries: 'Performance'|t('speedy') } : {})|merge({
 		setup: 'Setup'|t('speedy'),
 	}) %}
-	{% set counts = { pages: stats.pages, queries: queries|length } %}
+	{% set counts = { pages: stats.pages, queries: queries|length + broad|length } %}
 	<nav class="speedy-tabs" role="tablist" aria-label="{{ 'Speedy Cache'|t('speedy') }}" hidden>
 		{% for id, label in tabs %}
 			<a href="#{{ id }}" role="tab" id="speedy-tab-{{ id }}" aria-controls="speedy-panel-{{ id }}" aria-selected="false" tabindex="-1">
@@ -159,7 +159,59 @@
 
 	{% if settings.queryReport %}
 	<section class="speedy-panel" id="speedy-panel-queries" role="tabpanel" aria-labelledby="speedy-tab-queries">
-		<h2 class="speedy-panel__title">{{ 'Repeated queries'|t('speedy') }}</h2>
+		<h2 class="speedy-panel__title">{{ 'Performance'|t('speedy') }}</h2>
+		<h3>{{ 'Slowest pages'|t('speedy') }}</h3>
+		<p>{{ 'How long pages took to build when Speedy last rebuilt them. Visitors get the cached copy, but slow pages delay rebuilds, and every visitor who isn’t sent a cached page, such as logged-in visitors, waits this long.'|t('speedy') }}</p>
+		{% if slowest|length %}
+			<table class="data fullwidth speedy-pages">
+				<thead><tr>
+					<th scope="col">{{ 'Page'|t('speedy') }}</th>
+					<th scope="col">{{ 'Built in'|t('speedy') }}</th>
+					<th scope="col">{{ 'Queries'|t('speedy') }}</th>
+					<th scope="col">{{ 'Rebuilt'|t('speedy') }}</th>
+				</tr></thead>
+				<tbody>
+					{% for row in slowest|slice(0, 10) %}
+						<tr>
+							<td><a href="{{ row.url }}" target="_blank" rel="noopener">{{ row.url|replace({ 'https://': '', 'http://': '' }) }}</a></td>
+							<td><strong>{{ row.ms >= 1000 ? '{s} s'|t('speedy', { s: (row.ms / 1000)|number_format(1) }) : '{ms} ms'|t('speedy', { ms: row.ms|number }) }}</strong></td>
+							<td>{{ row.queries|number }}</td>
+							<td class="light">{{ row.time|datetime('short') }}</td>
+						</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		{% else %}
+			<p class="zilch">{{ 'No page rebuilt so far took more than half a second.'|t('speedy') }}</p>
+		{% endif %}
+
+		{% if broad|length %}
+			<h3 id="broad">{{ 'Cleared by any change'|t('speedy') }}</h3>
+			<p>{{ 'These pages list elements without choosing a section or group, so they’re cleared whenever any element of that type is saved, such as by an import. Narrow the query to clear them less often, for example with `.section(\'news\')`.'|t('speedy')|md(inlineOnly=true) }}</p>
+			<table class="data fullwidth speedy-pages">
+				<thead><tr>
+					<th scope="col">{{ 'Page'|t('speedy') }}</th>
+					<th scope="col">{{ 'Query'|t('speedy') }}</th>
+				</tr></thead>
+				<tbody>
+					{% for row in broad %}
+						<tr>
+							<td>
+								<a href="{{ row.url }}" target="_blank" rel="noopener">{{ row.url|replace({ 'https://': '', 'http://': '' }) }}</a>
+								<div class="light smalltext">{{ 'Checked {time}'|t('speedy', { time: row.time|datetime('short') }) }}</div>
+							</td>
+							<td>
+								{% for query in row.broad %}
+									<div class="speedy-repeat">{{ 'Any of: {type}, at {place}'|t('speedy', { type: query.type, place: query.at }) }}</div>
+								{% endfor %}
+							</td>
+						</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		{% endif %}
+
+		<h3>{{ 'Repeated queries'|t('speedy') }}</h3>
 		<p>{{ 'Pages that run the same database query again and again, usually for each item in a loop (an N+1 query). Cached pages are still fast, but these slow down rebuilds and every visitor who isn’t sent a cached page, such as logged-in visitors. Checked whenever Speedy rebuilds a page.'|t('speedy') }}</p>
 		{% if queries|length %}
 			<table class="data fullwidth speedy-pages">
@@ -231,6 +283,7 @@
 		<p>{{ 'Versions, settings, checks and recent clears, to paste into a support email. Keys and tokens are only shown as “set”.'|t('speedy') }}</p>
 		<div class="flex speedy-report-actions">
 			<button type="button" class="btn" id="speedy-copy-report">{{ 'Copy support report'|t('speedy') }}</button>
+			<a class="btn" id="speedy-email-report" href="mailto:support@suprim.com.au?subject={{ 'Speedy Cache support'|t('speedy')|url_encode }}" data-intro="{{ 'What happened, and on which page?'|t('speedy') }}" data-paste="{{ 'The support report is copied: paste it here.'|t('speedy') }}">{{ 'Email support'|t('speedy') }}</a>
 			<span class="light" id="speedy-copied" hidden>{{ 'Copied.'|t('speedy') }}</span>
 		</div>
 		<details><summary class="light">{{ 'Show the report'|t('speedy') }}</summary><pre class="speedy-code" id="speedy-report">{{ report }}</pre></details>
@@ -275,9 +328,23 @@
 {% endcss %}
 
 {% js %}
+document.getElementById('speedy-email-report')?.addEventListener('click', function (e) {
+	// The report goes in the email when it fits in a mailto link; otherwise it's copied to paste in.
+	var link = this, report = document.getElementById('speedy-report').textContent;
+	var body = link.dataset.intro + '\n\n\n--- Speedy Cache report ---\n' + report;
+	var href = link.getAttribute('href').split('&body=')[0];
+	if ((href + '&body=' + encodeURIComponent(body)).length > 1900) {
+		navigator.clipboard?.writeText(report).catch(function () {});
+		body = link.dataset.intro + '\n\n\n' + link.dataset.paste + '\n';
+	}
+	link.setAttribute('href', href + '&body=' + encodeURIComponent(body));
+});
 document.getElementById('speedy-copy-report')?.addEventListener('click', function () {
 	navigator.clipboard.writeText(document.getElementById('speedy-report').textContent).then(function () {
 		document.getElementById('speedy-copied').hidden = false;
+	}).catch(function () {
+		// Without clipboard access, open the report so it can be selected.
+		document.getElementById('speedy-report').closest('details').open = true;
 	});
 });
 (function () {

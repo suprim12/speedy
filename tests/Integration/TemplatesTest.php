@@ -62,6 +62,8 @@ class TemplatesTest extends TestCase
             'cloudfront' => ['month' => date('Y-m'), 'paths' => 12],
             'log' => $full ? array_fill(0, 30, ['time' => time(), 'reason' => 'Saved entry “A”', 'count' => 2, 'urls' => ['https://example.com/a'], 'cdn' => null]) : [],
             'queries' => $full ? [$row] : [],
+            'slowest' => $full ? [['url' => 'https://example.com/listing', 'ms' => 12400, 'queries' => 380, 'time' => time()], ['url' => 'https://example.com/<b>about</b>', 'ms' => 640, 'queries' => 40, 'time' => time()]] : [],
+            'broad' => $full ? [['url' => 'https://example.com/', 'time' => time(), 'broad' => [['type' => 'Entries', 'at' => '_partials/<b>latest</b>, line 14', 'count' => 1]]]] : [],
             'state' => $full ? ['lastExpire' => time()] : [],
             'webPath' => $full ? 'speedy' : null,
             'nginx' => 'location /speedy {}',
@@ -75,6 +77,8 @@ class TemplatesTest extends TestCase
         $this->assertStringContainsString('No pages cached yet', $html);
         $this->assertStringContainsString('Nothing cleared yet', $html);
         $this->assertStringContainsString('No repeated queries found', $html);
+        $this->assertStringContainsString('No page rebuilt so far took more than half a second', $html);
+        $this->assertStringNotContainsString('Cleared by any change', $html);
         $this->assertStringNotContainsString('speedy-badge', $html, 'No counts on empty tabs.');
         $this->assertStringNotContainsString('Show 0 more', $html);
     }
@@ -89,6 +93,10 @@ class TemplatesTest extends TestCase
         $this->assertStringContainsString('Show 20 more', $html, 'The first 10 clears, then the rest.');
         $this->assertSame(20, substr_count($html, 'class="speedy-more" hidden'));
         $this->assertStringContainsString('42×', $html);
+        $this->assertStringContainsString('12.4 s', $html, 'Slow pages in seconds.');
+        $this->assertStringContainsString('640 ms', $html);
+        $this->assertStringContainsString('Any of: Entries, at _partials/&lt;b&gt;latest&lt;/b&gt;, line 14', $html, 'The line to narrow, escaped.');
+        $this->assertStringNotContainsString('<b>about</b>', $html);
         $this->assertStringContainsString('Test Cloudflare', $html);
         $this->assertStringContainsString('failed: denied', $html);
         $this->assertStringContainsString('Page 2 of 3', $html);

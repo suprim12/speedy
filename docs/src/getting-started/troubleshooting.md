@@ -45,7 +45,7 @@ To clear something straight away, use **Clear URL** or **Clear all pages** on th
 
 Open **Recent clears** on the utility page: each clear names what changed, such as “Saved entry ‘Lot 12’ and 40 more”. A page clears when anything it shows changes. Open the page under **Pages** to see what it depends on.
 
-- **Any of: Entries** (or Assets, Categories) means the page has a query without a section, such as `craft.entries.relatedTo(…)`, so saving any entry clears it. Add `.section()` to that query.
+- **Any of: Entries** (or Assets, Categories) means the page has a query without a section, such as `craft.entries.relatedTo(…)`, so saving any entry clears it. **Performance → Cleared by any change** on the utility page names the template and line. Add `.section()` to that query.
 - An import clears only the entries it changes, and once, when it finishes. If every run clears pages, the import is changing something each time, such as re-uploading images. Check the import’s settings so unchanged items are skipped.
 
 Cleared pages are rebuilt in the background, and visitors get the old copy until the new one is ready.

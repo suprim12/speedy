@@ -2,7 +2,7 @@
 
 **Utilities → Speedy Cache** shows what’s cached and lets you clear it. It needs the **Utilities → Speedy Cache** permission.
 
-![The Speedy Cache utility page: totals, tips and actions at the top, then the Pages, Recent clears, Repeated queries and Setup tabs](/images/utility.jpg)
+![The Speedy Cache utility page: totals, tips and actions at the top, then the Pages, Recent clears, Performance and Setup tabs](/images/utility.jpg)
 
 ## At the top
 
@@ -19,7 +19,7 @@ Under the totals, Speedy lists anything that needs attention, most important fir
 - **Checks:** caching turned off, `devMode` on in production, CloudFront close to its free paths.
 - **Tips:** your site is behind a CDN Speedy could clear, pages that clear whenever any entry is saved (a query without `.section()`), image transforms generated on first view, and server rules not checked yet.
 
-A tip that mentions a tab, such as **Repeated queries**, links straight to it.
+A tip that mentions a tab, such as **Performance**, links straight to it.
 
 ### Actions
 
@@ -27,7 +27,7 @@ A tip that mentions a tab, such as **Repeated queries**, links straight to it.
 |---|---|
 | **Clear all pages** | Removes every cached page, clears your CDN, then warms the pages you listed |
 | **Rebuild all pages** | Rebuilds every cached page in the background. Visitors keep getting the old copies until the new ones are ready, so a busy site never has a moment with nothing cached |
-| **Clear URL** | Clears one page, such as `https://example.com/news` |
+| **Clear URL** | Clears one page, such as `https://example.com/news`, with its query string versions such as `?page=2` |
 | **Warm pages** | Builds the pages in your `warm` list now. Shown when `warm` is set |
 
 ## Tabs
@@ -50,9 +50,13 @@ The last clears, with when, why, how many pages and which URLs. The latest 10 ar
 
 Each line names what changed: “Saved entry ‘Summer Sale’ → 3 pages”, “Resaved 1,200 entries → 340 pages”, “Cleared from the command line”. CDN failures show here too.
 
-### Repeated queries
+### Performance
 
-The tab shows how many pages are listed.
+Filled in as Speedy rebuilds pages in the background, so visitors’ requests are never measured. The tab shows how many pages need a look.
+
+- **Slowest pages:** the 10 pages that took longest to build, over half a second, with their number of queries. Visitors get the cached copy, but slow pages delay rebuilds, and logged-in visitors wait this long.
+- **Cleared by any change:** pages with a query that doesn’t choose a section or group, such as `craft.entries.relatedTo(entry)`, with the template and line. Saving any entry clears them, so an import can clear them again and again. Narrow the query, for example with `.section('news')`.
+- **Repeated queries:** pages that run the same query in a loop, below.
 
 ![The Repeated queries tab: a locations page ran 61 queries, 21 of them the same query for categories, with the template and line and how to eager-load them](/images/repeated-queries.jpg)
 
@@ -90,7 +94,7 @@ Things you need once, or when something is wrong:
 
 - **Serve pages without PHP:** the rules for your web server, ready to copy, and **Check server serving**, which checks that the web server sends cached pages without PHP. See [Server rules](/getting-started/server-rules).
 - **CDN:** the last result from each CDN, and a **Test** button for each one that’s set up.
-- **Support report:** **Copy support report** copies a plain-text summary to paste into a support email: versions, settings, CDN status, checks, recent clears, repeated queries and installed plugins. Keys and tokens only appear as “set”.
+- **Support report:** a plain-text summary for support: versions, settings, CDN status, checks, recent clears, slow pages and queries, and installed plugins. Keys and tokens only appear as “set”. **Copy support report** copies it; **Email support** starts an email with it, or copies it to paste in when it’s too long for the email link.
 
 ![The support report: versions, caching settings, CDN, checks, recent clears and plugins](/images/report.jpg)
 

@@ -93,6 +93,21 @@ class Storage extends Component
     }
 
     /**
+     * The keys of a page’s query string versions, such as `example.com/news/~query/page%3D2` for `example.com/news`.
+     *
+     * @return string[]
+     */
+    public function queryPageKeys(string $key): array
+    {
+        if ($this->usesCache()) {
+            return $this->cache()->queryPageKeys($key);
+        }
+        $dir = $this->cacheRoot() . '/' . $key . '/' . self::QUERY_FOLDER;
+
+        return is_dir($dir) ? array_map(fn($d) => $key . '/' . self::QUERY_FOLDER . '/' . basename($d), glob($dir . '/*', GLOB_ONLYDIR | GLOB_NOSORT) ?: []) : [];
+    }
+
+    /**
      * The key of a page by its full URL, such as one from the log or the API.
      */
     public function keyForUrl(string $url): ?string

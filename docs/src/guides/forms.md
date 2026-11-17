@@ -54,9 +54,11 @@ The form’s scripts and styles come with it, and its validation and multi-page 
 
 ### Captchas and other tokens
 
-Speedy refreshes Craft’s CSRF token on cached pages. Some forms put other one-off values in the page too, such as a JavaScript or duplicate-submission captcha, or a token for each time the form is shown. On a cached page those are the same for everyone and go stale, so submissions can fail. Either:
+Speedy refreshes Craft’s CSRF token on cached pages. Some forms put other one-off values in the page too, such as a JavaScript or duplicate-submission captcha, or a token for each time the form is shown. On a cached page those are the same for everyone and go stale, so submissions can fail.
 
-- turn on your form plugin’s own refresh for cached pages, which fetches fresh values when the page loads, or
+Some form plugins can fetch fresh values when the page loads. Speedy turns that on for the ones it knows, and pages with their forms are cached as usual. For other forms, either:
+
+- turn on your form plugin’s own refresh for cached pages, or
 - include the form with `craft.speedy.dynamic()`, as above.
 
 Forms with only the CSRF token, and captchas checked by a third party such as reCAPTCHA or Turnstile, need nothing extra.

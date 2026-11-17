@@ -11,8 +11,12 @@ namespace suprim\speedy\services;
 
 use Craft;
 use craft\base\Component;
+use craft\base\ElementInterface;
+use craft\elements\db\ElementQuery;
+use craft\events\CancelableEvent;
 use suprim\speedy\db\CountedCommand;
 use suprim\speedy\Plugin;
+use yii\base\Event;
 use yii\log\Logger;
 use yii\log\Target;
 
@@ -41,6 +45,21 @@ class Queries extends Component
 
     private bool $_profiling = false;
 
+    /** How many of the slowest rebuilt pages are kept. */
+    private const SLOWEST = 20;
+
+    /** Rebuilds faster than this, in milliseconds, aren’t listed as slow. */
+    public const SLOW_MS = 500;
+
+    /**
+     * @var array<string, array{type: string, at: ?string, count: int}> Element queries without a section or group,
+     * which make the page clear whenever any element of their type is saved, by type and where they ran.
+     */
+    private array $_broad = [];
+
+    /** @var callable|null */
+    private $_onPrepare = null;
+
     /**
      * Starts counting this request’s queries.
      */
@@ -51,6 +70,15 @@ class Queries extends Component
         }
         $this->_groups = [];
         $this->_count = 0;
+        $this->_broad = [];
+        // Queries without a section, such as `craft.entries.relatedTo(…)`, clear the page whenever any entry is
+        // saved. Note where each one ran, so the report can say which line to narrow.
+        $this->_onPrepare = function(CancelableEvent $event) {
+            if ($this->_groups !== null && $event->sender instanceof ElementQuery) {
+                $this->noteBroad($event->sender);
+            }
+        };
+        Event::on(ElementQuery::class, ElementQuery::EVENT_BEFORE_PREPARE, $this->_onPrepare);
         $db = Craft::$app->getDb();
         $driver = $db->getDriverName();
         if (($db->commandMap[$driver] ?? null) === \craft\db\Command::class) {
@@ -122,10 +150,103 @@ class Queries extends Component
             unset($logger->dispatcher->targets['speedy-queries']);
             $db->enableProfiling = $this->_profiling;
         }
+        if ($this->_onPrepare !== null) {
+            Event::off(ElementQuery::class, ElementQuery::EVENT_BEFORE_PREPARE, $this->_onPrepare);
+            $this->_onPrepare = null;
+        }
         $groups = $this->_groups;
         $this->_groups = null;
+        $broad = array_values($this->_broad);
+        $this->_broad = [];
         $start = $_SERVER['REQUEST_TIME_FLOAT'] ?? null;
-        $this->save($url, $this->summarise($groups, $this->_count) + ['ms' => $start ? (int)round((microtime(true) - (float)$start) * 1000) : null]);
+        $ms = $start ? (int)round((microtime(true) - (float)$start) * 1000) : null;
+        $result = $this->summarise($groups, $this->_count) + ['ms' => $ms, 'broad' => $broad];
+        $this->save($url, $result);
+        if ($ms !== null) {
+            $this->saveSlow($url, $ms, $result['queries']);
+        }
+    }
+
+    /**
+     * Notes a query whose cache tags cover every element of its type, with the template line that ran it.
+     */
+    private function noteBroad(ElementQuery $query): void
+    {
+        try {
+            $tags = $query->getCacheTags();
+        } catch (\Throwable) {
+            return;
+        }
+        foreach ($tags as $tag) {
+            if (!preg_match('/^element::(.+)::\*$/', (string)$tag, $m)) {
+                continue;
+            }
+            $at = $this->templateLine(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 40));
+            // Only queries a template runs: Craft’s and plugins’ own aren’t the site builder’s to change.
+            if ($at === null) {
+                return;
+            }
+            $class = $m[1];
+            $type = class_exists($class) && is_subclass_of($class, ElementInterface::class) ? $class::pluralDisplayName() : $class;
+            $id = "$class|$at";
+            $this->_broad[$id] ??= ['type' => $type, 'at' => $at, 'count' => 0];
+            $this->_broad[$id]['count']++;
+            return;
+        }
+    }
+
+    /**
+     * Keeps the slowest rebuilt pages, with how long they took. Only written when the list changes.
+     */
+    private function saveSlow(string $url, int $ms, int $queries): void
+    {
+        $storage = Plugin::getInstance()->storage;
+        $slow = $storage->readData('slow');
+        $listed = isset($slow[$url]);
+        $fastest = $slow ? min(array_column($slow, 'ms')) : 0;
+        if (!$listed && ($ms < self::SLOW_MS || (count($slow) >= self::SLOWEST && $ms <= $fastest))) {
+            return;
+        }
+        $mutex = Craft::$app->getMutex();
+        if (!$mutex->acquire('speedy:slow', 1)) {
+            return;
+        }
+        try {
+            $slow = $storage->readData('slow');
+            unset($slow[$url]);
+            if ($ms >= self::SLOW_MS) {
+                $slow[$url] = ['url' => $url, 'ms' => $ms, 'queries' => $queries, 'time' => time()];
+            }
+            uasort($slow, fn($a, $b) => $b['ms'] <=> $a['ms']);
+            $storage->writeData('slow', array_slice($slow, 0, self::SLOWEST, true));
+        } finally {
+            $mutex->release('speedy:slow');
+        }
+    }
+
+    /**
+     * The slowest pages rebuilt lately, the slowest first.
+     *
+     * @return array<int, array{url: string, ms: int, queries: int, time: int}>
+     */
+    public function slowest(): array
+    {
+        $slow = array_values(array_filter(Plugin::getInstance()->storage->readData('slow'), fn($p) => is_array($p) && isset($p['ms'], $p['url'])));
+        usort($slow, fn($a, $b) => $b['ms'] <=> $a['ms']);
+
+        return $slow;
+    }
+
+    /**
+     * Pages with queries that have no section or group, so they clear whenever any element of that type is saved.
+     *
+     * @return array<int, array{url: string, time: int, broad: array<int, array{type: string, at: ?string, count: int}>}>
+     */
+    public function broad(): array
+    {
+        $pages = Plugin::getInstance()->storage->readData('queries');
+
+        return array_values(array_filter($pages, fn($p) => is_array($p) && !empty($p['broad'])));
     }
 
     /**
@@ -203,15 +324,17 @@ class Queries extends Component
     public function clear(): void
     {
         Plugin::getInstance()->storage->writeData('queries', []);
+        Plugin::getInstance()->storage->writeData('slow', []);
     }
 
     /**
-     * @param array{queries: int, repeated: array<int, array{count: int, sql: string, at: ?string, tip: string}>, ms: ?int} $result
+     * @param array{queries: int, repeated: array<int, array{count: int, sql: string, at: ?string, tip: string}>, ms: ?int, broad: array<int, array{type: string, at: ?string, count: int}>} $result
      */
     private function save(string $url, array $result): void
     {
         // Most pages have no repeated queries and aren’t on the report: nothing to write.
-        if (!$result['repeated'] && !array_key_exists($url, Plugin::getInstance()->storage->readData('queries'))) {
+        $worth = $result['repeated'] || !empty($result['broad']);
+        if (!$worth && !array_key_exists($url, Plugin::getInstance()->storage->readData('queries'))) {
             return;
         }
         $mutex = Craft::$app->getMutex();
@@ -223,8 +346,8 @@ class Queries extends Component
             $storage = Plugin::getInstance()->storage;
             $pages = $storage->readData('queries');
             unset($pages[$url]);
-            // Only pages with repeated queries are worth keeping.
-            if ($result['repeated']) {
+            // Only pages with repeated queries, or queries without a section, are worth keeping.
+            if ($worth) {
                 $pages[$url] = ['url' => $url, 'time' => time()] + $result;
                 uasort($pages, fn($a, $b) => $this->repeats($b) <=> $this->repeats($a));
                 $pages = array_slice($pages, 0, self::KEEP, true);

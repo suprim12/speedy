@@ -105,6 +105,7 @@ class Plugin extends BasePlugin
             if (!Craft::$app instanceof WebApplication) {
                 return;
             }
+            $this->refreshFormieTokens();
             // Control panel requests too, so logging in marks the visitor before they see the site.
             // After the response is prepared (Craft renders templates then, so a form step or flash message has just
             // been stored) and before its headers go out.
@@ -145,6 +146,27 @@ class Plugin extends BasePlugin
     public function getReadOnlySettingsResponse(): mixed
     {
         return $this->tabbedSettingsResponse(true);
+    }
+
+    /**
+     * Formie 4 refreshes its captcha and submission tokens on cached pages when it knows pages are cached, which it
+     * only works out by itself for one other cache plugin. Tell it, for this request, while caching is on.
+     * Formie 3 gets a script on cached pages instead ({@see Cacher}).
+     */
+    private function refreshFormieTokens(): void
+    {
+        $settings = $this->getSettings();
+        if (!$settings->isEnabled() || !$settings->refreshCsrf) {
+            return;
+        }
+        $formie = Craft::$app->getPlugins()->getPlugin('formie');
+        if ($formie === null || version_compare($formie->getVersion(), '4.0.0', '<')) {
+            return;
+        }
+        $formieSettings = $formie->getSettings();
+        if ($formieSettings !== null && property_exists($formieSettings, 'staticCacheRefreshOnLoad')) {
+            $formieSettings->staticCacheRefreshOnLoad = true;
+        }
     }
 
     /**

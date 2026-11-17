@@ -30,4 +30,31 @@ class ClearerTest extends TestCase
         $this->assertSame(1, $this->plugin()->clearer->clearUrl('https://example.com/a'));
         $this->assertSame(0, $this->plugin()->clearer->clearUrl('https://example.com/a'));
     }
+
+    public function testClearingAnAddressClearsItsQueryStringVersions(): void
+    {
+        foreach ([\suprim\speedy\models\Settings::STORAGE_FILES, \suprim\speedy\models\Settings::STORAGE_CRAFT_CACHE] as $mode) {
+            $this->settings()->storage = $mode;
+            $storage = $this->plugin()->storage;
+            $base = 'example.com/homes';
+            $map = (string)$storage->key('example.com', 'homes', ['view' => 'map']);
+            $list = (string)$storage->key('example.com', 'homes', ['view' => 'list']);
+            $other = 'example.com/homes-for-sale';
+            foreach ([$base => '', $map => '?view=map', $list => '?view=list', $other => ''] as $key => $query) {
+                $storage->write($key, '<html>Old</html>', 'https://example.com/' . explode('/', $key, 2)[1] . $query, [], null);
+            }
+
+            $this->assertSame(1, $this->plugin()->clearer->clearUrl('https://example.com/homes?view=map'), "$mode: one version on its own.");
+            $this->assertFalse($storage->exists($map));
+            $this->assertTrue($storage->exists($list));
+
+            $storage->write($map, '<html>Old</html>', 'https://example.com/homes?view=map', [], null);
+            $this->assertSame(3, $this->plugin()->clearer->clearUrl('https://example.com/homes'), "$mode: the page and its versions.");
+            foreach ([$base, $map, $list] as $key) {
+                $this->assertFalse($storage->exists($key), "$mode: $key");
+            }
+            $this->assertTrue($storage->exists($other), "$mode: a page whose address only starts the same is kept.");
+            $storage->delete($other);
+        }
+    }
 }

@@ -469,7 +469,8 @@ class Cacher extends Component
             strlen((string)$response->content) > 5 * 1024 * 1024 => 'too large',
             $this->isPrivate($response) => 'private',
             $this->varies($response) => 'vary',
-            $this->sessionHasState() => 'session',
+            // Formie 4 keeps an ID in the session for the form tokens it refreshes on each visitor’s copy.
+            $this->sessionHasState(self::formieRefreshes() ? self::AMBIENT_SESSION_KEYS : []) => 'session',
             $this->setsCookies($response) => 'sets a cookie',
             !Craft::$app->getUser()->getIsGuest() => 'logged in',
             $request instanceof Request && Plugin::getInstance()->getSettings()->skipWhenCart && $this->hasCookie($request, '_commerce_cart') => 'cart',
@@ -536,7 +537,38 @@ class Cacher extends Component
             return $html;
         }
         $html = str_replace($token, self::CSRF_PLACEHOLDER, $html);
+        $html = $this->addFormieRefresh($html);
         $script = '<script>(function(){var p=' . json_encode(self::CSRF_PLACEHOLDER) . ';fetch(' . json_encode(self::relativeActionUrl('speedy/csrf')) . ',{headers:{Accept:"application/json"},credentials:"same-origin"}).then(function(r){return r.json()}).then(function(d){document.querySelectorAll("input[value=\'"+p+"\']").forEach(function(i){i.value=d.token});document.querySelectorAll("meta[content=\'"+p+"\']").forEach(function(m){m.content=d.token});window.csrfTokenValue=d.token})})();</script>';
+
+        return str_contains($html, '</body>') ? substr_replace($html, $script . '</body>', strrpos($html, '</body>'), 7) : $html . $script;
+    }
+
+    /**
+     * Whether Formie refreshes its form tokens on each visitor’s copy of a cached page (Formie 4, told so by Speedy).
+     */
+    public static function formieRefreshes(): bool
+    {
+        $formie = Craft::$app->getPlugins()->getPlugin('formie');
+        $settings = $formie?->getSettings();
+
+        return $settings !== null && method_exists($settings, 'hasStaticCache') && $settings->hasStaticCache();
+    }
+
+    /**
+     * Formie 3 forms on a cached page carry captcha tokens from when the page was built. Formie refreshes them
+     * itself when asked, once each form starts, so ask it. (Formie 4 is told directly; see Plugin.)
+     */
+    private function addFormieRefresh(string $html): string
+    {
+        if (!str_contains($html, 'data-fui-form')) {
+            return $html;
+        }
+        $formie = Craft::$app->getPlugins()->getPlugin('formie');
+        if ($formie === null || version_compare($formie->getVersion(), '4.0.0', '>=')) {
+            return $html;
+        }
+        // Formie starts its forms once the page has loaded, after this has run.
+        $script = '<script>document.addEventListener("onFormieInit",function(e){var d=e.detail||{};if(d.formie&&d.formId&&d.formie.refreshForCache){d.formie.refreshForCache(d.formId)}});</script>';
 
         return str_contains($html, '</body>') ? substr_replace($html, $script . '</body>', strrpos($html, '</body>'), 7) : $html . $script;
     }

@@ -190,7 +190,7 @@ class Insights extends Component
         }
         $slow = $settings->queryReport ? count($plugin->queries->report()) : 0;
         if ($slow) {
-            $add('hint', Craft::t('speedy', '{count, plural, =1{# page runs} other{# pages run}} the same database query again and again, usually in a loop. See [Repeated queries](#queries).', ['count' => $slow]));
+            $add('hint', Craft::t('speedy', '{count, plural, =1{# page runs} other{# pages run}} the same database query again and again, usually in a loop. See [Performance](#queries).', ['count' => $slow]));
         }
         $rebuild = $this->rebuildProblem();
         if ($rebuild) {
@@ -219,7 +219,8 @@ class Insights extends Component
         }
         $everything = $plugin->storage->countPagesForTag('element::craft\elements\Entry::*');
         if ($everything > 0) {
-            $add('hint', Craft::t('speedy', '{count, plural, =1{# page is} other{# pages are}} cleared whenever any entry is saved, as {count, plural, =1{it lists} other{they list}} entries without choosing a section. Add `.section()` to those queries to clear them less often.', ['count' => $everything]));
+            $add('hint', Craft::t('speedy', '{count, plural, =1{# page is} other{# pages are}} cleared whenever any entry is saved, as {count, plural, =1{it lists} other{they list}} entries without choosing a section. Add `.section()` to those queries to clear them less often.', ['count' => $everything])
+                . ($plugin->getSettings()->queryReport && $plugin->queries->broad() ? ' ' . Craft::t('speedy', 'See [which lines](#queries).') : ''));
         }
         if (!$general->generateTransformsBeforePageLoad) {
             $add('hint', Craft::t('speedy', 'Set generateTransformsBeforePageLoad to true in config/general.php, so cached pages link to finished image transforms.'));
@@ -289,6 +290,18 @@ class Insights extends Component
         foreach (array_slice($plugin->queries->report(), 0, 10) as $page) {
             foreach ($page['repeated'] as $repeat) {
                 $lines[] = '- ' . $page['url'] . ' · ' . $repeat['count'] . '× of ' . $page['queries'] . ' queries' . ($repeat['at'] ? ' · ' . $repeat['at'] : '');
+            }
+        }
+        $lines[] = '';
+        $lines[] = '## Slowest pages';
+        foreach (array_slice($plugin->queries->slowest(), 0, 10) as $page) {
+            $lines[] = '- ' . $page['url'] . ' · ' . $page['ms'] . ' ms · ' . $page['queries'] . ' queries';
+        }
+        $lines[] = '';
+        $lines[] = '## Cleared by any change';
+        foreach (array_slice($plugin->queries->broad(), 0, 10) as $page) {
+            foreach ($page['broad'] as $query) {
+                $lines[] = '- ' . $page['url'] . ' · any of ' . $query['type'] . ($query['at'] ? ' · ' . $query['at'] : '');
             }
         }
         $lines[] = '';

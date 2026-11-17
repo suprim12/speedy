@@ -434,9 +434,18 @@ class Clearer extends Component
      */
     public function clearUrl(string $url): int
     {
-        $key = Plugin::getInstance()->storage->keyForUrl($url);
+        $storage = Plugin::getInstance()->storage;
+        $key = $storage->keyForUrl($url);
+        if (!$key) {
+            return 0;
+        }
+        $keys = [$key];
+        // A page’s address clears its query string versions too, such as `?view=map` and `?page=2`.
+        if (!str_contains($key, '/' . Storage::QUERY_FOLDER . '/')) {
+            array_push($keys, ...$storage->queryPageKeys($key));
+        }
 
-        return $key ? $this->clearKeys([$key], Craft::t('speedy', 'Cleared {url}', ['url' => $url])) : 0;
+        return $this->clearKeys($keys, Craft::t('speedy', 'Cleared {url}', ['url' => $url]));
     }
 
     /**

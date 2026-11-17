@@ -129,4 +129,30 @@ class QueriesTest extends TestCase
         $queries->finish('https://example.com/news');
         $this->assertSame([], $queries->report());
     }
+
+    public function testSlowestPagesAreKept(): void
+    {
+        $queries = $this->plugin()->queries;
+        $save = new \ReflectionMethod($queries, 'saveSlow');
+        $save->invoke($queries, 'https://example.com/fast', 120, 10);
+        $this->assertSame([], $queries->slowest(), 'Fast pages aren’t listed.');
+
+        $save->invoke($queries, 'https://example.com/listing', 12400, 380);
+        $save->invoke($queries, 'https://example.com/about', 700, 40);
+        $this->assertSame(['https://example.com/listing', 'https://example.com/about'], array_column($queries->slowest(), 'url'), 'The slowest first.');
+
+        $save->invoke($queries, 'https://example.com/about', 90, 12);
+        $this->assertSame(['https://example.com/listing'], array_column($queries->slowest(), 'url'), 'A page that got faster drops off.');
+
+        for ($i = 0; $i < 25; $i++) {
+            $save->invoke($queries, "https://example.com/p$i", 1000 + $i, 1);
+        }
+        $slowest = $queries->slowest();
+        $this->assertCount(20, $slowest, 'At most 20.');
+        $this->assertSame('https://example.com/listing', $slowest[0]['url']);
+        $this->assertNotContains('https://example.com/p0', array_column($slowest, 'url'), 'The quickest of them made way.');
+
+        $queries->clear();
+        $this->assertSame([], $queries->slowest());
+    }
 }

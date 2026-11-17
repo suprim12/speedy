@@ -52,6 +52,7 @@ class PagesTest extends TestCase
             'disk' => '<html><body>Disk</body></html>',
             'param' => '<html><body>Param</body></html>',
             'no-loop' => '<html><body>{{ craft.users().id([1, 2, 3]).all()|length }}</body></html>',
+            'broad' => "<html><body>\n{{ craft.entries.relatedTo(1).limit(1).ids()|length }}\n{{ craft.entries.section('*').limit(1).ids()|length }}\n</body></html>",
         ];
         foreach ($templates as $name => $twig) {
             file_put_contents(self::$dir . "/$name.twig", $twig);
@@ -313,6 +314,27 @@ class PagesTest extends TestCase
 
         Plugin::getInstance()->warmer->warm([$url], true, null, [$url => $key]);
         $this->assertFalse($storage->exists($key), 'Gone, rather than sent forever.');
+    }
+
+    public function testRebuildsFindQueriesThatClearOnAnyChange(): void
+    {
+        if (!Plugin::getInstance()->getSettings()->queryReport) {
+            $this->markTestSkipped('queryReport is off on this site.');
+        }
+        $url = self::$base . '/' . self::$prefix . '/broad';
+        $fine = self::$base . '/' . self::$prefix . '/no-loop';
+        $this->assertSame(['built' => 2, 'failed' => 0], Plugin::getInstance()->warmer->warm([$url, $fine], false));
+
+        $pages = array_column(Plugin::getInstance()->queries->broad(), null, 'url');
+        try {
+            $this->assertArrayHasKey($url, $pages);
+            $this->assertArrayNotHasKey($fine, $pages, 'Queries by ID are narrow already.');
+            $this->assertSame([['type' => 'Entries', 'at' => self::$prefix . '/broad, line 2', 'count' => 1]], $pages[$url]['broad'], 'Only the query without a section, with its line.');
+        } finally {
+            $storage = Plugin::getInstance()->storage;
+            $storage->writeData('queries', array_diff_key($storage->readData('queries'), [$url => true, $fine => true]));
+            $storage->writeData('slow', array_diff_key($storage->readData('slow'), [$url => true, $fine => true]));
+        }
     }
 
     public function testRebuildsThatFailSayWhy(): void

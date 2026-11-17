@@ -104,6 +104,14 @@ class CacheStore
         return count($this->getList($this->k('qv', md5($key))));
     }
 
+    /**
+     * @return string[]
+     */
+    public function queryPageKeys(string $key): array
+    {
+        return array_map('strval', array_keys($this->getList($this->k('qv', md5($key)))));
+    }
+
     public function delete(string $key): ?string
     {
         $url = $this->meta($key)['url'] ?? null;
