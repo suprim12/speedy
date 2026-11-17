@@ -78,4 +78,11 @@ class StaleAndLocksTest extends TestCase
         $other = array_values(array_diff(array_map('intval', $sites), [(int)$entry->siteId]));
         $this->assertSame($other !== [] && $entry->enabled, $method->invoke($this->plugin()->clearer, $entry));
     }
+
+    public function testRebuildingWhenNothingIsCachedDoesNothing(): void
+    {
+        $plugin = $this->plugin();
+        $this->assertSame(0, $plugin->clearer->rebuildAll('Rebuild everything'));
+        $this->assertSame([], $plugin->log->recent(1), 'No “0 pages” entry in the log.');
+    }
 }

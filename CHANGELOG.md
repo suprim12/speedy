@@ -1,5 +1,11 @@
 # Release Notes for Speedy Cache
 
+## Unreleased
+
+### Fixed
+- “Rebuild all pages” builds the pages to warm when nothing is cached, instead of rebuilding 0 pages.
+- When pages can’t be rebuilt in the background, the log and the utility page say why, such as a password on the site.
+
 ## 1.1.0 - 2026-11-16
 
 ### Added

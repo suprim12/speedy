@@ -460,6 +460,9 @@ class Clearer extends Component
                 $keys[$url] = $key;
             }
         }
+        if (!$urls) {
+            return 0;
+        }
         $urls = $plugin->warmer->importantFirst($urls);
         $plugin->warmer->queue($urls, true, $keys);
         $plugin->log->add($reason, count($urls), $urls);

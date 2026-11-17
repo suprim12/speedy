@@ -41,6 +41,22 @@ The header says why, after `SKIP`:
 
 To clear something straight away, use **Clear URL** or **Clear all pages** on the utility page, or `php craft speedy/clear`.
 
+## Pages keep being cleared, such as by an import
+
+Open **Recent clears** on the utility page: each clear names what changed, such as “Saved entry ‘Lot 12’ and 40 more”. A page clears when anything it shows changes. Open the page under **Pages** to see what it depends on.
+
+- **Any of: Entries** (or Assets, Categories) means the page has a query without a section, such as `craft.entries.relatedTo(…)`, so saving any entry clears it. Add `.section()` to that query.
+- An import clears only the entries it changes, and once, when it finishes. If every run clears pages, the import is changing something each time, such as re-uploading images. Check the import’s settings so unchanged items are skipped.
+
+Cleared pages are rebuilt in the background, and visitors get the old copy until the new one is ready.
+
+## Pages disappear from the cache
+
+When a page can’t be rebuilt in the background, it’s removed, and built again on its next visit. The log shows “Couldn’t rebuild, so removed” with the reason, and the utility page says what to do:
+
+- **status 401 or 403:** the site asks for a password, as staging sites often do. Set `warmUsername` and `warmPassword` in `config/speedy.php`.
+- **cURL error, could not resolve host, SSL:** the server can’t open its own address. Check its DNS, firewall and SSL certificate.
+
 ## Forms say “Bad request” on cached pages
 
 The CSRF token on cached pages is replaced by a fresh one as the page loads. If your site blocks the request to `actions/speedy/csrf`, or a script on the page runs before the token is filled in, submissions fail. Check the browser console for errors, and see [Forms and CSRF](/guides/forms).

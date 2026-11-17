@@ -103,17 +103,20 @@ class Warmer extends Component
         ], fn($v) => $v !== null));
         $built = [];
         $failed = [];
+        // Why each page failed, such as “status 401”, so the log and the utility page can say.
+        $why = [];
         $changed = [];
         $total = count($urls);
         $done = 0;
 
         $skipped = [];
-        $requests = function() use ($urls, $plugin, &$skipped) {
+        $requests = function() use ($urls, $plugin, &$skipped, &$why) {
             foreach ($urls as $url) {
                 $parts = parse_url($url);
                 // Only the sites’ own pages, so a made-up address can’t send requests elsewhere.
                 if (empty($parts['host']) || !$plugin->cacher->isSiteHost((string)$parts['host'], $parts['port'] ?? null)) {
                     $skipped[] = $url;
+                    $why[$url] = Craft::t('speedy', 'not one of the sites’ addresses');
                     continue;
                 }
                 // A one-off query string makes CDNs pass the request on, rather than answer with their old copy.
@@ -123,7 +126,7 @@ class Warmer extends Component
         };
         $pool = new Pool($client, $requests(), [
             'concurrency' => max(1, $plugin->getSettings()->warmConcurrency),
-            'fulfilled' => function(ResponseInterface $response, string $url) use (&$built, &$failed, &$changed, &$done, $total, $progress) {
+            'fulfilled' => function(ResponseInterface $response, string $url) use (&$built, &$failed, &$why, &$changed, &$done, $total, $progress) {
                 $state = $response->getHeaderLine(Cacher::HEADER);
                 if ($state === 'WARM' || $state === 'MISS') {
                     $built[] = $url;
@@ -132,6 +135,9 @@ class Warmer extends Component
                     $changed[] = $url;
                 } else {
                     $failed[] = $url;
+                    $status = $response->getStatusCode();
+                    // Such as “SKIP private” for a page that answered, or “status 404”; Speedy’s own “SKIP status 404” adds nothing.
+                    $why[$url] = $state !== '' && $status === 200 ? $state : "status $status" . ($state !== '' && !str_contains($state, (string)$status) ? ", $state" : '');
                     Craft::info("Couldn’t build $url: status {$response->getStatusCode()}" . ($state !== '' ? ", $state" : ''), 'speedy');
                 }
                 $done++;
@@ -139,8 +145,10 @@ class Warmer extends Component
                     $progress($done, $total);
                 }
             },
-            'rejected' => function($reason, string $url) use (&$failed, &$done, $total, $progress) {
+            'rejected' => function($reason, string $url) use (&$failed, &$why, &$done, $total, $progress) {
                 $failed[] = $url;
+                // Such as “cURL error 6: Could not resolve host”, without the link to curl’s docs.
+                $why[$url] = $reason instanceof Throwable ? trim((string)preg_replace('/\s*\(see https?:\/\/\S+\).*$/s', '', $reason->getMessage())) : 'no response';
                 Craft::warning("Couldn’t request $url: " . ($reason instanceof Throwable ? $reason->getMessage() : 'no response'), 'speedy');
                 $done++;
                 if ($progress) {
@@ -160,8 +168,12 @@ class Warmer extends Component
                 }
             }
             if ($failed) {
-                $plugin->log->add(Craft::t('speedy', 'Couldn’t rebuild, so removed'), count($failed), $failed);
+                $reasons = array_count_values(array_map('strval', $why));
+                arsort($reasons);
+                $reason = (string)array_key_first($reasons);
+                $plugin->log->add(Craft::t('speedy', 'Couldn’t rebuild, so removed ({reason})', ['reason' => $reason]), count($failed), $failed);
             }
+            $this->noteResult(count($built), $failed, $why);
             $plugin->cdn->purgeUrls(array_merge($built, $failed));
         }
 
@@ -170,6 +182,29 @@ class Warmer extends Component
         }
 
         return ['built' => count($built), 'failed' => count($failed)];
+    }
+
+    /**
+     * Notes the latest rebuild that failed, and the latest that worked, for the utility page’s checks.
+     *
+     * @param string[] $failed
+     * @param array<string, string> $why
+     */
+    private function noteResult(int $built, array $failed, array $why): void
+    {
+        if (!$built && !$failed) {
+            return;
+        }
+        $storage = Plugin::getInstance()->storage;
+        $state = $storage->readData('state');
+        if ($built) {
+            $state['rebuiltAt'] = time();
+        }
+        if ($failed) {
+            $url = (string)$failed[0];
+            $state['rebuildFailed'] = ['time' => time(), 'count' => count($failed), 'url' => $url, 'why' => (string)($why[$url] ?? '')];
+        }
+        $storage->writeData('state', $state);
     }
 
     /**

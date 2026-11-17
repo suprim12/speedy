@@ -315,6 +315,39 @@ class PagesTest extends TestCase
         $this->assertFalse($storage->exists($key), 'Gone, rather than sent forever.');
     }
 
+    public function testRebuildsThatFailSayWhy(): void
+    {
+        $plugin = Plugin::getInstance();
+        $missing = self::$base . '/' . self::$prefix . '/not-a-page';
+        $plugin->warmer->warm([$missing], true);
+
+        $this->assertStringContainsString('(status 404)', $plugin->log->recent(1)[0]['reason'], 'The log says why.');
+        $problem = (string)$plugin->insights->rebuildProblem();
+        $this->assertStringContainsString('couldn’t be rebuilt in the background (status 404)', $problem);
+        $this->assertContains($problem, array_column($plugin->insights->checks(), 'message'), 'Shown on the utility page.');
+
+        // Once a rebuild works again, the problem goes away.
+        sleep(1);
+        $this->assertSame(['built' => 1, 'failed' => 0], $plugin->warmer->warm([self::$base . '/' . self::$prefix . '/plain'], true));
+        $this->assertNull($plugin->insights->rebuildProblem());
+    }
+
+    public function testRebuildProblemsGiveAdvice(): void
+    {
+        $storage = Plugin::getInstance()->storage;
+        $cases = [
+            'status 401' => 'warmUsername',
+            'status 503' => 'storage/logs',
+            'cURL error 6: Could not resolve host: example.com' => 'couldn’t open example.com itself',
+        ];
+        foreach ($cases as $why => $advice) {
+            $storage->writeData('state', ['rebuildFailed' => ['time' => time(), 'count' => 1, 'url' => 'https://example.com/', 'why' => $why]]);
+            $this->assertStringContainsString($advice, (string)Plugin::getInstance()->insights->rebuildProblem(), $why);
+        }
+        $storage->writeData('state', ['rebuildFailed' => ['time' => time() - 90000, 'count' => 1, 'url' => 'https://example.com/', 'why' => 'status 401']]);
+        $this->assertNull(Plugin::getInstance()->insights->rebuildProblem(), 'Not after a day.');
+    }
+
     public function testApiIsOffWithoutAKey(): void
     {
         if (Plugin::getInstance()->getSettings()->getApiKey() !== '') {

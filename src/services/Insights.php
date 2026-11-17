@@ -192,6 +192,10 @@ class Insights extends Component
         if ($slow) {
             $add('hint', Craft::t('speedy', '{count, plural, =1{# page runs} other{# pages run}} the same database query again and again, usually in a loop. See [Repeated queries](#queries).', ['count' => $slow]));
         }
+        $rebuild = $this->rebuildProblem();
+        if ($rebuild) {
+            $add('error', $rebuild);
+        }
         $failed = $this->failedJobs();
         if ($failed) {
             $add('error', Craft::t('speedy', '{count, plural, =1{# Speedy queue job has} other{# Speedy queue jobs have}} failed. See Utilities → Queue Manager.', ['count' => $failed]));
@@ -309,6 +313,29 @@ class Insights extends Component
         };
 
         return $name ? "$type: $name" : "$type: $tag";
+    }
+
+    /**
+     * When the latest background rebuild failed in the past day, and none has worked since: what happened and what to
+     * do. Pages that can’t be rebuilt are removed, so this is why a cache can keep emptying itself.
+     */
+    public function rebuildProblem(): ?string
+    {
+        $state = Plugin::getInstance()->storage->readData('state');
+        $failed = $state['rebuildFailed'] ?? null;
+        if (!is_array($failed) || (int)($failed['time'] ?? 0) < time() - 86400 || (int)($state['rebuiltAt'] ?? 0) > (int)$failed['time']) {
+            return null;
+        }
+        $why = (string)($failed['why'] ?? '');
+        $host = (string)parse_url((string)($failed['url'] ?? ''), PHP_URL_HOST);
+        $advice = match (true) {
+            (bool)preg_match('/^status 40[13]\b/', $why) => Craft::t('speedy', 'The site asks for a password, or blocks the request: set `warmUsername` and `warmPassword` in config/speedy.php, or let requests with the X-Speedy-Warm header through.'),
+            str_starts_with($why, 'status 5') => Craft::t('speedy', 'The page had an error while it was rebuilt: see storage/logs.'),
+            str_starts_with($why, 'cURL error') || str_contains($why, 'resolve') || str_contains($why, 'SSL') => Craft::t('speedy', 'This server couldn’t open {host} itself. Check that the server can reach its own address: DNS, firewall and SSL certificate.', ['host' => $host]),
+            default => '',
+        };
+
+        return trim(Craft::t('speedy', 'Pages couldn’t be rebuilt in the background ({reason}), so they were removed and are built again on their next visit.', ['reason' => Html::encode(str_replace('`', '', $why))]) . ' ' . $advice);
     }
 
     /** How long a Speedy job can wait before the queue counts as stuck, in seconds. */

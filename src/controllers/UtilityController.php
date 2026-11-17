@@ -41,7 +41,18 @@ class UtilityController extends Controller
 
     public function actionRebuildAll(): ?Response
     {
-        $count = Plugin::getInstance()->clearer->rebuildAll(Craft::t('speedy', 'Rebuilding everything, by {user}', ['user' => (string)Craft::$app->getUser()->getIdentity()]));
+        $plugin = Plugin::getInstance();
+        $count = $plugin->clearer->rebuildAll(Craft::t('speedy', 'Rebuilding everything, by {user}', ['user' => (string)Craft::$app->getUser()->getIdentity()]));
+        if (!$count) {
+            // Nothing is cached, such as just after clearing: build the pages to warm instead, if there are any.
+            $urls = $plugin->warmer->warmList();
+            if (!$urls) {
+                return $this->asFailure(Craft::t('speedy', 'No pages are cached yet, so there’s nothing to rebuild. Pages are cached as visitors open them, or set “warm” to “sitemap” to build them all.'));
+            }
+            $plugin->warmer->queue($urls, false);
+
+            return $this->asSuccess(Craft::t('speedy', 'No pages were cached, so building {count, plural, =1{# page} other{# pages}} to warm in the background.', ['count' => count($urls)]));
+        }
 
         return $this->asSuccess(Craft::t('speedy', 'Rebuilding {count, plural, =1{# page} other{# pages}} in the background.', ['count' => $count]));
     }
