@@ -32,6 +32,13 @@ The header says why, after `SKIP`:
 | `status 404` | Only 200 pages are cached | Expected |
 | `preview` | Live preview or a share link | Expected |
 | `disabled` | Caching is off | Check `enabled` in the settings or `config/speedy.php` |
+| `not in only cache` | **Only cache** is set and the URL isn’t in it | Add it to **Only cache** |
+| `not html` | The response isn’t an HTML page, such as a feed or a file | Expected |
+| `too large` | The page is over 5 MB | Expected |
+| `changed while building` | Its content changed while the page was built, so that copy could already be out of date | Expected. The next visit or rebuild saves it |
+| `cache full` | The cached pages have reached `maxCacheSize` | Raise `maxCacheSize`, or clear pages |
+| `disk full` | The disk has less than 256 MB free | Free some space ([The disk is nearly full](#the-disk-is-nearly-full)) |
+| `cache folder` | `cachePath` isn’t a folder of Speedy’s own, such as the web root | Set it to a folder of its own, such as `@webroot/speedy` |
 
 ## A change doesn’t show
 
@@ -73,7 +80,7 @@ The rules aren’t being used yet:
 
 ## The cache folder is large
 
-Pages are plain HTML, typically 20–100 KB each. **Utilities → Speedy Cache** shows the total. Clear everything any time; pages are rebuilt as they’re visited.
+Pages are plain HTML, typically 20–100 KB each. **Utilities → Speedy Cache** shows the total. Clear everything any time; pages are rebuilt as they’re visited. To cap it, such as on a small hosting plan, set `maxCacheSize` in MB.
 
 ## The disk is nearly full
 

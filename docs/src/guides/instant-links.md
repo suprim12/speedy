@@ -8,7 +8,7 @@ Turn it on under **Settings → Plugins → Speedy Cache → General**, or in `c
 'instantLinks' => true,
 ```
 
-Cached pages are rebuilt in the background when you turn it on or off in the control panel or apply the change with a deploy. Set in `config/speedy.php`, it applies to pages as they’re rebuilt; use **Rebuild all** on the utility page to apply it straight away.
+Cached pages are rebuilt in the background when you turn it on or off in the control panel or apply the change with a deploy. Set in `config/speedy.php`, it applies to pages as they’re rebuilt; use **Rebuild all pages** on the utility page to apply it straight away.
 
 ## How it works
 
@@ -22,7 +22,7 @@ Speedy adds the browser’s speculation rules to each cached page. Browsers that
 
 - Links to other sites, and `#` links on the same page.
 - Links with a query string, such as `?view=map`.
-- Links to files, such as `brochure.pdf`.
+- Links with a dot in the path, which are usually files, such as `brochure.pdf`.
 - The control panel, action URLs, `index.php`, and signing in, out, setting a password or verifying an email.
 - Pages in **Never cache**, and with **Only cache**, any page not in it.
 - Links that open a new window (`target="_blank"`), downloads, and `rel="nofollow"` links.
@@ -42,4 +42,4 @@ Mark any link that does something when it’s opened, such as a page that adds t
 
 - Pages that aren’t cached, including every page for logged-in visitors.
 - Pages with rules of their own (`<script type="speculationrules">`).
-- Pages whose Content-Security-Policy wouldn’t let the rules run, so the browser doesn’t report a violation. Add `'inline-speculation-rules'` to `script-src` to allow them. A policy set in your web server’s configuration can’t be seen by Speedy: add the keyword there too.
+- Pages whose Content-Security-Policy wouldn’t let the rules run, so the browser doesn’t report a violation: a `script-src` (or `script-src-elem`, or else `default-src`) without `'unsafe-inline'`, or with a nonce, hash or `'strict-dynamic'`, which turn `'unsafe-inline'` off. Add `'inline-speculation-rules'` to that directive to allow them. A policy in a `<meta>` tag always leaves them out, and one set in your web server’s configuration can’t be seen by Speedy: add the keyword there too.

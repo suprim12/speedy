@@ -23,6 +23,9 @@ class ClearJob extends BaseJob
     public bool $all = false;
     public string $reason = '';
 
+    /** Cleared by hand, such as a big section from the utility page, so its pages are rebuilt straight away. */
+    public bool $byHand = false;
+
     public function execute($queue): void
     {
         $clearer = Plugin::getInstance()->clearer;
@@ -30,7 +33,7 @@ class ClearJob extends BaseJob
             $clearer->clearAll($this->reason ?: Craft::t('speedy', 'All content changed'));
             return;
         }
-        $clearer->clearTags($this->tags, $this->reason);
+        $clearer->clearTags($this->tags, $this->reason, !$this->byHand);
     }
 
     protected function defaultDescription(): ?string

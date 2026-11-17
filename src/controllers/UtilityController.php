@@ -85,6 +85,10 @@ class UtilityController extends Controller
             return $this->asFailure(Craft::t('speedy', 'That section doesn’t exist.'));
         }
 
+        if ($count === \suprim\speedy\services\Clearer::QUEUED) {
+            return $this->asSuccess(Craft::t('speedy', 'Clearing the section’s pages in the background. See Recent clears for how many.'));
+        }
+
         return $count ? $this->asSuccess(Craft::t('speedy', '{count, plural, =1{# page} other{# pages}} cleared.', ['count' => $count])) : $this->asFailure(Craft::t('speedy', 'No cached pages show that section.'));
     }
 

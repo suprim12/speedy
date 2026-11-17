@@ -49,7 +49,7 @@ class ClearPages extends ElementAction
         $count = Plugin::getInstance()->clearer->clearTags(
             array_map(fn($id) => "element::$id", $ids),
             Craft::t('speedy', 'Cleared from the element index by {user}', ['user' => (string)Craft::$app->getUser()->getIdentity()]),
-        );
+         false);
         $this->setMessage(Craft::t('speedy', '{count, plural, =0{No cached pages show these.} =1{# page cleared.} other{# pages cleared.}}', ['count' => $count]));
 
         return true;

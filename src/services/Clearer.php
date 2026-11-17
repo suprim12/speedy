@@ -49,6 +49,12 @@ class Clearer extends Component
     /** Marks a page waiting to be rebuilt after a run of changes, until its rebuild starts. */
     public const REBUILD_LATER = 'speedy:rebuildLater:';
 
+    /** The most tags a section is cleared with while someone waits; a bigger one is cleared in the background. */
+    public int $sectionInRequest = 500;
+
+    /** Returned when pages are cleared in the background, so how many isn’t known yet. */
+    public const QUEUED = -1;
+
     /** How long past its time a waiting rebuild is still expected, such as on a busy queue, before another may be queued. */
     public const REBUILD_LATER_GRACE = 600;
 
@@ -257,7 +263,7 @@ class Clearer extends Component
     {
         $tags = array_values(array_filter(array_map(fn($name) => \suprim\speedy\services\Cacher::customTag((string)$name), $names)));
 
-        return $tags ? $this->clearTags($tags, $reason) : 0;
+        return $tags ? $this->clearTags($tags, $reason, false) : 0;
     }
 
     /**
@@ -345,13 +351,15 @@ class Clearer extends Component
      * Clears the pages that use any of the tags: deletes them or rebuilds them, and clears the CDN.
      *
      * @param string[] $tags
+     * @param bool $fromChange Whether content changing cleared them, so pages that clear on any change wait for a run
+     * of changes to end. False for clearing by hand or at a set time, which rebuilds them straight away.
      * @return int How many pages were cleared.
      */
-    public function clearTags(array $tags, string $reason): int
+    public function clearTags(array $tags, string $reason, bool $fromChange = true): int
     {
         $this->markCleared($tags);
         $keys = Plugin::getInstance()->storage->takePagesForTags($tags);
-        $this->_fromChange = true;
+        $this->_fromChange = $fromChange;
         try {
             return $this->clearKeys($keys, $reason);
         } finally {
@@ -485,7 +493,8 @@ class Clearer extends Component
      * Clears every page that shows a section: its listings, including those of one entry type, and the pages that
      * show its entries. Rebuilt straight away, as someone asked for it.
      *
-     * @return int|null How many pages were cleared, or null when there’s no such section.
+     * @return int|null How many pages were cleared, Clearer::QUEUED when a big section is cleared in the background,
+     * or null when there’s no such section.
      */
     public function clearSection(int $sectionId): ?int
     {
@@ -501,13 +510,19 @@ class Clearer extends Component
         foreach (\craft\elements\Entry::find()->sectionId($section->id)->status(null)->site('*')->unique()->ids() as $id) {
             $tags[] = "element::$id";
         }
-        $this->markCleared($tags);
         $user = Craft::$app->getUser()->getIdentity();
-
-        return $this->clearKeys(Plugin::getInstance()->storage->takePagesForTags($tags), Craft::t('speedy', 'Cleared the {section} section{by, select, none{} other{ by {by}}}', [
+        $reason = Craft::t('speedy', 'Cleared the {section} section{by, select, none{} other{ by {by}}}', [
             'section' => $section->name,
             'by' => $user ? (string)$user : 'none',
-        ]));
+        ]);
+        // Thousands of entries mean thousands of tags to look up: too many to wait for.
+        if (count($tags) > $this->sectionInRequest) {
+            Queue::push(new ClearJob(['tags' => $tags, 'reason' => $reason, 'byHand' => true]), 1024);
+            return self::QUEUED;
+        }
+        $this->markCleared($tags);
+
+        return $this->clearKeys(Plugin::getInstance()->storage->takePagesForTags($tags), $reason);
     }
 
     /**
@@ -630,10 +645,12 @@ class Clearer extends Component
                 foreach ($element->getCacheTags() as $tag) {
                     $tags[] = str_starts_with($tag, 'element::') ? $tag : "element::$class::$tag";
                 }
+                // Going live is a one-off at a set time, so its listings are rebuilt straight away.
+                // Going live is a one-off at a set time, so its listings are rebuilt straight away.
                 $count += $this->clearTags($tags, Craft::t('speedy', '{type} “{title}” went live', [
                     'type' => $element::displayName(),
                     'title' => (string)$element,
-                ]));
+                ]), false);
             }
         }
 

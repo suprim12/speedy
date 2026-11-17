@@ -28,12 +28,12 @@ A tip that mentions a tab, such as **Performance**, links straight to it.
 | **Clear all pages** | Removes every cached page, clears your CDN, then warms the pages you listed |
 | **Rebuild all pages** | Rebuilds every cached page in the background. Visitors keep getting the old copies until the new ones are ready, so a busy site never has a moment with nothing cached |
 | **Clear URL** | Clears one page, such as `https://example.com/news`, with its query string versions such as `?page=2` |
-| **Clear section** | Clears every page that shows a section: its listings, including those of one entry type, and the pages that show its entries, such as after changing its templates. They’re rebuilt straight away |
+| **Clear section** | Clears every page that shows a section: its listings, including those of one entry type, and the pages that show its entries, such as after changing its templates. They’re rebuilt straight away. A section of more than about 500 entries is cleared in the background, and **Recent clears** shows how many |
 | **Warm pages** | Builds the pages in your `warm` list now. Shown when `warm` is set |
 
 ### Why isn’t this page cached?
 
-Enter an address, such as `https://example.com/homes?view=map`, or a path, such as `/homes`, and click **Why isn’t this page cached?**. Speedy opens the page twice as a logged-out visitor would and says what happened, in words:
+Enter an address, such as `https://example.com/homes?view=map`, or a path, such as `/homes`, and click **Why isn’t this page cached?**. Speedy opens the page as a logged-out visitor would, a second time if the first visit built it, and says what happened, in words. Redirects aren’t followed, and the `warmUsername` and `warmPassword` login is used for a site behind one:
 
 - **Cached**, how long ago it was built, and whether the web server or PHP sends it.
 - **Not cached**, why, and what to change. A query string names the parameters to add under **Query strings**; a page that sets a cookie names the cookie; **Never cache** names the pattern it matched; a redirect says where it goes.

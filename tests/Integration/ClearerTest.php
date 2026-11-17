@@ -94,6 +94,17 @@ class ClearerTest extends TestCase
             $this->plugin()->clearer->clearUrl($all);
             $this->assertSame([[$all, 0]], $pushed, 'Clearing it by hand rebuilds it straight away.');
 
+            // Cleared by hand, such as from an element index, or at a set time: rebuilt straight away.
+            $cache->delete(\suprim\speedy\services\Clearer::REBUILD_LATER . md5($all));
+            $pushed = [];
+            $storage->write('example.com/speedy-test-all-lots', '<html>Old</html>', $all, ['element::craft\elements\Entry::*'], null);
+            $this->plugin()->clearer->clearTags(['element::craft\elements\Entry::*'], 'By hand', false);
+            $this->assertSame([[$all, 0]], $pushed, 'By hand, no wait.');
+            $pushed = [];
+            $storage->write('example.com/speedy-test-all-lots', '<html>Old</html>', $all, ['element::craft\elements\Entry::*'], null);
+            (new \suprim\speedy\jobs\ClearJob(['tags' => ['element::craft\elements\Entry::*'], 'reason' => 'Big section', 'byHand' => true]))->execute(null);
+            $this->assertSame([[$all, 0]], $pushed, 'Nor a big section cleared in the background.');
+
             $cache->delete(\suprim\speedy\services\Clearer::REBUILD_LATER . md5($all));
             $this->settings()->broadRebuildDelay = 0;
             $pushed = [];
@@ -135,6 +146,27 @@ class ClearerTest extends TestCase
             $this->assertTrue($storage->exists('example.com/speedy-test-other'), 'Other pages are left.');
             $this->assertStringStartsWith("Cleared the $section->name section", $this->plugin()->log->recent(1)[0]['reason']);
             $this->assertNull($this->plugin()->clearer->clearSection(987654321), 'No such section.');
+
+            // A big section is cleared in the background, so nobody waits for thousands of tags.
+            $clearer = $this->plugin()->clearer;
+            $was = $clearer->sectionInRequest;
+            $clearer->sectionInRequest = 1;
+            $jobs = [];
+            $listener = function(\yii\queue\PushEvent $e) use (&$jobs) {
+                $jobs[] = $e->job;
+                $e->handled = true;
+            };
+            \Craft::$app->getQueue()->on(\yii\queue\Queue::EVENT_BEFORE_PUSH, $listener);
+            try {
+                $storage->write('example.com/speedy-test-listing', '<html>Old</html>', 'https://example.com/speedy-test-listing', ["element::$class::section:$section->id"], null);
+                $this->assertSame(\suprim\speedy\services\Clearer::QUEUED, $clearer->clearSection($section->id));
+                $this->assertInstanceOf(\suprim\speedy\jobs\ClearJob::class, $jobs[0] ?? null);
+                $this->assertContains("element::$class::section:$section->id", $jobs[0]->tags);
+                $this->assertTrue($storage->exists('example.com/speedy-test-listing'), 'Cleared by the job, not now.');
+            } finally {
+                $clearer->sectionInRequest = $was;
+                \Craft::$app->getQueue()->off(\yii\queue\Queue::EVENT_BEFORE_PUSH, $listener);
+            }
         } finally {
             foreach (array_keys($pages) as $key) {
                 $storage->delete($key);
