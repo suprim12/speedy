@@ -47,6 +47,7 @@ class TemplatesTest extends TestCase
         $row = ['url' => 'https://example.com/news', 'time' => time(), 'queries' => 82, 'ms' => 316, 'repeated' => [['count' => 42, 'sql' => 'FROM `entries` WHERE `id` = ?', 'at' => 'news/_index, line 9', 'tip' => 'Entries are fetched one item at a time <b>inside</b> a loop.']]];
 
         return [
+            'sections' => $full ? [['value' => 1, 'label' => 'News <b>x</b>']] : [],
             'pageCheck' => $full ? ['url' => 'https://example.com/homes?view=map', 'cached' => false, 'answer' => 'Not cached: query string.', 'why' => 'The address has a query string with `view` <b>x</b>.', 'fix' => 'Add it to **Cached parameters**.', 'notes' => ['You’re logged in.'], 'visits' => ['First visit: X-Speedy: SKIP query string, status 200, 40 ms']] : null,
             'checks' => $full ? [['level' => 'error', 'message' => 'Problem **here**'], ['level' => 'hint', 'message' => 'See [Repeated queries](#queries).']] : [],
             'list' => $full ? ['total' => 120, 'pages' => [['url' => 'https://example.com/news', 'created' => time(), 'expires' => time() + 60, 'deps' => ['Entries: News']], ['url' => 'https://example.com/', 'created' => time(), 'expires' => null, 'deps' => []]]] : ['total' => 0, 'pages' => []],
@@ -76,6 +77,7 @@ class TemplatesTest extends TestCase
     {
         $html = $this->render('speedy/_utility', $this->utilityVars(false));
         $this->assertStringContainsString('No pages cached yet', $html);
+        $this->assertStringNotContainsString('Clear section', $html, 'Not without sections.');
         $this->assertStringContainsString('Nothing cleared yet', $html);
         $this->assertStringContainsString('No repeated queries found', $html);
         $this->assertStringContainsString('No page rebuilt so far took more than half a second', $html);
@@ -102,6 +104,7 @@ class TemplatesTest extends TestCase
         $this->assertStringContainsString('failed: denied', $html);
         $this->assertStringContainsString('Page 2 of 3', $html);
         $this->assertStringContainsString('Why isn’t this page cached?', $html);
+        $this->assertStringContainsString('<option value="1">News &lt;b&gt;x&lt;/b&gt;</option>', $html, 'Clear section, with the name escaped.');
         $this->assertStringContainsString('speedy-check--warning speedy-pagecheck__result', $html);
         $this->assertStringContainsString('<strong>Cached parameters</strong>', $html, 'The answer’s Markdown.');
         $this->assertStringContainsString('value="https://example.com/homes?view=map"', $html, 'The address stays in the field.');

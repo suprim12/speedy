@@ -107,4 +107,38 @@ class ClearerTest extends TestCase
             $storage->delete('example.com/speedy-test-lot');
         }
     }
+
+    public function testClearingASectionClearsItsListingsAndEntries(): void
+    {
+        $entry = \craft\elements\Entry::find()->status(null)->site('*')->one();
+        if (!$entry) {
+            $this->markTestSkipped('Needs an entry.');
+        }
+        $section = $entry->getSection();
+        $type = $section->getEntryTypes()[0];
+        $class = \craft\elements\Entry::class;
+        $storage = $this->plugin()->storage;
+        $pages = [
+            'example.com/speedy-test-listing' => ["element::$class::section:$section->id"],
+            'example.com/speedy-test-type-listing' => ["element::$class::entryType:$type->id"],
+            'example.com/speedy-test-entry' => ["element::$entry->id"],
+            'example.com/speedy-test-other' => ['element::987654321'],
+        ];
+        try {
+            foreach ($pages as $key => $tags) {
+                $storage->write($key, '<html>Old</html>', 'https://' . $key, $tags, null);
+            }
+            $this->assertSame(3, $this->plugin()->clearer->clearSection($section->id));
+            $this->assertFalse($storage->exists('example.com/speedy-test-listing'));
+            $this->assertFalse($storage->exists('example.com/speedy-test-type-listing'), 'A listing of one of its entry types.');
+            $this->assertFalse($storage->exists('example.com/speedy-test-entry'));
+            $this->assertTrue($storage->exists('example.com/speedy-test-other'), 'Other pages are left.');
+            $this->assertStringStartsWith("Cleared the $section->name section", $this->plugin()->log->recent(1)[0]['reason']);
+            $this->assertNull($this->plugin()->clearer->clearSection(987654321), 'No such section.');
+        } finally {
+            foreach (array_keys($pages) as $key) {
+                $storage->delete($key);
+            }
+        }
+    }
 }

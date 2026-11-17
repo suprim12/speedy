@@ -28,6 +28,7 @@ A tip that mentions a tab, such as **Performance**, links straight to it.
 | **Clear all pages** | Removes every cached page, clears your CDN, then warms the pages you listed |
 | **Rebuild all pages** | Rebuilds every cached page in the background. Visitors keep getting the old copies until the new ones are ready, so a busy site never has a moment with nothing cached |
 | **Clear URL** | Clears one page, such as `https://example.com/news`, with its query string versions such as `?page=2` |
+| **Clear section** | Clears every page that shows a section: its listings, including those of one entry type, and the pages that show its entries, such as after changing its templates. They’re rebuilt straight away |
 | **Warm pages** | Builds the pages in your `warm` list now. Shown when `warm` is set |
 
 ### Why isn’t this page cached?

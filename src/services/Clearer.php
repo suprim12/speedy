@@ -473,6 +473,35 @@ class Clearer extends Component
     }
 
     /**
+     * Clears every page that shows a section: its listings, including those of one entry type, and the pages that
+     * show its entries. Rebuilt straight away, as someone asked for it.
+     *
+     * @return int|null How many pages were cleared, or null when there’s no such section.
+     */
+    public function clearSection(int $sectionId): ?int
+    {
+        $section = Craft::$app->getEntries()->getSectionById($sectionId);
+        if ($section === null) {
+            return null;
+        }
+        $class = \craft\elements\Entry::class;
+        $tags = ["element::$class::section:$section->id"];
+        foreach ($section->getEntryTypes() as $type) {
+            $tags[] = "element::$class::entryType:$type->id";
+        }
+        foreach (\craft\elements\Entry::find()->sectionId($section->id)->status(null)->site('*')->unique()->ids() as $id) {
+            $tags[] = "element::$id";
+        }
+        $this->markCleared($tags);
+        $user = Craft::$app->getUser()->getIdentity();
+
+        return $this->clearKeys(Plugin::getInstance()->storage->takePagesForTags($tags), Craft::t('speedy', 'Cleared the {section} section{by, select, none{} other{ by {by}}}', [
+            'section' => $section->name,
+            'by' => $user ? (string)$user : 'none',
+        ]));
+    }
+
+    /**
      * Clears one URL, such as from the control panel.
      */
     public function clearUrl(string $url): int

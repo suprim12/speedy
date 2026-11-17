@@ -63,6 +63,7 @@ class SpeedyUtility extends Utility
             'cdnNames' => $plugin->cdn->names(),
             'report' => $plugin->insights->report(),
             'cloudfront' => $plugin->cdn->cloudfrontUsage(),
+            'sections' => array_map(fn($s) => ['value' => $s->id, 'label' => $s->name], Craft::$app->getEntries()->getAllSections()),
             'log' => $plugin->log->recent(30),
             'queries' => $plugin->queries->report(),
             'slowest' => $plugin->queries->slowest(),

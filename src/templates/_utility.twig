@@ -52,6 +52,15 @@
 			<input type="url" name="url" class="text" placeholder="https://…" aria-label="{{ 'URL to clear'|t('speedy') }}" required style="width: 320px;">
 			<button type="submit" class="btn">{{ 'Clear URL'|t('speedy') }}</button>
 		</form>
+		{% if sections ?? false %}
+			<form method="post" class="flex">
+				{{ csrfInput() }}{{ actionInput('speedy/utility/clear-section') }}
+				<div class="select"><select name="sectionId" aria-label="{{ 'Section to clear'|t('speedy') }}">
+					{% for section in sections %}<option value="{{ section.value }}">{{ section.label }}</option>{% endfor %}
+				</select></div>
+				<button type="submit" class="btn" title="{{ 'Its listings and the pages that show its entries.'|t('speedy') }}">{{ 'Clear section'|t('speedy') }}</button>
+			</form>
+		{% endif %}
 		{% if settings.warm %}
 			<form method="post">
 				{{ csrfInput() }}{{ actionInput('speedy/utility/warm') }}

@@ -76,6 +76,16 @@ class UtilityController extends Controller
         return $this->redirectToPostedUrl();
     }
 
+    public function actionClearSection(): ?Response
+    {
+        $count = Plugin::getInstance()->clearer->clearSection((int)$this->request->getRequiredBodyParam('sectionId'));
+        if ($count === null) {
+            return $this->asFailure(Craft::t('speedy', 'That section doesn’t exist.'));
+        }
+
+        return $count ? $this->asSuccess(Craft::t('speedy', '{count, plural, =1{# page} other{# pages}} cleared.', ['count' => $count])) : $this->asFailure(Craft::t('speedy', 'No cached pages show that section.'));
+    }
+
     public function actionWarm(): ?Response
     {
         $warmer = Plugin::getInstance()->warmer;
