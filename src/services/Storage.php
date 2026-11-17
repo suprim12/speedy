@@ -711,6 +711,11 @@ class Storage extends Component
      */
     private function protectCacheFolder(): void
     {
+        // Cached pages are built on each server, so they're kept out of git: `git add .` mustn't commit them.
+        $ignore = $this->cacheRoot() . '/.gitignore';
+        if (!is_file($ignore)) {
+            $this->atomicWrite($ignore, "# Speedy Cache: pages here are built on each server. Don’t commit or deploy them.\n*\n");
+        }
         $file = $this->cacheRoot() . '/.htaccess';
         if (is_file($file)) {
             return;

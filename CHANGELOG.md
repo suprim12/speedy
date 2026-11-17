@@ -1,5 +1,10 @@
 # Release Notes for Speedy Cache
 
+## Unreleased
+
+### Fixed
+- Cached pages are kept out of git, so `git add` no longer picks them up.
+
 ## 1.2.0 - 2026-11-17
 
 ### Added

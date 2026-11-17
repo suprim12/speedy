@@ -111,4 +111,18 @@ class FileStorageTest extends TestCase
         $storage->clearAll();
         $this->assertSame(0, $storage->cachedStats()['pages'], 'Counted again after clearing everything.');
     }
+
+    public function testCachedPagesAreKeptOutOfGit(): void
+    {
+        $storage = $this->plugin()->storage;
+        $storage->write('example.com/news', '<html>News</html>', 'https://example.com/news', [], null);
+        $ignore = $storage->cacheRoot() . '/.gitignore';
+        $this->assertFileExists($ignore);
+        $this->assertContains('*', array_map('trim', file($ignore)), 'Everything in the folder, itself included.');
+
+        // Back after clearing everything, with the next page.
+        $storage->clearAll();
+        $storage->write('example.com/news', '<html>News</html>', 'https://example.com/news', [], null);
+        $this->assertFileExists($ignore);
+    }
 }

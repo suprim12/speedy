@@ -91,6 +91,16 @@ Header set Content-Encoding "gzip" env=SPEEDY_GZ
 
 Speedy also keeps a small `.htaccess` in `web/speedy/` that refuses direct requests, so the folder is closed on Apache even before you add the rules. Leave it in place.
 
+## Git and deploys
+
+Cached pages are built on each server, so they don’t belong in git or a deploy. Speedy keeps a `.gitignore` in `web/speedy/` so git leaves the folder alone. If pages were committed before, remove them from git once, keeping the files:
+
+```bash
+git rm -r --cached web/speedy
+```
+
+If you deploy by copying files, such as with rsync, leave `web/speedy/` out, so one server’s pages aren’t copied over another’s.
+
 ## Check it
 
 In **Utilities → Speedy Cache**, click **Check server serving**. Speedy loads your homepage twice and tells you who sent the second copy:
