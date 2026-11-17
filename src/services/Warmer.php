@@ -62,6 +62,9 @@ class Warmer extends Component
     /** Seconds before a page that changed while it was being rebuilt is rebuilt again. */
     public const REBUILD_AGAIN = 10;
 
+    /** Times in an hour a page is rebuilt again before it’s removed instead, for the next visitor to build. */
+    public const REBUILD_AGAIN_MOST = 5;
+
     /**
      * @param string[] $urls
      * @param bool $rebuild Whether these pages are being replaced: they’re removed if they can’t be rebuilt, and cleared from the CDN once rebuilt.
@@ -189,7 +192,24 @@ class Warmer extends Component
             // The change made while it was being built couldn’t find it: its tags were let go when it was cleared.
             // Rebuild it again shortly, once, however many changes come meanwhile.
             $cache = Craft::$app->getCache();
-            $again = array_values(array_filter($changed, fn($url) => $cache->add(Clearer::REBUILD_LATER . md5($url), true, self::REBUILD_AGAIN + Clearer::REBUILD_LATER_GRACE)));
+            $again = [];
+            foreach ($changed as $url) {
+                $tries = 'speedy:rebuildAgain:' . md5($url);
+                $count = (int)$cache->get($tries);
+                if ($count >= self::REBUILD_AGAIN_MOST) {
+                    // Something changes on every rebuild, such as on a busy shop: remove it, so the next visitor builds it.
+                    $cache->delete($tries);
+                    $key = $keys[$url] ?? $plugin->storage->keyForUrl($url);
+                    if ($key) {
+                        $plugin->storage->delete($key);
+                    }
+                    continue;
+                }
+                if ($cache->add(Clearer::REBUILD_LATER . md5($url), true, self::REBUILD_AGAIN + Clearer::REBUILD_LATER_GRACE)) {
+                    $cache->set($tries, $count + 1, 3600);
+                    $again[] = $url;
+                }
+            }
             if ($again) {
                 $this->queue($again, true, array_intersect_key($keys, array_flip($again)), self::REBUILD_AGAIN);
             }

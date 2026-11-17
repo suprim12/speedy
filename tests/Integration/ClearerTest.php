@@ -81,6 +81,14 @@ class ClearerTest extends TestCase
                 $this->plugin()->clearer->clearTags(['element::42', 'element::craft\elements\Entry::*'], "Import $import");
             }
             $this->assertSame([[$lot, 0], [$all, 60], [$lot, 0], [$lot, 0]], $pushed, 'The listing waits a minute, once; the entry’s own page doesn’t wait.');
+
+            // An entry’s own page that also queries any asset, as every image field does, isn’t a listing.
+            $pushed = [];
+            $page = 'https://example.com/speedy-test-lot-with-photo';
+            $storage->write('example.com/speedy-test-lot-with-photo', '<html>Old</html>', $page, ['element::42', 'element::craft\elements\Asset::*'], null);
+            $this->plugin()->clearer->clearTags(['element::42', 'element::craft\elements\Entry::*'], 'Saved entry 42');
+            $this->assertSame([[$page, 0]], $pushed, 'Cleared through its own entry: rebuilt straight away.');
+            $storage->delete('example.com/speedy-test-lot-with-photo');
             $this->assertTrue($storage->exists('example.com/speedy-test-all-lots'), 'Visitors get the old copy meanwhile.');
 
             // Once its rebuild starts, the next change needs another.

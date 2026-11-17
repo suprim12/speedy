@@ -260,7 +260,12 @@ class Plugin extends BasePlugin
     public function checkInstantLinks(): void
     {
         $file = Craft::$app->getConfig()->getConfigFromFile('speedy');
-        $value = array_key_exists('instantLinks', $file) ? $file['instantLinks'] : Craft::$app->getProjectConfig()->get('plugins.speedy.settings.instantLinks');
+        $value = match (true) {
+            is_array($file) && array_key_exists('instantLinks', $file) => $file['instantLinks'],
+            // A config file that returns a closure or config object: read through the settings.
+            !is_array($file) => $this->getSettings()->instantLinks,
+            default => Craft::$app->getProjectConfig()->get('plugins.speedy.settings.instantLinks'),
+        };
         if ($this->instantLinksChanged(filter_var($value, FILTER_VALIDATE_BOOLEAN))) {
             $on = filter_var($value, FILTER_VALIDATE_BOOLEAN);
             $this->clearer->rebuildAllLater($on ? Craft::t('speedy', 'Instant links turned on') : Craft::t('speedy', 'Instant links turned off'));
@@ -288,7 +293,7 @@ class Plugin extends BasePlugin
     {
         return Craft::$app->getView()->renderTemplate('speedy/_settings', [
             'settings' => $this->getSettings(),
-            'overrides' => array_keys(Craft::$app->getConfig()->getConfigFromFile('speedy')),
+            'overrides' => is_array($overrides = Craft::$app->getConfig()->getConfigFromFile('speedy')) ? array_keys($overrides) : [],
             'detected' => $this->cdn->detected(),
             'configured' => $this->cdn->configured(),
             'cdnLast' => $this->cdn->lastResults(),

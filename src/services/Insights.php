@@ -274,7 +274,7 @@ class Insights extends Component
             'Query strings: ' . $settings->queryStrings . '; skip with cart: ' . ($settings->skipWhenCart ? 'yes' : 'no') . '; skip cookies: ' . (implode(', ', $settings->skipCookies) ?: 'none'),
             'Rebuild changed pages: ' . ($settings->rebuildCleared ? 'yes' : 'no') . '; after clearing everything: ' . (is_array($settings->warm) ? count($settings->warm) . ' listed pages' : ($settings->warm ?: 'wait for visitors')),
             'Default TTL: ' . ($settings->defaultTtl ?? 'none') . '; rebuild auth: ' . ($settings->getWarmAuth() ? 'set' : 'not set') . '; API key: ' . $set($settings->getApiKey()),
-            'Set in config/speedy.php: ' . (implode(', ', array_keys($craft->getConfig()->getConfigFromFile('speedy'))) ?: 'nothing'),
+            'Set in config/speedy.php: ' . (is_array($file = $craft->getConfig()->getConfigFromFile('speedy')) ? (implode(', ', array_keys($file)) ?: 'nothing') : 'a closure or config object'),
             'Server serving checked: ' . (($plugin->storage->readData('state')['serverChecked'] ?? false) ? 'yes' : 'no'),
             '',
             '## CDN',

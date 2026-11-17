@@ -146,6 +146,14 @@ class CommercePricesTest extends TestCase
             $clearer->afterPriceJob(null, null);
             $this->assertSame([], $this->pending(), 'A job that found nothing to do clears nothing.');
 
+            // IDs merged into the row after it was noted: the prices the job wrote say.
+            $this->reset();
+            $clearer->beforePriceJob();
+            $this->price(null, null);
+            $clearer->afterPriceJob(null, null);
+            $this->assertContains("element::$this->variantId", $this->pending(), 'A price written during the job.');
+
+            $this->reset();
             $all = $row(null);
             $clearer->beforePriceJob();
             Db::delete($queue, ['id' => $all]);

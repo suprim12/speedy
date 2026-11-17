@@ -247,4 +247,27 @@ class FileStorageTest extends TestCase
         $this->assertFalse($storage->hasOldTrash(), 'Recent: the queue job takes it.');
         $this->assertTrue($storage->hasOldTrash(-60), 'Older than the age given.');
     }
+
+    public function testAFilesystemAtTheWebRootLeavesTheUsualFolderAlone(): void
+    {
+        $fs = \Craft::$app->getFs();
+        $volumes = \Craft::$app->getVolumes();
+        $fsCache = new \ReflectionProperty($fs, '_filesystems');
+        $volumeCache = new \ReflectionProperty($volumes, '_volumes');
+        $wasFs = $fsCache->getValue($fs);
+        $wasVolumes = $volumeCache->getValue($volumes);
+        $root = new \craft\fs\Local(['name' => 'Web root', 'handle' => 'speedyTestWebroot', 'path' => '@webroot']);
+        $volume = new \craft\models\Volume(['name' => 'Uploads', 'handle' => 'speedyTestUploads', 'fsHandle' => 'speedyTestWebroot', 'subpath' => 'uploads']);
+        $fsCache->setValue($fs, new \craft\base\MemoizableArray([$root]));
+        $volumeCache->setValue($volumes, new \craft\base\MemoizableArray([$volume]));
+        try {
+            $webroot = (string)\Craft::getAlias('@webroot');
+            $this->assertTrue(\suprim\speedy\services\Storage::isOwnFolder("$webroot/speedy"), 'Beside the uploads, as on many sites.');
+            $this->assertFalse(\suprim\speedy\services\Storage::isOwnFolder("$webroot/uploads"), 'The uploads themselves.');
+            $this->assertFalse(\suprim\speedy\services\Storage::isOwnFolder("$webroot/uploads/speedy"), 'Or a folder inside them.');
+        } finally {
+            $fsCache->setValue($fs, $wasFs);
+            $volumeCache->setValue($volumes, $wasVolumes);
+        }
+    }
 }

@@ -144,6 +144,7 @@ class PagesTest extends TestCase
         $url = self::$base . '/' . self::$prefix . '/churn';
         $cache = Craft::$app->getCache();
         $cache->delete(\suprim\speedy\services\Clearer::REBUILD_LATER . md5($url));
+        $cache->delete('speedy:rebuildAgain:' . md5($url));
         $pushed = [];
         $listener = function(\yii\queue\PushEvent $e) use (&$pushed) {
             foreach ($e->job->urls ?? [] as $u) {
@@ -159,9 +160,17 @@ class PagesTest extends TestCase
             Plugin::getInstance()->warmer->warm([$url], true);
             $this->assertCount(2, $pushed);
             $this->assertNotFalse(Craft::$app->getCache()->get(\suprim\speedy\services\Clearer::REBUILD_LATER . md5($url)), 'Marked as waiting, so other changes don’t queue it again meanwhile.');
+
+            // A page that changes on every rebuild isn't rebuilt forever: after a few, it's left for the next visitor.
+            for ($i = 0; $i < 4; $i++) {
+                Plugin::getInstance()->warmer->warm([$url], true);
+            }
+            $this->assertCount(\suprim\speedy\services\Warmer::REBUILD_AGAIN_MOST, $pushed, 'Queued five times, then not again.');
+            $this->assertFalse(Craft::$app->getCache()->get('speedy:rebuildAgain:' . md5($url)), 'Its count starts over.');
         } finally {
             Craft::$app->getQueue()->off(\yii\queue\Queue::EVENT_BEFORE_PUSH, $listener);
             $cache->delete(\suprim\speedy\services\Clearer::REBUILD_LATER . md5($url));
+            $cache->delete('speedy:rebuildAgain:' . md5($url));
         }
     }
 

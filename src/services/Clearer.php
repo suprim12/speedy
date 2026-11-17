@@ -46,6 +46,9 @@ class Clearer extends Component
     /** @var array<int, array{type: string, ids: int[]|null, before: int[]}>|null Commerce’s rows waiting to be priced, before a price job. */
     private ?array $_priceRows = null;
 
+    /** When the price job started, to find the prices it wrote. */
+    private ?string $_priceJobStart = null;
+
     /** Marks a page waiting to be rebuilt after a run of changes, until its rebuild starts. */
     public const REBUILD_LATER = 'speedy:rebuildLater:';
 
@@ -84,6 +87,9 @@ class Clearer extends Component
 
     /** Whether the pages being cleared are cleared by content changing, so pages that clear on any change wait to be rebuilt. */
     private bool $_fromChange = false;
+
+    /** @var array<string, true> The tags being cleared now, to tell how each page was reached. */
+    private array $_clearing = [];
 
     /**
      * Collects the tags from Craft’s invalidation event, without clearing yet.
@@ -360,10 +366,12 @@ class Clearer extends Component
         $this->markCleared($tags);
         $keys = Plugin::getInstance()->storage->takePagesForTags($tags);
         $this->_fromChange = $fromChange;
+        $this->_clearing = array_fill_keys($tags, true);
         try {
             return $this->clearKeys($keys, $reason);
         } finally {
             $this->_fromChange = false;
+            $this->_clearing = [];
         }
     }
 
@@ -438,7 +446,7 @@ class Clearer extends Component
             if ($url && ($this->_rebuild ?? $plugin->getSettings()->rebuildCleared)) {
                 // Keep the old copy until the new one is ready, so nobody waits for it.
                 $rebuildKeys[$url] = $key;
-                if ($delay > 0 && self::clearsOnAnyChange($meta['tags'] ?? [])) {
+                if ($delay > 0 && $this->onlyThroughAnyChange($meta['tags'] ?? [])) {
                     $later[] = $url;
                 } else {
                     $rebuild[] = $url;
@@ -471,6 +479,20 @@ class Clearer extends Component
         }
 
         return $count;
+    }
+
+    /**
+     * Whether the change reached this page only through a query of any element of a type, such as a listing of every
+     * entry. A page showing the changed element itself, or its section, is rebuilt straight away. (Image and entry
+     * fields query any element of their type, so most pages have such a tag as well.)
+     *
+     * @param array<mixed> $pageTags
+     */
+    private function onlyThroughAnyChange(array $pageTags): bool
+    {
+        $through = array_filter($pageTags, fn($tag) => is_string($tag) && isset($this->_clearing[$tag]));
+
+        return $through !== [] && self::clearsOnAnyChange($through) && !array_filter($through, fn($tag) => !str_ends_with($tag, '::*'));
     }
 
     /**
@@ -707,6 +729,7 @@ class Clearer extends Component
     public function beforePriceJob(): void
     {
         $this->_priceRows = null;
+        $this->_priceJobStart = \craft\helpers\Db::prepareDateForDb(new \DateTime('-1 second'));
         if (!$this->hasCatalogPricing() || !Craft::$app->getDb()->tableExists(self::COMMERCE_PRICE_QUEUE)) {
             return;
         }
@@ -733,6 +756,13 @@ class Clearer extends Component
     {
         $rows = $this->_priceRows ?? [];
         $this->_priceRows = null;
+        $start = $this->_priceJobStart;
+        $this->_priceJobStart = null;
+        if ($purchasableIds === null && $ruleIds === null && !Craft::$app->getDb()->tableExists(self::COMMERCE_PRICE_QUEUE)) {
+            // Before Commerce 5.7, a job without IDs priced everything.
+            $this->pricesRecalculated(null);
+            return;
+        }
         if ($purchasableIds !== null || $ruleIds !== null) {
             $this->pricesRecalculated(array_values(array_unique(array_merge($purchasableIds ?? [], $this->purchasablesPricedBy($ruleIds ?? [])))));
             return;
@@ -747,6 +777,10 @@ class Clearer extends Component
                 return;
             }
             $ids = array_merge($ids, $row['type'] === 'rule' ? array_merge($row['before'], $this->purchasablesPricedBy($row['ids'])) : $row['ids']);
+        }
+        // IDs added to the job’s row after it was noted, such as by a save at that moment: the prices it wrote say.
+        if ($start !== null && $this->hasCatalogPricing()) {
+            $ids = array_merge($ids, array_map('intval', (new \craft\db\Query())->select(['purchasableId'])->distinct()->from(self::COMMERCE_PRICES)->where(['>=', 'dateCreated', $start])->column()));
         }
         if ($ids) {
             $this->pricesRecalculated(array_values(array_unique($ids)));

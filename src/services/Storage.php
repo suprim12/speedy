@@ -662,9 +662,10 @@ class Storage extends Component
                 return false;
             }
         }
-        // Nor uploads or Craft’s published resources, nor a folder inside them: emptying it would delete files.
-        foreach (self::filesFolders() as $path) {
-            if ($folder === $path || str_starts_with($path . '/', $folder . '/') || str_starts_with($folder . '/', $path . '/')) {
+        // Nor a folder holding uploads or Craft’s published resources, or inside them: emptying it would delete files.
+        // A folder beside them is fine, such as @webroot/speedy when a filesystem is the web root itself.
+        foreach (self::filesFolders() as $path => $inside) {
+            if ($folder === $path || str_starts_with($path . '/', $folder . '/') || ($inside && str_starts_with($folder . '/', $path . '/'))) {
                 return false;
             }
         }
@@ -673,31 +674,43 @@ class Storage extends Component
     }
 
     /**
-     * Folders that hold files someone else put there: local asset filesystems and Craft’s published resources.
+     * Folders that hold files someone else put there, each with whether a folder inside it is theirs too: Craft’s
+     * published resources and each volume’s uploads (yes), and local filesystems’ roots (no: a volume may use only a
+     * subfolder, such as a filesystem at the web root with uploads in /uploads).
      *
-     * @return string[]
+     * @return array<string, bool>
      */
     private static function filesFolders(): array
     {
-        $folders = [Craft::$app->getConfig()->getGeneral()->resourceBasePath];
+        $folders = [[Craft::$app->getConfig()->getGeneral()->resourceBasePath, true]];
         try {
             foreach (Craft::$app->getFs()->getAllFilesystems() as $fs) {
                 if ($fs instanceof \craft\fs\Local) {
-                    $folders[] = $fs->getRootPath();
+                    $folders[] = [$fs->getRootPath(), false];
+                }
+            }
+            foreach (Craft::$app->getVolumes()->getAllVolumes() as $volume) {
+                $fs = $volume->getFs();
+                if ($fs instanceof \craft\fs\Local) {
+                    $subpath = trim($volume->getSubpath(), '/');
+                    $folders[] = [$fs->getRootPath() . ($subpath !== '' ? "/$subpath" : ''), true];
                 }
             }
         } catch (\Throwable) {
             // Filesystems can’t be read, such as before Craft is installed.
         }
         $paths = [];
-        foreach ($folders as $folder) {
+        foreach ($folders as [$folder, $inside]) {
             $path = Craft::getAlias((string)$folder, false);
             if (is_string($path) && $path !== '') {
-                $paths[] = rtrim(FileHelper::normalizePath($path), '/');
+                $path = rtrim(FileHelper::normalizePath($path), '/');
+                if (substr_count($path, '/') >= 1) {
+                    $paths[$path] = ($paths[$path] ?? false) || $inside;
+                }
             }
         }
 
-        return array_filter($paths, fn($p) => substr_count($p, '/') >= 1);
+        return $paths;
     }
 
     public function cacheRoot(): string
