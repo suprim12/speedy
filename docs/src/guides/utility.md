@@ -28,8 +28,9 @@ A tip that mentions a tab, such as **Performance**, links straight to it.
 |---|---|
 | **Clear all pages** | Removes every cached page, clears your CDN, then warms the pages you listed |
 | **Rebuild all pages** | Rebuilds every cached page in the background. Visitors keep getting the old copies until the new ones are ready, so a busy site never has a moment with nothing cached |
-| **Clear URL** | Clears one page, such as `https://example.com/news`, with its query string versions such as `?page=2` |
+| **Clear URL** | Clears one page, such as `https://example.com/news`, with its query string versions such as `?page=2`. With `*`, it clears every page matching the pattern: `https://example.com/news/*` clears everything under `/news/`, and a path, such as `/news/*`, matches every domain. Up to 10 `*` |
 | **Clear section** | Clears every page that shows a section: its listings, including those of one entry type, and the pages that show its entries, such as after changing its templates. They’re rebuilt straight away. A section of more than about 500 entries is cleared in the background, and **Recent clears** shows how many |
+| **Clear site** | Clears every page of one site. Shown when there are several sites. A site at `/de/` on the same domain as another owns the pages under `/de/` |
 | **Warm pages** | Builds the pages in your `warm` list now. Shown when `warm` is set |
 
 ### Why isn’t this page cached?
@@ -126,6 +127,8 @@ Things you need once, or when something is wrong:
 ![The details panel of an entry: Page cache, Cached, 26 seconds ago, shown on 3 cached pages](/images/entry-status.jpg)
 
 The details panel of entries, categories, products and other elements with pages shows a **Page cache** line: whether its page is cached and when, or why it isn’t (caching off, or a **Never cache** pattern), and how many cached pages show it.
+
+When its page is cached, or other cached pages show it, **Clear its cached pages** clears them all, such as after fixing a typo in a template. It needs the same permissions as clearing from an element index, below, and works in slideouts too.
 
 ## Clear from an element index
 

@@ -48,6 +48,7 @@ class TemplatesTest extends TestCase
 
         return [
             'sections' => $full ? [['value' => 1, 'label' => 'News <b>x</b>']] : [],
+            'sites' => $full ? [['value' => 1, 'label' => 'English'], ['value' => 2, 'label' => 'Deutsch <b>z</b>']] : [],
             'pageCheck' => $full ? ['url' => 'https://example.com/homes?view=map', 'cached' => false, 'answer' => 'Not cached: query string.', 'why' => 'The address has a query string with `view` <b>x</b>.', 'fix' => 'Add it to **Cached parameters**.', 'notes' => ['You’re logged in.'], 'visits' => ['First visit: X-Speedy: SKIP query string, status 200, 40 ms']] : null,
             'checks' => $full ? [['level' => 'error', 'message' => 'Problem **here**'], ['level' => 'hint', 'message' => 'See [Repeated queries](#queries).']] : [],
             'list' => $full ? ['total' => 120, 'pages' => [['url' => 'https://example.com/news', 'created' => time(), 'expires' => time() + 60, 'deps' => ['Entries: News']], ['url' => 'https://example.com/', 'created' => time(), 'expires' => null, 'deps' => []]]] : ['total' => 0, 'pages' => []],
@@ -85,6 +86,7 @@ class TemplatesTest extends TestCase
         $html = $this->render('speedy/_utility', $this->utilityVars(false));
         $this->assertStringContainsString('No pages cached yet', $html);
         $this->assertStringNotContainsString('Clear section', $html, 'Not without sections.');
+        $this->assertStringNotContainsString('Clear site', $html, 'Not on a single site.');
         $this->assertStringContainsString('Nothing cleared yet', $html);
         $this->assertStringContainsString('No repeated queries found', $html);
         $this->assertStringContainsString('No page rebuilt so far took more than half a second', $html);
@@ -111,6 +113,8 @@ class TemplatesTest extends TestCase
         $this->assertStringNotContainsString('<b>about</b>', $html);
         $this->assertStringContainsString('Test Cloudflare', $html);
         $this->assertStringContainsString('Update Cloudflare’s cache rules', $html, 'Set up already.');
+        $this->assertStringContainsString('<option value="2">Deutsch &lt;b&gt;z&lt;/b&gt;</option>', $html, 'Clear site, with the name escaped.');
+        $this->assertStringContainsString('/news/*', $html, 'Clear URL takes a pattern.');
         $this->assertStringContainsString('Set up for example.com, www.example.com', $html);
         $this->assertStringContainsString('77%', $html, 'Coverage, rounded down.');
         $this->assertStringContainsString('412 of 530 content pages', $html);

@@ -56,6 +56,9 @@ class ApiController extends Controller
         return true;
     }
 
+    /** The most URLs with `*` in one call. */
+    private const MOST_PATTERNS = 10;
+
     public function actionClear(): Response
     {
         $clearer = Plugin::getInstance()->clearer;
@@ -68,6 +71,13 @@ class ApiController extends Controller
         $urls = $this->request->getBodyParam('urls');
         if (is_array($urls) && $urls) {
             $count = 0;
+            $patterns = 0;
+            foreach (array_slice(array_filter($urls, 'is_string'), 0, 1000) as $url) {
+                // Each pattern looks through every cached page, so a call takes a few.
+                if (str_contains($url, '*') && ++$patterns > self::MOST_PATTERNS) {
+                    return $this->asJson(['success' => false, 'error' => 'At most ' . self::MOST_PATTERNS . ' URLs with * at a time.'])->setStatusCode(400);
+                }
+            }
             foreach (array_slice(array_filter($urls, 'is_string'), 0, 1000) as $url) {
                 $count += $clearer->clearUrl($url);
             }

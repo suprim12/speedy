@@ -62,9 +62,29 @@ class UtilityController extends Controller
     public function actionClearUrl(): ?Response
     {
         $url = trim((string)$this->request->getRequiredBodyParam('url'));
+        if (str_contains($url, '*')) {
+            if (\suprim\speedy\services\Clearer::patternRegex($url) === null) {
+                return $this->asFailure(Craft::t('speedy', 'Use an address such as {example}, or a path such as {path}.', ['example' => 'https://example.com/news/*', 'path' => '/news/*']));
+            }
+            $count = Plugin::getInstance()->clearer->clearMatching($url);
+
+            return $count
+                ? $this->asSuccess(Craft::t('speedy', '{count, plural, =1{# page} other{# pages}} cleared.', ['count' => $count]))
+                : $this->asFailure(Craft::t('speedy', 'No cached pages match {url}.', ['url' => $url]));
+        }
         $count = Plugin::getInstance()->clearer->clearUrl($url);
 
         return $count ? $this->asSuccess(Craft::t('speedy', 'Cleared {url}.', ['url' => $url])) : $this->asFailure(Craft::t('speedy', '{url} isn’t cached.', ['url' => $url]));
+    }
+
+    public function actionClearSite(): ?Response
+    {
+        $count = Plugin::getInstance()->clearer->clearSite((int)$this->request->getRequiredBodyParam('siteId'));
+        if ($count === null) {
+            return $this->asFailure(Craft::t('speedy', 'That site doesn’t exist.'));
+        }
+
+        return $count ? $this->asSuccess(Craft::t('speedy', '{count, plural, =1{# page} other{# pages}} cleared.', ['count' => $count])) : $this->asFailure(Craft::t('speedy', 'No pages of that site are cached.'));
     }
 
     /**

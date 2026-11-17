@@ -4,7 +4,9 @@
 |---|---|
 | `php craft speedy/clear` | Clears every page and your CDN, then warms your `warm` list |
 | `php craft speedy/clear --rebuild` | Rebuilds every page in the background, keeping the old copies until the new ones are ready |
-| `php craft speedy/clear --url=https://example.com/news` | Clears one page |
+| `php craft speedy/clear --url=https://example.com/news` | Clears one page, with its query string versions |
+| `php craft speedy/clear --url="https://example.com/news/*"` | Clears every page matching the pattern. A path, such as `"/news/*"`, matches every domain. Put it in quotes, so the shell doesn’t expand `*` |
+| `php craft speedy/clear --site=german` | Clears every page of one site, by its handle |
 | `php craft speedy/clear --tag=weather` | Clears the pages tagged with `craft.speedy.tag('weather')`. Several, separated by commas |
 | `php craft speedy/migrate` | Shows what another page cache plugin’s settings and template calls become in Speedy. Add `--apply` to save the settings ([Switching from another page cache](/guides/switching)) |
 | `php craft speedy/warm` | Builds the pages in your `warm` list, with progress |

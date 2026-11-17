@@ -41,7 +41,7 @@ curl -X POST https://example.com/actions/speedy/api/rebuild \
 | Request | Answer |
 |---|---|
 | `api/clear` | `{"success":true,"cleared":120}` |
-| `api/clear` with `urls[]` | `{"success":true,"cleared":2}`, up to 1,000 URLs |
+| `api/clear` with `urls[]` | `{"success":true,"cleared":2}`, up to 1,000 URLs. A URL with `*`, such as `https://example.com/news/*`, clears every page matching it, up to 10 of them per request |
 | `api/clear` with `tags[]` | `{"success":true,"cleared":4}`, up to 100 tags |
 | `api/rebuild` | `{"success":true,"rebuilding":120}` |
 | A wrong or missing key | 403 |

@@ -65,6 +65,7 @@ class SpeedyUtility extends Utility
             'cloudfront' => $plugin->cdn->cloudfrontUsage(),
             'cloudflareRules' => $plugin->cdn->cloudflareRules(),
             'coverage' => $plugin->insights->coverage(),
+            'sites' => Craft::$app->getIsMultiSite() ? array_map(fn($s) => ['value' => $s->id, 'label' => $s->getName()], array_filter(Craft::$app->getSites()->getAllSites(), fn($s) => $s->hasUrls)) : [],
             'sections' => array_map(fn($s) => ['value' => $s->id, 'label' => $s->name], Craft::$app->getEntries()->getAllSections()),
             'log' => $plugin->log->recent(30),
             'queries' => $plugin->queries->report(),

@@ -19,6 +19,8 @@ use yii\console\ExitCode;
  *
  *   php craft speedy/clear
  *   php craft speedy/clear --url=https://example.com/news
+ *   php craft speedy/clear --url="https://example.com/news/*"
+ *   php craft speedy/clear --site=german
  *   php craft speedy/clear --tag=weather
  *   php craft speedy/clear --rebuild
  */
@@ -26,8 +28,11 @@ class ClearController extends Controller
 {
     public $defaultAction = 'index';
 
-    /** @var string|null One URL to clear. */
+    /** @var string|null One URL to clear, or every page matching it with `*`, such as `https://example.com/news/*`. */
     public ?string $url = null;
+
+    /** @var string|null The handle of a site whose pages to clear. */
+    public ?string $site = null;
 
     /** @var string|null Pages tagged with `craft.speedy.tag()`, such as `weather`, or several separated by commas. */
     public ?string $tag = null;
@@ -37,15 +42,34 @@ class ClearController extends Controller
 
     public function options($actionID): array
     {
-        return array_merge(parent::options($actionID), ['url', 'tag', 'rebuild']);
+        return array_merge(parent::options($actionID), ['url', 'site', 'tag', 'rebuild']);
     }
 
     public function actionIndex(): int
     {
         $clearer = Plugin::getInstance()->clearer;
         if ($this->url) {
+            if (str_contains($this->url, '*')) {
+                if (\suprim\speedy\services\Clearer::patternRegex($this->url) === null) {
+                    $this->stderr("Use an address such as https://example.com/news/*, or a path such as /news/*.\n", Console::FG_RED);
+                    return ExitCode::USAGE;
+                }
+                $count = $clearer->clearMatching($this->url);
+                $this->stdout("Cleared $count pages matching {$this->url}.\n", Console::FG_GREEN);
+                return ExitCode::OK;
+            }
             $count = $clearer->clearUrl($this->url);
             $this->stdout($count ? "Cleared {$this->url}.\n" : "{$this->url} wasn’t cached.\n", Console::FG_GREEN);
+            return ExitCode::OK;
+        }
+        if ($this->site) {
+            $site = \Craft::$app->getSites()->getSiteByHandle($this->site);
+            $count = $site ? $clearer->clearSite((int)$site->id) : null;
+            if ($count === null) {
+                $this->stderr("There’s no site with the handle {$this->site} and pages.\n", Console::FG_RED);
+                return ExitCode::USAGE;
+            }
+            $this->stdout("Cleared $count pages of the {$site->getName()} site.\n", Console::FG_GREEN);
             return ExitCode::OK;
         }
         if ($this->tag) {

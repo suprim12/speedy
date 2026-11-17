@@ -76,6 +76,45 @@
 	}) }}
 </div>
 
+{{ forms.lightswitchField({
+	label: 'Build new pages'|t('speedy'),
+	instructions: 'When an entry, category or product is saved or goes live, build its page in the background if it isn’t cached, so its first visitor doesn’t wait. Not during imports.'|t('speedy'),
+	name: 'buildSavedPages',
+	on: settings.buildSavedPages,
+	disabled: 'buildSavedPages' in overrides,
+	warning: 'buildSavedPages' in overrides ? configWarning('buildSavedPages'),
+}) }}
+
+<div class="flex-fields speedy-paths">
+	{{ forms.editableTableField({
+		label: 'Rebuild every day'|t('speedy'),
+		instructions: 'Pages that show dates, such as `events*` for upcoming events. Visitors get the old copies until the new ones are ready.'|t('speedy'),
+		fieldClass: 'width-50',
+		id: 'dailyRebuild',
+		name: 'dailyRebuild',
+		cols: { pattern: { type: 'singleline', heading: 'URL path'|t('speedy'), code: true, placeholder: 'events*' } },
+		rows: settings.getDailyRebuild()|map(p => { pattern: p }),
+		allowAdd: true,
+		allowDelete: true,
+		allowReorder: false,
+		addRowLabel: 'Add a path'|t('speedy'),
+		static: 'dailyRebuild' in overrides,
+		warning: 'dailyRebuild' in overrides ? configWarning('dailyRebuild'),
+	}) }}
+	{{ forms.textField({
+		label: 'At'|t('speedy'),
+		instructions: 'In the site’s time zone ({timezone}).'|t('speedy', { timezone: craft.app.getTimeZone() }),
+		fieldClass: 'width-50',
+		id: 'dailyRebuildTime',
+		name: 'dailyRebuildTime',
+		type: 'time',
+		value: settings.dailyRebuildTime,
+		errors: settings.getErrors('dailyRebuildTime'),
+		disabled: 'dailyRebuildTime' in overrides,
+		warning: 'dailyRebuildTime' in overrides ? configWarning('dailyRebuildTime'),
+	}) }}
+</div>
+
 <div class="flex-fields">
 	{{ forms.selectField({
 		label: 'When content changes'|t('speedy'),

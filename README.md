@@ -16,6 +16,7 @@ Full-page caching that works with your templates as they are, keeps your databas
 - **Query strings, your way.** Not cached unless you list them, such as `page`, with a cap per page so the disk can’t fill.
 - **Commerce stock and prices.** Orders, control panel edits, transfers, pricing rules and sale prices that start or end on a date clear the product’s pages.
 - **Imports rebuild once.** Listings that show every entry are rebuilt once after an import or a run of saves, not after each.
+- **New pages built on save.** A new entry’s page is built as soon as it’s saved or goes live, and pages that show dates can be rebuilt at a set time each day.
 - **Instant links.** Optional: a page starts loading as soon as a visitor points at its link, so it opens straight away.
 - **Keeps working when the queue stops.** Pages are cleared straight away, with a control panel alert, until it runs again.
 - **Forms just work.** CSRF tokens on cached pages are refreshed automatically, with no template changes.
@@ -66,7 +67,7 @@ php craft speedy/server-rules --apache   # Apache
 
 | Command | Does |
 |---|---|
-| `php craft speedy/clear [--url=…] [--tag=…] [--rebuild]` | Clears every page, one URL or tagged pages, or rebuilds them in the background |
+| `php craft speedy/clear [--url=…] [--site=…] [--tag=…] [--rebuild]` | Clears every page, one URL or a pattern such as `/news/*`, one site or tagged pages, or rebuilds them in the background |
 | `php craft speedy/warm` | Builds the pages in the warm list |
 | `php craft speedy/expire` | Clears pages whose scheduled content changed (cron) |
 | `php craft speedy/status` | Pages cached, CDN and recent clears |

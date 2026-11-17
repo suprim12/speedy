@@ -20,6 +20,20 @@ For exact timing on busy sites, add the cron command too. It clears whatever has
 
 See [Cron and queue](/recipes/cron).
 
+## Rebuild every day
+
+Some pages show dates without any entry changing, such as “upcoming events”, “open today” or “this week’s specials”. List them under **Rebuild every day** on the settings page, with the time, and Speedy rebuilds them each day at that time, in the site’s time zone. Visitors get the old copies until the new ones are ready.
+
+```php
+// config/speedy.php
+'dailyRebuild' => ['events*', '/'],
+'dailyRebuildTime' => '00:05',
+```
+
+Paths match like **Never cache**: `events*` matches `/events`, `/events/today` and `/events-archive`, and `/` is the homepage. Only pages that are cached are rebuilt; the rest are built fresh when they’re visited.
+
+It runs with the scheduled job above, so the queue needs to run. If it was stopped at that time, the pages are rebuilt as soon as it runs again, once. When you first set it up, the first rebuild is at the next time, not straight away.
+
 ## Time-limited pages
 
 For pages that should be rebuilt on a timer, such as one showing the weather, see [Pages with live data](/recipes/live-data).

@@ -57,6 +57,9 @@ return [
 | `ignoredCookies` | `[]` | Cookies that never change pages, as well as the built-in analytics ones. Pages are only saved from requests without other cookies ([What isn’t cached](/guides/not-cached#made-up-cookies-can-t-reach-the-shared-copy)) |
 | `refreshCsrf` | `true` | Refresh CSRF tokens on cached pages ([Forms](/guides/forms)) |
 | `rebuildCleared` | `true` | Rebuild cleared pages in the background before replacing them ([Warming](/guides/warming)) |
+| `buildSavedPages` | `true` | Build the page of an entry, category or product that’s saved or goes live, when it isn’t cached ([Warming](/guides/warming#new-pages-are-built-when-they-re-saved)). Also on the General tab |
+| `dailyRebuild` | `[]` | URL paths rebuilt every day, such as `['events*']` ([Scheduled content](/guides/scheduled#rebuild-every-day)). Also on the General tab |
+| `dailyRebuildTime` | `'00:05'` | When `dailyRebuild` pages are rebuilt, in the site’s time zone |
 | `broadRebuildDelay` | `60` | Seconds a page that clears on any change waits before it’s rebuilt, so an import rebuilds it once. Visitors get the old copy meanwhile. `0` rebuilds straight away |
 | `instantLinks` | `false` | Browsers fetch a page as soon as a visitor points at its link, so it opens straight away ([Instant Links](/guides/instant-links)). Also on the General tab |
 | `rebuildAfterDeploy` | `false` | Rebuild every cached page in the background when a deploy applies project config changes ([Deploy script](/recipes/deploy)) |

@@ -81,6 +81,16 @@ class Clearer extends Component
      */
     private array $_saving = [];
 
+    /** @var array<string, string> Pages of elements saved or gone live, to build when they aren’t cached: URIs by URL. */
+    private array $_build = [];
+
+    /** More saved pages than this in one request or job is an import: none of them are built. */
+    public const BUILD_SAVED_MOST = 20;
+
+    /** The longest pattern to clear by, and the most `*` in it. */
+    private const PATTERN_LONGEST = 500;
+    private const PATTERN_MOST_STARS = 10;
+
     /** Why every page should be rebuilt at the end of the request, such as SEOmatic’s settings changing. */
     private ?string $_rebuildAll = null;
     private int $_bulkDepth = 0;
@@ -197,6 +207,50 @@ class Clearer extends Component
     public function afterSave(ElementInterface $element): void
     {
         unset($this->_saving[spl_object_id($element)]);
+        $this->noteSaved($element);
+    }
+
+    /**
+     * Notes the page of a saved element, to build at the end of the request or queue job if it isn’t cached. Not
+     * while resaving, nor for drafts, revisions and elements that aren’t live. (Craft wraps every save in a bulk
+     * operation of its own, so that can’t tell an import apart; the number of saves does, in buildNoted().)
+     */
+    private function noteSaved(ElementInterface $element): void
+    {
+        $settings = Plugin::getInstance()->getSettings();
+        if (!$settings->buildSavedPages || $element->resaving || ElementHelper::isDraftOrRevision($element)
+            || count($this->_build) > self::BUILD_SAVED_MOST || !in_array($element->getStatus(), [\craft\base\Element::STATUS_ENABLED, 'live'], true)) {
+            return;
+        }
+        $url = $element->getUrl();
+        if ($url !== null && $element->uri !== null) {
+            $this->_build[$url] = $element->uri;
+        }
+    }
+
+    /**
+     * Builds the noted pages that aren’t cached, in the background, at the end of a request or queue job. More than
+     * BUILD_SAVED_MOST saves in one is an import, and builds none. Pages that are cached are rebuilt when they’re
+     * cleared, and pages left out by Never cache or Only cache are skipped.
+     */
+    public function buildNoted(): void
+    {
+        $pages = $this->_build;
+        $this->_build = [];
+        $plugin = Plugin::getInstance();
+        if (!$pages || count($pages) > self::BUILD_SAVED_MOST || !$plugin->getSettings()->isEnabled()) {
+            return;
+        }
+        $urls = [];
+        foreach ($pages as $url => $uri) {
+            $key = $plugin->storage->keyForUrl($url);
+            if ($key !== null && !$plugin->storage->exists($key) && !$plugin->insights->leftOut($url, $uri)) {
+                $urls[] = $url;
+            }
+        }
+        if ($urls) {
+            $plugin->warmer->queue($urls, false);
+        }
     }
 
     /**
@@ -548,10 +602,14 @@ class Clearer extends Component
     }
 
     /**
-     * Clears one URL, such as from the control panel.
+     * Clears one URL, such as from the control panel, or every page matching a pattern with `*`, such as
+     * `https://example.com/news/*` or `/news/*` on every domain.
      */
     public function clearUrl(string $url): int
     {
+        if (str_contains($url, '*')) {
+            return $this->clearMatching($url);
+        }
         $storage = Plugin::getInstance()->storage;
         $key = $storage->keyForUrl($url);
         if (!$key) {
@@ -564,6 +622,240 @@ class Clearer extends Component
         }
 
         return $this->clearKeys($keys, Craft::t('speedy', 'Cleared {url}', ['url' => $url]));
+    }
+
+    /**
+     * Clears every page matching a pattern, with its query string versions: `https://example.com/news/*`, or a path
+     * such as `/news/*` for every domain. `*` matches anything, including `/`.
+     */
+    public function clearMatching(string $pattern): int
+    {
+        $regex = self::patternRegex($pattern);
+        if ($regex === null) {
+            return 0;
+        }
+        $keys = [];
+        foreach (Plugin::getInstance()->storage->allKeys() as $key) {
+            [$host, $path] = explode('/', $key, 2) + [1 => ''];
+            if (preg_match($regex, "$host/$path")) {
+                $keys[] = $key;
+            }
+        }
+
+        return $this->clearKeys($keys, Craft::t('speedy', 'Cleared {url}', ['url' => trim($pattern)]));
+    }
+
+    /**
+     * A pattern as a regular expression for page keys (`host/path`), or null when it can’t be one. A pattern without a
+     * domain matches every domain.
+     */
+    public static function patternRegex(string $pattern): ?string
+    {
+        $pattern = trim($pattern);
+        // Each `*` multiplies the work of matching a page that doesn’t match.
+        if ($pattern === '' || strlen($pattern) > self::PATTERN_LONGEST || substr_count((string)preg_replace('/\*+/', '*', $pattern), '*') > self::PATTERN_MOST_STARS) {
+            return null;
+        }
+        // Only the address: no query string or fragment.
+        $pattern = (string)preg_replace('/[?#].*$/s', '', $pattern);
+        if (preg_match('#^https?://([^/]+)(.*)$#i', $pattern, $m)) {
+            $host = strtolower($m[1]);
+            $path = $m[2];
+        } elseif (preg_match('#^[a-z][a-z0-9+.-]*:#i', $pattern)) {
+            return null;
+        } else {
+            $host = '*';
+            $path = $pattern;
+        }
+        $path = trim(rawurldecode($path), '/');
+        // Several stars in a row match the same as one, and are slower.
+        $wild = fn(string $part) => str_replace('\\*', '.*', preg_quote((string)preg_replace('/\*+/', '*', $part), '#'));
+        $hostRegex = $host === '*' ? '[^/]+' : $wild($host);
+
+        return '#^' . $hostRegex . '/' . $wild($path) . '$#i';
+    }
+
+    /**
+     * Clears every page of a site, such as one site of several on the same domain.
+     *
+     * @return int|null How many pages were cleared, or null when there’s no such site with pages.
+     */
+    public function clearSite(int $siteId): ?int
+    {
+        $site = Craft::$app->getSites()->getSiteById($siteId);
+        if ($site === null || !$site->hasUrls) {
+            return null;
+        }
+        $keys = [];
+        foreach (Plugin::getInstance()->storage->allKeys() as $key) {
+            if (($this->siteForKey($key)['id'] ?? null) === $siteId) {
+                $keys[] = $key;
+            }
+        }
+        $user = Craft::$app->getUser()->getIdentity();
+
+        return $this->clearKeys($keys, Craft::t('speedy', 'Cleared the {site} site{by, select, none{} other{ by {by}}}', [
+            'site' => $site->getName(),
+            'by' => $user ? (string)$user : 'none',
+        ]));
+    }
+
+    /** @var array<int, array{id: int, host: ?string, path: string}>|null */
+    private ?array $_siteBases = null;
+
+    /**
+     * The site a page belongs to, by the longest base URL that it starts with, and its path within that site, such as
+     * `news/a` for `example.com/de/news/a` on a site at `/de/`. Null when no site’s base URL matches.
+     *
+     * @return array{id: int, path: string}|null
+     */
+    public function siteForKey(string $key): ?array
+    {
+        if ($this->_siteBases === null) {
+            $this->_siteBases = [];
+            foreach (Craft::$app->getSites()->getAllSites(true) as $site) {
+                $raw = (string)\craft\helpers\App::parseEnv((string)$site->getBaseUrl(false));
+                if (!$site->hasUrls || $raw === '') {
+                    continue;
+                }
+                // A base URL of `@web` answers to any domain, so only its path is known.
+                $anyHost = str_contains($raw, '@web');
+                $parts = parse_url($anyHost ? 'http://any' . str_replace('@web', '', $raw) : (string)Craft::getAlias($raw));
+                $port = $parts['port'] ?? null;
+                $this->_siteBases[] = [
+                    'id' => (int)$site->id,
+                    'host' => $anyHost ? null : strtolower((string)($parts['host'] ?? '')) . ($port !== null && !in_array($port, [80, 443], true) ? ":$port" : ''),
+                    'path' => trim(rawurldecode((string)($parts['path'] ?? '')), '/'),
+                ];
+            }
+            // The longest paths first, and a known domain before any domain.
+            usort($this->_siteBases, fn($a, $b) => [strlen($b['path']), $b['host'] !== null] <=> [strlen($a['path']), $a['host'] !== null]);
+        }
+        [$host, $path] = explode('/', $key, 2) + [1 => ''];
+        $path = explode('/' . Storage::QUERY_FOLDER . '/', "/$path/", 2)[0];
+        $path = trim($path, '/');
+        foreach ($this->_siteBases as $base) {
+            if ($base['host'] !== null && $base['host'] !== strtolower($host)) {
+                continue;
+            }
+            if ($base['path'] === '' || $path === $base['path'] || str_starts_with($path, $base['path'] . '/')) {
+                return ['id' => $base['id'], 'path' => ltrim(substr($path, strlen($base['path'])), '/')];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Rebuilds the `dailyRebuild` pages once a day, at `dailyRebuildTime`, or as soon as the scheduled check runs
+     * after it, such as when the queue was stopped. Visitors get the old copies until the new ones are ready.
+     *
+     * @return int How many pages are being rebuilt.
+     */
+    public function rebuildDaily(int $now): int
+    {
+        $plugin = Plugin::getInstance();
+        $patterns = $plugin->getSettings()->getDailyRebuild();
+        $due = $this->dailyRebuildDue($now);
+        if (!$patterns || $due === null || !$plugin->getSettings()->isEnabled()) {
+            return 0;
+        }
+        $mutex = Craft::$app->getMutex();
+        if (!$mutex->acquire('speedy:dailyRebuild')) {
+            return 0;
+        }
+        try {
+            $state = $plugin->storage->readData('state');
+            // Set up since the last time it was due: start from the next one, rather than rebuilding straight away.
+            if (!isset($state['dailyRebuildAt'])) {
+                $state['dailyRebuildAt'] = $now;
+                $plugin->storage->writeData('state', $state);
+                return 0;
+            }
+            if ((int)$state['dailyRebuildAt'] >= $due) {
+                return 0;
+            }
+            $state['dailyRebuildAt'] = $now;
+            $plugin->storage->writeData('state', $state);
+        } finally {
+            $mutex->release('speedy:dailyRebuild');
+        }
+
+        $urls = [];
+        $keys = [];
+        foreach ($plugin->storage->allKeys() as $key) {
+            $url = $plugin->storage->meta($key)['url'] ?? null;
+            if (!$url) {
+                continue;
+            }
+            $path = trim(rawurldecode((string)parse_url($url, PHP_URL_PATH)), '/');
+            $sitePath = $this->siteForKey($key)['path'] ?? $path;
+            if (Cacher::matchingPattern($path, $patterns) !== null || Cacher::matchingPattern($sitePath, $patterns) !== null) {
+                $urls[] = $url;
+                $keys[$url] = $key;
+            }
+        }
+        if ($urls) {
+            $plugin->warmer->queue($plugin->warmer->importantFirst($urls), true, $keys);
+            $plugin->log->add(Craft::t('speedy', 'Daily rebuild'), count($urls), $urls);
+        }
+
+        return count($urls);
+    }
+
+    /**
+     * When the daily rebuild was last due, at or before $now, in the site’s time zone. Null without a valid time.
+     */
+    public function dailyRebuildDue(int $now): ?int
+    {
+        $time = Plugin::getInstance()->getSettings()->getDailyRebuildTime();
+        if ($time === null) {
+            return null;
+        }
+        $at = (new \DateTimeImmutable('@' . $now))->setTimezone(new \DateTimeZone(Craft::$app->getTimeZone()))->setTime($time[0], $time[1]);
+        if ($at->getTimestamp() > $now) {
+            $at = $at->modify('-1 day')->setTime($time[0], $time[1]);
+        }
+
+        return $at->getTimestamp();
+    }
+
+    /**
+     * When the daily rebuild is next due, after $now, or null when there isn’t one.
+     */
+    public function nextDailyRebuild(int $now): ?int
+    {
+        if (!Plugin::getInstance()->getSettings()->getDailyRebuild()) {
+            return null;
+        }
+        $due = $this->dailyRebuildDue($now);
+        if ($due === null) {
+            return null;
+        }
+        $time = Plugin::getInstance()->getSettings()->getDailyRebuildTime() ?? [0, 0];
+        $next = (new \DateTimeImmutable('@' . $due))->setTimezone(new \DateTimeZone(Craft::$app->getTimeZone()))->modify('+1 day')->setTime($time[0], $time[1]);
+
+        return $next->getTimestamp();
+    }
+
+    /**
+     * Makes sure the scheduled check runs at the next daily rebuild, such as after it’s set up. Cheap to call often.
+     */
+    public function scheduleDailyRebuild(): void
+    {
+        $now = time();
+        $next = $this->nextDailyRebuild($now);
+        if ($next === null) {
+            return;
+        }
+        $storage = Plugin::getInstance()->storage;
+        $state = $storage->readData('state');
+        if (!isset($state['dailyRebuildAt'])) {
+            // From now on: a time already passed today waits until tomorrow.
+            $state['dailyRebuildAt'] = $now;
+            $storage->writeData('state', $state);
+        }
+        $this->scheduleExpiry($next);
     }
 
     /**
@@ -640,12 +932,13 @@ class Clearer extends Component
         $count = $keys ? $this->clearKeys($keys, Craft::t('speedy', 'Scheduled content changed')) : 0;
         $count += $this->clearWentLive($since, $now);
         $count += $this->clearPricesChanged($since, $now);
+        $count += $this->rebuildDaily($now);
 
         $data = $plugin->storage->readData('state');
         $data['lastExpire'] = $now;
         unset($data['expireJobAt']);
         $plugin->storage->writeData('state', $data);
-        $next = array_filter([$plugin->storage->nextExpiry(), $this->nextPostDate(), $this->nextPriceChange()]);
+        $next = array_filter([$plugin->storage->nextExpiry(), $this->nextPostDate(), $this->nextPriceChange(), $this->nextDailyRebuild($now)]);
         if ($next) {
             $this->scheduleExpiry(max(min($next), time() + 60));
         }
@@ -668,12 +961,24 @@ class Clearer extends Component
                     $tags[] = str_starts_with($tag, 'element::') ? $tag : "element::$class::$tag";
                 }
                 // Going live is a one-off at a set time, so its listings are rebuilt straight away.
-                // Going live is a one-off at a set time, so its listings are rebuilt straight away.
                 $count += $this->clearTags($tags, Craft::t('speedy', '{type} “{title}” went live', [
                     'type' => $element::displayName(),
                     'title' => (string)$element,
                 ]), false);
             }
+        }
+
+        // Their own pages too, in each site, as nobody could have cached them before.
+        if (Plugin::getInstance()->getSettings()->buildSavedPages) {
+            foreach ($this->postDatedTypes() as $class) {
+                foreach ($class::find()->site('*')->status('live')->postDate($range)->uri(':notempty:')->limit(self::BUILD_SAVED_MOST)->all() as $element) {
+                    $url = $element->getUrl();
+                    if ($url !== null) {
+                        $this->_build[$url] = (string)$element->uri;
+                    }
+                }
+            }
+            $this->buildNoted();
         }
 
         return $count;

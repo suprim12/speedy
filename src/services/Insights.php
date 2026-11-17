@@ -81,7 +81,6 @@ class Insights extends Component
             }
         }
         $plugin = Plugin::getInstance();
-        $settings = $plugin->getSettings();
         $storage = $plugin->storage;
         $cached = [];
         foreach ($storage->allKeys() as $key) {
@@ -117,9 +116,7 @@ class Insights extends Component
                 }
                 $uri = $row['uri'] === Element::HOMEPAGE_URI ? '' : (string)$row['uri'];
                 $url = $sites[$row['siteId']] . '/' . $uri;
-                $path = trim((string)parse_url($url, PHP_URL_PATH), '/');
-                if (Cacher::matchingPattern($path, $settings->getNeverCache()) !== null || Cacher::matchingPattern($uri, $settings->getNeverCache()) !== null
-                    || ($settings->getOnlyCache() && Cacher::matchingPattern($path, $settings->getOnlyCache()) === null && Cacher::matchingPattern($uri, $settings->getOnlyCache()) === null)) {
+                if ($this->leftOut($url, $uri)) {
                     $never++;
                     continue;
                 }
@@ -151,6 +148,25 @@ class Insights extends Component
         $cache->set(self::COVERAGE_CACHE, $coverage, 300);
 
         return $coverage;
+    }
+
+    /**
+     * Whether a page is left out by Never cache or Only cache, matched on its full path and its path within the site,
+     * as for visitors.
+     *
+     * @param string $sitePath Such as an element’s URI; `__home__` for a homepage.
+     */
+    public function leftOut(string $url, string $sitePath): bool
+    {
+        $settings = Plugin::getInstance()->getSettings();
+        $path = trim(rawurldecode((string)parse_url($url, PHP_URL_PATH)), '/');
+        $sitePath = $sitePath === Element::HOMEPAGE_URI ? '' : $sitePath;
+        if (Cacher::matchingPattern($path, $settings->getNeverCache()) !== null || Cacher::matchingPattern($sitePath, $settings->getNeverCache()) !== null) {
+            return true;
+        }
+        $only = $settings->getOnlyCache();
+
+        return $only && Cacher::matchingPattern($path, $only) === null && Cacher::matchingPattern($sitePath, $only) === null;
     }
 
     /**

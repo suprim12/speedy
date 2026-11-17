@@ -127,8 +127,12 @@ class Plugin extends BasePlugin
             // After the response is prepared (Craft renders templates then, so a form step or flash message has just
             // been stored) and before its headers go out.
             Event::on(\yii\web\Response::class, \yii\web\Response::EVENT_AFTER_PREPARE, fn() => $this->cacher->markState());
-            if (Craft::$app->getRequest()->getIsSiteRequest()) {
+            $request = Craft::$app->getRequest();
+            if ($request->getIsSiteRequest()) {
                 $this->cacher->handleRequest();
+            } elseif ($request->getIsCpRequest() && !$request->getIsAjax() && $request->getIsGet()) {
+                // A daily rebuild set in config/speedy.php is scheduled the first time someone opens the control panel.
+                $this->clearer->scheduleDailyRebuild();
             }
         });
     }
@@ -250,6 +254,7 @@ class Plugin extends BasePlugin
     {
         parent::afterSaveSettings();
         $this->checkInstantLinks();
+        $this->clearer->scheduleDailyRebuild();
     }
 
     /**
@@ -388,9 +393,19 @@ class Plugin extends BasePlugin
         Event::on(\craft\services\Assets::class, \craft\services\Assets::EVENT_AFTER_REPLACE_ASSET, fn(\craft\events\ReplaceAssetEvent $event) => $this->cdn->purgeAssetUrls($event->asset));
 
         // One clear job per request or queue job, not one per saved element.
-        Craft::$app->on(Application::EVENT_AFTER_REQUEST, fn() => $this->clearer->flush());
-        Event::on(Queue::class, Queue::EVENT_AFTER_EXEC, fn() => $this->clearer->flush());
-        Event::on(Queue::class, Queue::EVENT_AFTER_ERROR, fn() => $this->clearer->flush());
+        // New pages saved in the request or job are built once it ends, after its clearing.
+        Craft::$app->on(Application::EVENT_AFTER_REQUEST, function() {
+            $this->clearer->flush();
+            $this->clearer->buildNoted();
+        });
+        Event::on(Queue::class, Queue::EVENT_AFTER_EXEC, function() {
+            $this->clearer->flush();
+            $this->clearer->buildNoted();
+        });
+        Event::on(Queue::class, Queue::EVENT_AFTER_ERROR, function() {
+            $this->clearer->flush();
+            $this->clearer->buildNoted();
+        });
     }
 
     private function registerControlPanel(): void
@@ -425,8 +440,35 @@ class Plugin extends BasePlugin
                     $lines[] = Html::tag('span', Html::encode(Craft::t('speedy', 'Shown on {count, plural, =1{# cached page} other{# cached pages}}', ['count' => $status['pages']])), ['class' => 'light smalltext']);
                 }
 
+                // Clears the pages that show it, for people allowed to; handled by the script below.
+                if (($status['state'] === 'cached' || $status['pages']) && ClearPages::allowed()) {
+                    $lines[] = Html::button(Craft::t('speedy', 'Clear its cached pages'), [
+                        'type' => 'button',
+                        'class' => ['btn', 'small', 'speedy-clear-element'],
+                        'data' => ['element-id' => $element->getCanonicalId() ?? $element->id],
+                    ]);
+                }
+
                 return Html::tag('div', implode('', array_map(fn($line) => Html::tag('div', $line), $lines)));
             };
+        });
+
+        // The Clear button in element details, which can open in a slideout, so the script listens on the page.
+        Event::on(\craft\web\View::class, \craft\web\View::EVENT_BEFORE_RENDER_PAGE_TEMPLATE, function(\craft\events\TemplateEvent $event) {
+            if ($event->templateMode !== \craft\web\View::TEMPLATE_MODE_CP || Craft::$app->getRequest()->getIsConsoleRequest() || Craft::$app->getUser()->getIsGuest() || !ClearPages::allowed()) {
+                return;
+            }
+            Craft::$app->getView()->registerJs(<<<'JS'
+document.addEventListener('click', function (e) {
+    var button = e.target.closest('.speedy-clear-element');
+    if (!button || button.disabled) { return; }
+    button.disabled = true;
+    Craft.sendActionRequest('POST', 'speedy/elements/clear', { data: { elementId: button.dataset.elementId } })
+        .then(function (response) { Craft.cp.displaySuccess(response.data.message); })
+        .catch(function (error) { Craft.cp.displayError(error.response && error.response.data && error.response.data.message); })
+        .finally(function () { button.disabled = false; });
+});
+JS);
         });
 
         // A control panel alert while the queue isn’t running, as pages then wouldn’t clear without Speedy stepping in.

@@ -87,6 +87,23 @@ class Settings extends Model
     public bool $rebuildCleared = true;
 
     /**
+     * Whether the page of an entry, category or product that’s saved or goes live is built in the background when it
+     * isn’t cached yet, so its first visitor doesn’t wait. Not during imports and resaves.
+     */
+    public bool $buildSavedPages = true;
+
+    /**
+     * URL paths rebuilt every day at `dailyRebuildTime`, for pages that show dates, such as `events*` for “upcoming
+     * events”. `*` matches anything. Visitors get the old copies until the new ones are ready.
+     *
+     * @var string[]|string
+     */
+    public array|string $dailyRebuild = [];
+
+    /** When the `dailyRebuild` pages are rebuilt, in the site’s time zone, such as `00:05`. */
+    public string $dailyRebuildTime = '00:05';
+
+    /**
      * Whether browsers fetch a page as soon as a visitor points at its link, so it opens straight away. Only the page’s
      * HTML is fetched, and never for links that do something when opened, such as signing out.
      */
@@ -208,6 +225,24 @@ class Settings extends Model
     }
 
     /**
+     * @return string[]
+     */
+    public function getDailyRebuild(): array
+    {
+        return $this->patterns($this->dailyRebuild);
+    }
+
+    /**
+     * The hour and minute of `dailyRebuildTime`, or null when it isn’t a time.
+     *
+     * @return array{0: int, 1: int}|null
+     */
+    public function getDailyRebuildTime(): ?array
+    {
+        return preg_match('/^([01]?\d|2[0-3]):([0-5]\d)$/', trim($this->dailyRebuildTime), $m) ? [(int)$m[1], (int)$m[2]] : null;
+    }
+
+    /**
      * @param string[]|string $value
      * @return string[]
      */
@@ -243,12 +278,12 @@ class Settings extends Model
         }
         // URL patterns from the settings page’s tables, such as [['pattern' => 'checkout/*']]. Text, as saved by
         // earlier versions or set in config/speedy.php, is kept as it is; getNeverCache() reads both.
-        foreach (['neverCache', 'onlyCache'] as $name) {
+        foreach (['neverCache', 'onlyCache', 'dailyRebuild'] as $name) {
             if (isset($values[$name]) && is_array($values[$name])) {
                 $values[$name] = $this->patterns(array_map(fn($row) => is_array($row) ? (string)($row['pattern'] ?? '') : (string)$row, $values[$name]));
             }
         }
-        foreach (['rebuildCleared', 'instantLinks'] as $name) {
+        foreach (['rebuildCleared', 'instantLinks', 'buildSavedPages'] as $name) {
             if (isset($values[$name]) && is_string($values[$name])) {
                 $values[$name] = $values[$name] === '1';
             }
@@ -402,6 +437,11 @@ class Settings extends Model
             [['maxQueryPages'], 'integer', 'min' => 1],
             [['maxCacheSize'], 'integer', 'min' => 1],
             [['broadRebuildDelay'], 'integer', 'min' => 0],
+            [['dailyRebuildTime'], function(string $attribute) {
+                if ($this->getDailyRebuild() && $this->getDailyRebuildTime() === null) {
+                    $this->addError($attribute, Craft::t('speedy', 'Use a time such as {example}.', ['example' => '00:05']));
+                }
+            }],
             [['cachePath', 'dataPath'], function(string $attribute) {
                 if (!\suprim\speedy\services\Storage::isOwnFolder((string)Craft::getAlias($this->$attribute))) {
                     $this->addError($attribute, Craft::t('speedy', 'Use a folder of its own, such as {example}: Speedy empties it when clearing everything.', ['example' => $attribute === 'cachePath' ? '@webroot/speedy' : '@storage/speedy']));

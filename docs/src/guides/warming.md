@@ -16,6 +16,23 @@ Turn this off with `rebuildCleared`, and changed pages are simply removed:
 'rebuildCleared' => false,
 ```
 
+## New pages are built when they’re saved
+
+When an entry, category or Commerce product is saved and its page isn’t cached, such as a new blog post, Speedy builds the page in the background straight after the save, so the first visitor, often a search engine, gets the cached page. Entries and products that go live at a set time are built when they do.
+
+It’s skipped:
+
+- for drafts, disabled entries and entries that aren’t live yet;
+- for pages left out by **Never cache** or **Only cache**;
+- when resaving, such as a section’s entries after changing its URL format;
+- when more than 20 are saved in one request or queue job, such as an import. Their pages are built as visitors arrive, or by **Build the pages not cached** under [Coverage](/guides/utility#coverage).
+
+Pages that are already cached aren’t built again here: they’re rebuilt when they’re cleared, as above. Turn it off on the settings page (**Build new pages**) or in `config/speedy.php`:
+
+```php
+'buildSavedPages' => false,
+```
+
 ## After clearing everything
 
 When every page is cleared, from the utility page, the command line or a deploy, Speedy can rebuild your important pages straight away. Choose which in `config/speedy.php`:

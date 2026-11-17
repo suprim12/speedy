@@ -5,6 +5,11 @@
 ### Added
 - **Set up Cloudflare** on the utility page adds the cache rules that let Cloudflare keep pages, leaving out logged-in visitors, carts, forms and the control panel. Other rules in the zone are kept.
 - Coverage on the utility page: how many of the pages of entries, categories and products are cached, by section, with the ones that aren’t, why a page couldn’t be built, and a button to build them all.
+- New pages are built in the background when an entry, category or product is saved or goes live, so the first visitor gets a cached page (`buildSavedPages`, on by default; not during imports).
+- **Rebuild every day** rebuilds listed pages at a set time, for pages that show dates (`dailyRebuild` and `dailyRebuildTime`).
+- **Clear URL** takes patterns such as `https://example.com/news/*` or `/news/*`, on the utility page, the command line and the API.
+- **Clear site** on the utility page, and `speedy/clear --site`, clear every page of one site.
+- **Clear its cached pages** on an entry’s, category’s or product’s details panel.
 
 ## 1.3.0 - 2026-11-17
 
