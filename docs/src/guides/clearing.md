@@ -49,6 +49,12 @@ When an element is saved, deleted, restored, moved in a structure or has its URL
 
 Commerce changes stock without saving the product, so Craft doesn’t know the pages showing it changed. Speedy listens for every stock change, from orders, control panel edits and transfers between locations, and clears the pages that show the product or its variants. A product page never says “3 in stock” after the last one sold.
 
+## Commerce prices
+
+Commerce works out prices from pricing rules in a queue job, without saving the products. When that job finishes, such as after a pricing rule is saved, Speedy clears the pages that show the products it priced. Deleting a rule clears the pages of the products it priced.
+
+A price with dates, such as a sale from midnight, changes without anything being saved at all. Speedy clears the pages that show the product when the price starts and when it ends, and rebuilds them straight away.
+
 ## Replaced images
 
 Replacing an asset’s file keeps its address, so a CDN would keep sending the old image. Speedy clears the old file and each of its transforms from your CDN, as well as the pages that show it.

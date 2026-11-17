@@ -37,6 +37,9 @@ class Clearer extends Component
     /** Before pages are cleared: change which, or keep them. */
     public const EVENT_BEFORE_CLEAR = 'beforeClear';
 
+    /** Commerce’s catalog prices, each with the dates it applies between. */
+    private const COMMERCE_PRICES = '{{%commerce_catalogpricing}}';
+
     /** Marks a page waiting to be rebuilt after a run of changes, until its rebuild starts. */
     public const REBUILD_LATER = 'speedy:rebuildLater:';
 
@@ -553,12 +556,13 @@ class Clearer extends Component
         $keys = $plugin->storage->takeExpired($now);
         $count = $keys ? $this->clearKeys($keys, Craft::t('speedy', 'Scheduled content changed')) : 0;
         $count += $this->clearWentLive($since, $now);
+        $count += $this->clearPricesChanged($since, $now);
 
         $data = $plugin->storage->readData('state');
         $data['lastExpire'] = $now;
         unset($data['expireJobAt']);
         $plugin->storage->writeData('state', $data);
-        $next = array_filter([$plugin->storage->nextExpiry(), $this->nextPostDate()]);
+        $next = array_filter([$plugin->storage->nextExpiry(), $this->nextPostDate(), $this->nextPriceChange()]);
         if ($next) {
             $this->scheduleExpiry(max(min($next), time() + 60));
         }
@@ -588,6 +592,120 @@ class Clearer extends Component
         }
 
         return $count;
+    }
+
+    /**
+     * Commerce worked out its catalog prices again, such as after a pricing rule was saved: clears the pages that
+     * show those purchasables, or every page with a product when all of them were done. Commerce doesn’t say that
+     * prices changed, so without this the pages would keep the old ones.
+     *
+     * @param int[]|null $purchasableIds
+     */
+    public function pricesRecalculated(?array $purchasableIds): void
+    {
+        if (count($this->_reasons) < 3) {
+            $this->_reasons[] = Craft::t('speedy', 'Commerce prices changed');
+        }
+        $this->_changed['commerce-prices'] = true;
+        if ($purchasableIds === null) {
+            // Only called by Commerce’s own job, so its element types exist.
+            foreach (['craft\\commerce\\elements\\Variant', 'craft\\commerce\\elements\\Product'] as $class) {
+                Craft::$app->getElements()->invalidateCachesForElementType($class);
+            }
+        } else {
+            foreach ($this->purchasableTags($purchasableIds) as $tag) {
+                $this->_pending[$tag] = true;
+            }
+        }
+        // Prices that start or end later are cleared when they do.
+        if ($next = $this->nextPriceChange()) {
+            $this->scheduleExpiry($next);
+        }
+    }
+
+    /**
+     * The purchasables with prices from a Commerce pricing rule.
+     *
+     * @return int[]
+     */
+    public function purchasablesPricedBy(int $ruleId): array
+    {
+        if (!$this->hasCatalogPricing()) {
+            return [];
+        }
+
+        return array_map('intval', (new \craft\db\Query())->select(['purchasableId'])->distinct()->from(self::COMMERCE_PRICES)->where(['catalogPricingRuleId' => $ruleId])->column());
+    }
+
+    /**
+     * Clears the pages showing purchasables whose Commerce prices started or ended, such as a sale that began.
+     */
+    private function clearPricesChanged(int $since, int $now): int
+    {
+        if (!$this->hasCatalogPricing()) {
+            return 0;
+        }
+        $from = \craft\helpers\Db::prepareDateForDb(new \DateTime('@' . $since));
+        $to = \craft\helpers\Db::prepareDateForDb(new \DateTime('@' . $now));
+        $ids = (new \craft\db\Query())
+            ->select(['purchasableId'])
+            ->distinct()
+            ->from(self::COMMERCE_PRICES)
+            ->where(['or', ['and', ['>', 'dateFrom', $from], ['<=', 'dateFrom', $to]], ['and', ['>', 'dateTo', $from], ['<=', 'dateTo', $to]]])
+            ->column();
+        if (!$ids) {
+            return 0;
+        }
+
+        // A price starting or ending is a one-off at a set time, such as a sale at midnight, so its pages are rebuilt
+        // straight away rather than after a run of changes.
+        $tags = $this->purchasableTags(array_map('intval', $ids));
+        $this->markCleared($tags);
+
+        return $this->clearKeys(Plugin::getInstance()->storage->takePagesForTags($tags), Craft::t('speedy', 'Commerce prices changed'));
+    }
+
+    /**
+     * When the next Commerce price starts or ends, or null.
+     */
+    private function nextPriceChange(): ?int
+    {
+        if (!$this->hasCatalogPricing()) {
+            return null;
+        }
+        $now = \craft\helpers\Db::prepareDateForDb(new \DateTime());
+        $next = null;
+        foreach (['dateFrom', 'dateTo'] as $column) {
+            $date = (new \craft\db\Query())->from(self::COMMERCE_PRICES)->where(['>', $column, $now])->min($column);
+            $at = $date ? \craft\helpers\DateTimeHelper::toDateTime($date) : false;
+            if ($at && ($next === null || $at->getTimestamp() < $next)) {
+                $next = $at->getTimestamp();
+            }
+        }
+
+        return $next;
+    }
+
+    private function hasCatalogPricing(): bool
+    {
+        return Craft::$app->getPlugins()->isPluginEnabled('commerce') && Craft::$app->getDb()->tableExists(self::COMMERCE_PRICES);
+    }
+
+    /**
+     * The tags of pages that show these purchasables: theirs, and their products’.
+     *
+     * @param int[] $ids
+     * @return string[]
+     */
+    private function purchasableTags(array $ids): array
+    {
+        $owners = Craft::$app->getDb()->tableExists('{{%commerce_variants}}') ? (new \craft\db\Query())
+            ->select(['primaryOwnerId'])
+            ->from('{{%commerce_variants}}')
+            ->where(['id' => $ids])
+            ->column() : [];
+
+        return array_values(array_unique(array_map(fn($id) => "element::$id", array_merge($ids, array_filter($owners)))));
     }
 
     /**

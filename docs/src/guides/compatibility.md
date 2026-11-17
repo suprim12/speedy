@@ -31,7 +31,7 @@ Meta tags, JSON-LD and tracking scripts are part of the cached page, and the `Li
 
 ## Commerce
 
-Product pages are cleared when stock changes, from orders, control panel edits and transfers ([How clearing works](/guides/clearing#commerce-stock)). Visitors with a cart get pages built for them, so their cart is always their own.
+Product pages are cleared when stock changes, from orders, control panel edits and transfers ([How clearing works](/guides/clearing#commerce-stock)), and when prices change, from pricing rules and from prices that start or end on a date ([Commerce prices](/guides/clearing#commerce-prices)). Visitors with a cart get pages built for them, so their cart is always their own.
 
 ## Form plugins
 

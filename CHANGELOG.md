@@ -12,6 +12,7 @@
 - Pages that clear whenever anything of their type changes wait a minute before they’re rebuilt, so an import rebuilds them once (`broadRebuildDelay`).
 
 ### Fixed
+- Cached pages show Commerce’s current prices: saving or deleting a pricing rule clears the products’ pages, and so does a price starting or ending on its date.
 - Cached pages are kept out of git, so `git add` no longer picks them up.
 - Pages left over from clearing everything are deleted even when the queue isn’t running.
 - **Check server serving** warns when cached pages can be opened directly in the cache folder.

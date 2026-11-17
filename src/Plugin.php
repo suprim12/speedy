@@ -342,6 +342,30 @@ class Plugin extends BasePlugin
             }
         }
 
+        // Commerce works out catalog prices in a queue job, such as after a pricing rule is saved, without saying the
+        // prices changed.
+        if (class_exists(\craft\commerce\queue\jobs\CatalogPricing::class)) {
+            Event::on(Queue::class, Queue::EVENT_AFTER_EXEC, function(\yii\queue\ExecEvent $event) {
+                if ($event->job instanceof \craft\commerce\queue\jobs\CatalogPricing) {
+                    $this->clearer->pricesRecalculated($event->job->purchasableIds);
+                    $this->clearer->flush();
+                }
+            });
+            // Deleting a pricing rule deletes its prices too, without that job.
+            $ruleIds = [];
+            $rule = 'craft\\commerce\\records\\CatalogPricingRule';
+            Event::on($rule, \yii\db\BaseActiveRecord::EVENT_BEFORE_DELETE, function(\yii\base\ModelEvent $event) use (&$ruleIds) {
+                $ruleIds[(int)$event->sender->id] = $this->clearer->purchasablesPricedBy((int)$event->sender->id);
+            });
+            Event::on($rule, \yii\db\BaseActiveRecord::EVENT_AFTER_DELETE, function(\yii\base\Event $event) use (&$ruleIds) {
+                $ids = $ruleIds[(int)$event->sender->id] ?? [];
+                unset($ruleIds[(int)$event->sender->id]);
+                if ($ids) {
+                    $this->clearer->pricesRecalculated($ids);
+                }
+            });
+        }
+
         // A replaced image keeps its address, so the CDN would keep sending the old one.
         Event::on(\craft\services\Assets::class, \craft\services\Assets::EVENT_BEFORE_REPLACE_ASSET, fn(\craft\events\ReplaceAssetEvent $event) => $this->cdn->rememberAssetUrls($event->asset));
         Event::on(\craft\services\Assets::class, \craft\services\Assets::EVENT_AFTER_REPLACE_ASSET, fn(\craft\events\ReplaceAssetEvent $event) => $this->cdn->purgeAssetUrls($event->asset));
