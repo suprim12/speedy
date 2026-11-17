@@ -97,7 +97,7 @@ Headers your templates or plugins send, such as `X-Robots-Tag`, `Link`, `Content
 
 ## Pagination and filters
 
-Craft paginates with paths like `/news/p2`, which are cached like any page. If your site uses query strings, such as `?page=2` or `?category=shoes`, list the parameters that make a page of their own:
+Craft paginates with paths like `/news/p2`, which are cached like any page. If your site uses query strings, such as `?page=2`, `?category=shoes` or `?view=map` for a tab, list the parameters that make a page of their own under **Cached parameters** on the settings page, or in the config file:
 
 ```php
 // config/speedy.php
@@ -109,5 +109,12 @@ If Craft paginates with a query string (`pageTrigger` set to `'?page='` in `conf
 Each combination is cached separately: `/news?page=2` and `/news?page=2&category=shoes` are two pages, whatever order the parameters come in. Tracking parameters are still ignored. Only the parameters you list are cached, with one short value each, and at most `maxQueryPages` versions of a page (100), so made-up query strings can’t fill the disk. Any other query string is passed to Craft as usual.
 
 Search is best left out: nearly every search is different, so cached results are rarely used again.
+
+### Which parameters to list
+
+Speedy notes the query parameters that keep pages out of the cache. When one is used often, such as `view` in `/homes?view=map`, the utility page says so with an example page:
+
+- If the parameter changes what the page shows, add it to **Cached parameters**.
+- If it doesn’t, such as a parameter only scripts read, add it to **Ignored parameters**, and the page is cached without it.
 
 Pages with a query string are sent by PHP rather than the web server rules, which is still much faster than building them.

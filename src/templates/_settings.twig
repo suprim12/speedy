@@ -59,6 +59,49 @@
 		disabled: 'onlyCache' in overrides,
 		warning: 'onlyCache' in overrides ? configWarning('onlyCache'),
 	}) }}
+</div>
+
+{{ forms.selectField({
+	label: 'Pages with a query string'|t('speedy'),
+	instructions: 'Such as `/homes?view=map`. Tracking parameters such as `utm_source` never stop a page being cached.'|t('speedy'),
+	name: 'queryStrings',
+	options: [
+		{ label: 'Cache the parameters listed below, each value as its own page'|t('speedy'), value: 'skip' },
+		{ label: 'Cache the page without its query string'|t('speedy'), value: 'ignore' },
+	],
+	value: settings.queryStrings,
+	disabled: 'queryStrings' in overrides,
+	warning: 'queryStrings' in overrides ? configWarning('queryStrings'),
+	toggle: true,
+	targetPrefix: 'speedy-qs-',
+}) }}
+
+<div id="speedy-qs-skip" class="flex-fields {{ settings.queryStrings != 'skip' ? 'hidden' }}">
+	{{ forms.textareaField({
+		label: 'Cached parameters'|t('speedy'),
+		instructions: 'Parameters that change what a page shows, one per line, such as `page` or `view`. `/homes?view=map` and `/homes?view=list` are cached as two pages. Other query strings aren’t cached.'|t('speedy'),
+		fieldClass: 'width-50',
+		name: 'cachedParams',
+		value: settings.cachedParams|join("\n"),
+		rows: 4,
+		class: 'code',
+		disabled: 'cachedParams' in overrides,
+		warning: 'cachedParams' in overrides ? configWarning('cachedParams'),
+	}) }}
+	{{ forms.textareaField({
+		label: 'Ignored parameters'|t('speedy'),
+		instructions: 'Parameters that never change what a page shows, such as tracking or ones only scripts read. Pages are cached without them. `*` matches anything.'|t('speedy'),
+		fieldClass: 'width-50',
+		name: 'ignoredParams',
+		value: settings.ignoredParams|join("\n"),
+		rows: 4,
+		class: 'code',
+		disabled: 'ignoredParams' in overrides,
+		warning: 'ignoredParams' in overrides ? configWarning('ignoredParams'),
+	}) }}
+</div>
+
+<div class="flex-fields">
 	{{ forms.selectField({
 		label: 'When content changes'|t('speedy'),
 		instructions: 'Rebuilding keeps the old copy until the new one is ready, so nobody waits.'|t('speedy'),
@@ -286,6 +329,7 @@
 .speedy-code { background: var(--gray-050, #f3f7fc); padding: 12px 14px; border-radius: 6px; font-size: 12px; margin: 0; white-space: pre-wrap; }
 .speedy-under { margin-top: -12px; margin-bottom: 24px; font-size: 13px; }
 .speedy-intro { max-width: 70ch; color: var(--light-text-color, #606d7b); margin-bottom: 20px; }
+#speedy-qs-skip { margin-bottom: 24px; }
 .speedy-cdns { border-top: 1px solid var(--hairline-color, #e3e5e8); }
 .speedy-cdn { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; padding: 24px 0 8px; border-bottom: 1px solid var(--hairline-color, #e3e5e8); }
 .speedy-cdn__about h3 { margin: 0 0 6px; }

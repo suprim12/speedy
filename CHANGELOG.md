@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+- The utility page names query parameters that often keep pages out of the cache, and says whether to cache or ignore them.
+- Query string settings on the settings page: parameters to cache, such as `view` for a tab, and parameters to ignore.
+- Clearer CDN settings, with one row for each CDN.
+
 ### Fixed
 - Craft’s garbage collection, which some importers run before each import, no longer clears every cached page.
 - “Rebuild all pages” builds the pages to warm when nothing is cached, instead of rebuilding 0 pages.

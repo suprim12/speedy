@@ -214,6 +214,9 @@ class Insights extends Component
         if ($usage['paths'] > 800) {
             $add('warning', Craft::t('speedy', '{count} CloudFront paths used this month. The first 1,000 are free; lower wildcardThreshold to use fewer.', ['count' => $usage['paths']]));
         }
+        foreach ($this->skippedParams() as $param => $seen) {
+            $add('hint', Craft::t('speedy', 'About {count} visits to pages with `?{param}=`, such as {path}, weren’t cached because of it. If it changes what the page shows, add `{param}` to Cached parameters in Settings; if not, to Ignored parameters.', ['count' => $seen['count'], 'param' => $param, 'path' => Html::encode($seen['path'])]));
+        }
         $everything = $plugin->storage->countPagesForTag('element::craft\elements\Entry::*');
         if ($everything > 0) {
             $add('hint', Craft::t('speedy', '{count, plural, =1{# page is} other{# pages are}} cleared whenever any entry is saved, as {count, plural, =1{it lists} other{they list}} entries without choosing a section. Add `.section()` to those queries to clear them less often.', ['count' => $everything]));
@@ -313,6 +316,35 @@ class Insights extends Component
         };
 
         return $name ? "$type: $name" : "$type: $tag";
+    }
+
+    /**
+     * The query parameters that kept the most visits out of the cache in the past week, three at most, with roughly
+     * how many visits each.
+     *
+     * @return array<string, array{count: int, path: string}>
+     */
+    public function skippedParams(): array
+    {
+        $seen = Craft::$app->getCache()->get(Cacher::SKIPPED_PARAMS);
+        if (!is_array($seen)) {
+            return [];
+        }
+        $allowed = Plugin::getInstance()->getSettings()->cachedParams;
+        $ignored = Plugin::getInstance()->getSettings()->ignoredParams;
+        $params = [];
+        foreach ($seen as $param => $info) {
+            $param = (string)$param;
+            $count = (int)($info['count'] ?? 0) * Cacher::SKIPPED_SAMPLE;
+            // Set up since: no longer a problem.
+            if ($count < 50 || in_array($param, $allowed, true) || in_array($param, $ignored, true)) {
+                continue;
+            }
+            $params[$param] = ['count' => $count, 'path' => (string)($info['path'] ?? '/')];
+        }
+        uasort($params, fn($a, $b) => $b['count'] <=> $a['count']);
+
+        return array_slice($params, 0, 3, true);
     }
 
     /**

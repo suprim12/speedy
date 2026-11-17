@@ -2,7 +2,7 @@
 
 The settings page (**Settings → Plugins → Speedy Cache**) has three tabs:
 
-- **General:** caching on or off, URLs to never cache or to only cache, what happens when content changes, and what to rebuild after clearing everything.
+- **General:** caching on or off, URLs to never cache or to only cache, query strings, what happens when content changes, and what to rebuild after clearing everything.
 - **CDN:** your Cloudflare and CloudFront details, and whether Speedy has seen your site behind either.
 - **Advanced:** the [API](/guides/api) key, with a button to generate one, and the options below that are only set in `config/speedy.php`, with the values in use now.
 
@@ -41,13 +41,13 @@ return [
 | `neverCache` | `[]` | URL paths never cached, such as `checkout/*`. On the settings page, one per line |
 | `allowedHosts` | `[]` | Host names to cache when a site’s base URL is `@web`, such as `['example.com', 'www.example.com']`. Empty caches any host on ports 80 and 443 for those sites ([Multi-site](/recipes/multi-site#multi-site)) |
 | `onlyCache` | `[]` | URL paths to cache, when only some pages should be, such as `['/', 'news*']`. `/` is the homepage. Empty caches every page ([What isn’t cached](/guides/not-cached#caching-only-some-pages)) |
-| `queryStrings` | `'skip'` | `'skip'`: pages with a query string aren’t cached. `'ignore'`: they’re cached without it, for sites that never use query strings for content |
-| `cachedParams` | `[]` | Query parameters that make a page of their own, such as `['page', 'category']` ([Pagination and filters](/guides/not-cached#pagination-and-filters)) |
+| `queryStrings` | `'skip'` | `'skip'`: pages with a query string are cached only for the parameters in `cachedParams`. `'ignore'`: they’re cached without it, for sites that never use query strings for content. Also on the General tab |
+| `cachedParams` | `[]` | Query parameters that make a page of their own, such as `['page', 'view']` ([Pagination and filters](/guides/not-cached#pagination-and-filters)). Also on the General tab, one per line |
 | `maxQueryPages` | `100` | The most query string versions of one page to keep ([Pagination and filters](/guides/not-cached#pagination-and-filters)) |
 | `ignoredElementTypes` | `[]` | Element types whose changes never clear pages, such as `[craft\elements\User::class]` |
 | `clearInRequest` | `'auto'` | Clear pages straight away instead of in the queue: `'auto'` only while the queue isn’t running, `true` always, `false` never ([Cron and queue](/recipes/cron#if-the-queue-stops)) |
 | `ignoreUnchangedSaves` | `true` | Don’t clear pages when something is saved without changes ([How clearing works](/guides/clearing#what-doesn-t-clear-pages)) |
-| `ignoredParams` | `utm_*`, `gclid`, `fbclid`… | Tracking parameters that never stop a page being cached |
+| `ignoredParams` | `utm_*`, `gclid`, `fbclid`… | Parameters that never change a page, such as tracking: pages are cached without them. Also on the General tab |
 | `skipWhenCart` | `true` | Don’t cache for visitors with a Commerce cart |
 | `skipCookies` | `[]` | Cookies that mean a visitor sees their own version of pages, matched by part of the name, such as `['cookie_consent']` ([What isn’t cached](/guides/not-cached#cookies-that-change-pages)) |
 | `ignoredCookies` | `[]` | Cookies that never change pages, as well as the built-in analytics ones. Pages are only saved from requests without other cookies ([What isn’t cached](/guides/not-cached#made-up-cookies-can-t-reach-the-shared-copy)) |

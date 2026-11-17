@@ -249,6 +249,7 @@ class Cacher extends Component
             $query = $this->cachedQuery($request, $params);
             if ($query === null) {
                 $reason = 'query string';
+                $this->noteSkippedParams($request, $params);
             } else {
                 $this->_query = $query;
             }
@@ -925,6 +926,41 @@ class Cacher extends Component
         ksort($query);
 
         return $query;
+    }
+
+    /** Craft cache key for the query parameters that kept pages out of the cache, for the utility page. */
+    public const SKIPPED_PARAMS = 'speedy:skippedParams';
+
+    /** One skipped request in this many is counted, so a busy site writes rarely. */
+    public const SKIPPED_SAMPLE = 10;
+
+    /**
+     * Counts the parameters that kept a page out of the cache, such as `view` in `?view=split`, so the utility page
+     * can suggest listing them in `cachedParams` or `ignoredParams`. Sampled, and capped at 20 names.
+     *
+     * @param string[] $params
+     */
+    private function noteSkippedParams(Request $request, array $params): void
+    {
+        if (mt_rand(1, self::SKIPPED_SAMPLE) !== 1) {
+            return;
+        }
+        $allowed = Plugin::getInstance()->getSettings()->cachedParams;
+        $cache = Craft::$app->getCache();
+        $seen = $cache->get(self::SKIPPED_PARAMS);
+        $seen = is_array($seen) ? $seen : [];
+        foreach ($params as $param) {
+            $param = (string)$param;
+            // Plain names only: made-up parameters can’t fill the list with junk.
+            if (($allowed && $this->matchesAny($param, $allowed)) || !preg_match('/^[A-Za-z][A-Za-z0-9_\-]{0,39}$/', $param)) {
+                continue;
+            }
+            if (!isset($seen[$param]) && count($seen) >= 20) {
+                continue;
+            }
+            $seen[$param] = ['count' => ($seen[$param]['count'] ?? 0) + 1, 'path' => '/' . ltrim(mb_substr($request->getFullPath(), 0, 100), '/')];
+        }
+        $cache->set(self::SKIPPED_PARAMS, $seen, 7 * 86400);
     }
 
     /**

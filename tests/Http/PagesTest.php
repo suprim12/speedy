@@ -348,6 +348,40 @@ class PagesTest extends TestCase
         $this->assertNull(Plugin::getInstance()->insights->rebuildProblem(), 'Not after a day.');
     }
 
+    public function testQueryParametersThatStopCachingAreSuggested(): void
+    {
+        $param = 'speedyTest' . bin2hex(random_bytes(3));
+        $requests = function() use ($param) {
+            for ($i = 0; $i < 300; $i++) {
+                yield new \GuzzleHttp\Psr7\Request('GET', '/' . self::$prefix . "/plain?$param=$i");
+            }
+        };
+        (new \GuzzleHttp\Pool($this->client(), $requests(), ['concurrency' => 10]))->promise()->wait();
+
+        try {
+            $seen = Plugin::getInstance()->insights->skippedParams();
+            $this->assertArrayHasKey($param, $seen, 'About 300 visits, sampled.');
+            $this->assertSame('/' . self::$prefix . '/plain', $seen[$param]['path']);
+            $messages = implode(' ', array_column(Plugin::getInstance()->insights->checks(), 'message'));
+            $this->assertStringContainsString("add `$param` to Cached parameters", $messages);
+
+            // Once it’s listed, the suggestion goes.
+            $settings = Plugin::getInstance()->getSettings();
+            $before = $settings->cachedParams;
+            $settings->cachedParams = [$param];
+            $this->assertArrayNotHasKey($param, Plugin::getInstance()->insights->skippedParams());
+            $settings->cachedParams = $before;
+        } finally {
+            // Only this test’s entry.
+            $cache = Craft::$app->getCache();
+            $all = $cache->get(\suprim\speedy\services\Cacher::SKIPPED_PARAMS);
+            if (is_array($all)) {
+                unset($all[$param]);
+                $cache->set(\suprim\speedy\services\Cacher::SKIPPED_PARAMS, $all, 7 * 86400);
+            }
+        }
+    }
+
     public function testApiIsOffWithoutAKey(): void
     {
         if (Plugin::getInstance()->getSettings()->getApiKey() !== '') {

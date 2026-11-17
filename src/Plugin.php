@@ -181,9 +181,6 @@ class Plugin extends BasePlugin
             default => (string)$v,
         };
         $rows = [
-            ['queryStrings', $s->queryStrings, Craft::t('speedy', 'skip: pages with a query string aren’t cached. ignore: they’re cached without it.')],
-            ['cachedParams', $s->cachedParams, Craft::t('speedy', 'Query parameters that make a page of their own, such as page. Other query strings aren’t cached.')],
-            ['ignoredParams', $s->ignoredParams, Craft::t('speedy', 'Tracking parameters that never stop a page being cached.')],
             ['ignoredCookies', $s->ignoredCookies, Craft::t('speedy', 'Cookies that never change pages. Requests with other cookies are sent cached pages but don’t save them.')],
             ['maxQueryPages', $s->maxQueryPages, Craft::t('speedy', 'The most query string versions of one page to keep.')],
             ['ignoredElementTypes', $s->ignoredElementTypes, Craft::t('speedy', 'Element types whose changes never clear pages.')],

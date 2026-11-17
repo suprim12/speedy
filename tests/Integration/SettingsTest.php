@@ -93,4 +93,16 @@ class SettingsTest extends TestCase
         $this->assertStringNotContainsString('super-secret-token', $report);
         $this->assertStringNotContainsString('another-secret-key-123', $report);
     }
+
+    public function testParameterListsFromTheSettingsPage(): void
+    {
+        $settings = new Settings();
+        $settings->setAttributes(['cachedParams' => " page\r\nview, sort\n\n", 'ignoredParams' => "utm_*\ngclid"], false);
+        $this->assertSame(['page', 'view', 'sort'], $settings->cachedParams);
+        $this->assertSame(['utm_*', 'gclid'], $settings->ignoredParams);
+
+        // Arrays from config/speedy.php are kept as they are.
+        $settings->setAttributes(['cachedParams' => ['page']], false);
+        $this->assertSame(['page'], $settings->cachedParams);
+    }
 }
