@@ -226,6 +226,13 @@ class Settings extends Model
                 $values[$name] = $this->patterns(array_map(fn($row) => is_array($row) ? (string)($row['param'] ?? '') : (string)$row, $value));
             }
         }
+        // URL patterns from the settings page’s tables, such as [['pattern' => 'checkout/*']]. Text, as saved by
+        // earlier versions or set in config/speedy.php, is kept as it is; getNeverCache() reads both.
+        foreach (['neverCache', 'onlyCache'] as $name) {
+            if (isset($values[$name]) && is_array($values[$name])) {
+                $values[$name] = $this->patterns(array_map(fn($row) => is_array($row) ? (string)($row['pattern'] ?? '') : (string)$row, $values[$name]));
+            }
+        }
         if (isset($values['rebuildCleared']) && is_string($values['rebuildCleared'])) {
             $values['rebuildCleared'] = $values['rebuildCleared'] === '1';
         }

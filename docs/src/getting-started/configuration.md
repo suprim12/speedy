@@ -39,7 +39,7 @@ return [
 | Option | Default | Description |
 |---|---|---|
 | `enabled` | `true` | Whether pages are cached |
-| `neverCache` | `[]` | URL paths never cached, such as `checkout/*`. On the settings page, one per line |
+| `neverCache` | `[]` | URL paths never cached, such as `checkout/*`. Also on the General tab |
 | `allowedHosts` | `[]` | Host names to cache when a site’s base URL is `@web`, such as `['example.com', 'www.example.com']`. Empty caches any host on ports 80 and 443 for those sites ([Multi-site](/recipes/multi-site#multi-site)) |
 | `onlyCache` | `[]` | URL paths to cache, when only some pages should be, such as `['/', 'news*']`. `/` is the homepage. Empty caches every page ([What isn’t cached](/guides/not-cached#caching-only-some-pages)) |
 | `queryStrings` | `'skip'` | `'skip'`: pages with a query string are cached only for the parameters in `cachedParams`. `'ignore'`: they’re cached without it, for sites that never use query strings for content. Also on the Query strings tab |

@@ -109,4 +109,28 @@ class SettingsTest extends TestCase
         $settings->setAttributes(['cachedParams' => ['page']], false);
         $this->assertSame(['page'], $settings->cachedParams);
     }
+
+    public function testUrlPatternsFromEveryVersionStillWork(): void
+    {
+        // Saved by 1.0 and 1.1 from a textarea, one per line.
+        $settings = new Settings();
+        $settings->setAttributes(['neverCache' => "checkout/*\r\naccount*\n\n search ", 'onlyCache' => "/\nnews*"], false);
+        $this->assertSame(['checkout/*', 'account*', 'search'], $settings->getNeverCache());
+        $this->assertSame(['/', 'news*'], $settings->getOnlyCache());
+
+        // From config/speedy.php, as a list or as text.
+        $settings = new Settings(['neverCache' => ['checkout/*', 'account*'], 'onlyCache' => "news*\nabout"]);
+        $this->assertSame(['checkout/*', 'account*'], $settings->getNeverCache());
+        $this->assertSame(['news*', 'about'], $settings->getOnlyCache());
+
+        // From the settings page’s tables, with a blank row.
+        $settings = new Settings();
+        $settings->setAttributes(['neverCache' => ['new1' => ['pattern' => 'checkout/*'], 'new2' => ['pattern' => ''], '0' => ['pattern' => ' search ']]], false);
+        $this->assertSame(['checkout/*', 'search'], $settings->getNeverCache());
+        $this->assertSame(['checkout/*', 'search'], $settings->neverCache, 'Saved as a plain list.');
+
+        // Every row deleted.
+        $settings->setAttributes(['neverCache' => ''], false);
+        $this->assertSame([], $settings->getNeverCache());
+    }
 }

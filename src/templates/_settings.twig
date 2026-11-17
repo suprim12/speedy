@@ -34,29 +34,35 @@
 	warning: 'enabled' in overrides ? configWarning('enabled'),
 }) }}
 
-<div class="flex-fields">
-	{{ forms.textareaField({
+<div class="flex-fields speedy-paths">
+	{{ forms.editableTableField({
 		label: 'Never cache'|t('speedy'),
-		instructions: 'One URL path per line. `*` matches anything.'|t('speedy'),
+		instructions: 'URL paths that are never cached, such as `checkout/*`. `*` matches anything.'|t('speedy'),
 		fieldClass: 'width-50',
+		id: 'neverCache',
 		name: 'neverCache',
-		value: settings.getNeverCache()|join("\n"),
-		placeholder: "checkout/*\naccount*\nsearch",
-		rows: 4,
-		class: 'code',
-		disabled: 'neverCache' in overrides,
+		cols: { pattern: { type: 'singleline', heading: 'URL path'|t('speedy'), code: true, placeholder: 'checkout/*' } },
+		rows: settings.getNeverCache()|map(p => { pattern: p }),
+		allowAdd: true,
+		allowDelete: true,
+		allowReorder: false,
+		addRowLabel: 'Add a path'|t('speedy'),
+		static: 'neverCache' in overrides,
 		warning: 'neverCache' in overrides ? configWarning('neverCache'),
 	}) }}
-	{{ forms.textareaField({
+	{{ forms.editableTableField({
 		label: 'Only cache'|t('speedy'),
 		instructions: 'Leave empty to cache every page. `/` is the homepage.'|t('speedy'),
 		fieldClass: 'width-50',
+		id: 'onlyCache',
 		name: 'onlyCache',
-		value: settings.getOnlyCache()|join("\n"),
-		placeholder: "/\nnews*\nabout",
-		rows: 4,
-		class: 'code',
-		disabled: 'onlyCache' in overrides,
+		cols: { pattern: { type: 'singleline', heading: 'URL path'|t('speedy'), code: true, placeholder: 'news*' } },
+		rows: settings.getOnlyCache()|map(p => { pattern: p }),
+		allowAdd: true,
+		allowDelete: true,
+		allowReorder: false,
+		addRowLabel: 'Add a path'|t('speedy'),
+		static: 'onlyCache' in overrides,
 		warning: 'onlyCache' in overrides ? configWarning('onlyCache'),
 	}) }}
 </div>
@@ -363,6 +369,7 @@
 .speedy-seen ul { margin: 10px 0 0; }
 .speedy-seen li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 0; }
 .speedy-seen li .light { margin-right: auto; }
+.speedy-paths { margin-bottom: 24px; }
 .speedy-cdns { border-top: 1px solid var(--hairline-color, #e3e5e8); }
 .speedy-cdn { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; padding: 24px 0 8px; border-bottom: 1px solid var(--hairline-color, #e3e5e8); }
 .speedy-cdn__about h3 { margin: 0 0 6px; }
