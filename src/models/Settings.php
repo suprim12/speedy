@@ -122,6 +122,9 @@ class Settings extends Model
     /** The most query string versions of one page to keep, such as `?page=2` to `?page=100`. More are built but not saved. */
     public int $maxQueryPages = 100;
 
+    /** The most disk space cached pages may use, in megabytes, such as on a small hosting plan. Past it, pages already cached are still sent, but new ones aren’t saved. Null for no limit. */
+    public ?int $maxCacheSize = null;
+
     /** @var string[] Element types whose changes never clear pages, by class name, such as `craft\elements\User`. */
     public array $ignoredElementTypes = [];
 
@@ -383,6 +386,7 @@ class Settings extends Model
             [['storage'], 'in', 'range' => [self::STORAGE_FILES, self::STORAGE_CRAFT_CACHE]],
             [['warmConcurrency'], 'integer', 'min' => 1, 'max' => 10],
             [['maxQueryPages'], 'integer', 'min' => 1],
+            [['maxCacheSize'], 'integer', 'min' => 1],
             [['wildcardThreshold'], 'integer', 'min' => 1],
             [['cdnMaxAge'], 'integer', 'min' => 0],
             [['apiKey'], function(string $attribute) {

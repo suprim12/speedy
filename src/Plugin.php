@@ -97,6 +97,10 @@ class Plugin extends BasePlugin
         });
 
         $this->registerClearing();
+        // Craft's garbage collection runs by itself now and then, and from cron: clear out old trash then too.
+        Event::on(\craft\services\Gc::class, \craft\services\Gc::EVENT_RUN, function() {
+            $this->storage->deleteOldTrash();
+        });
         $this->registerControlPanel();
 
         $this->registerLog();
@@ -205,6 +209,7 @@ class Plugin extends BasePlugin
         $rows = [
             ['ignoredCookies', $s->ignoredCookies, Craft::t('speedy', 'Cookies that never change pages. Requests with other cookies are sent cached pages but don’t save them.')],
             ['maxQueryPages', $s->maxQueryPages, Craft::t('speedy', 'The most query string versions of one page to keep.')],
+            ['maxCacheSize', $s->maxCacheSize, Craft::t('speedy', 'The most disk space cached pages may use, in MB. Empty for no limit.')],
             ['ignoredElementTypes', $s->ignoredElementTypes, Craft::t('speedy', 'Element types whose changes never clear pages.')],
             ['clearInRequest', $s->clearInRequest, Craft::t('speedy', 'Clear pages without the queue: auto does so only while the queue isn’t running.')],
             ['ignoreUnchangedSaves', $s->ignoreUnchangedSaves, Craft::t('speedy', 'Saves that change nothing don’t clear pages.')],

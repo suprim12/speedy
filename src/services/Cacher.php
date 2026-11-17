@@ -405,6 +405,11 @@ class Cacher extends Component
             $response->getHeaders()->set('Cache-Control', 'private, no-cache');
             return;
         }
+        if (Plugin::getInstance()->storage->overSizeLimit()) {
+            $response->getHeaders()->set(self::HEADER, 'SKIP cache full');
+            $response->getHeaders()->set('Cache-Control', 'private, no-cache');
+            return;
+        }
 
         $tags = $dependency->tags ?? [];
         $settings = Plugin::getInstance()->getSettings();

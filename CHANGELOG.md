@@ -2,8 +2,13 @@
 
 ## Unreleased
 
+### Added
+- `maxCacheSize`, a limit on the disk space cached pages may use.
+
 ### Fixed
 - Cached pages are kept out of git, so `git add` no longer picks them up.
+- Pages left over from clearing everything are deleted even when the queue isn’t running.
+- **Check server serving** warns when cached pages can be opened directly in the cache folder.
 
 ## 1.2.0 - 2026-11-17
 

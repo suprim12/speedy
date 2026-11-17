@@ -46,6 +46,7 @@ class PagesTest extends TestCase
             'dynamic' => '<html><body>Page {{ now|date("U.u") }} {{ craft.speedy.dynamic("' . self::$prefix . '/_part", { name: "Alex" }) }}</body></html>',
             '_part' => '<p>Part for {{ name }} at {{ now|date("U.u") }}</p>',
             'analytics' => '<html><body>Analytics</body></html>',
+            'consent' => '<html><body>Consent</body></html>',
             'theme' => '<html><body>Theme {{ craft.app.request.rawCookies.getValue("theme") ?? "default" }}</body></html>',
             'raw-cookie' => '{% do craft.app.response.headers.add("Set-Cookie", "tracker=abc; Path=/") %}<html><body>Raw cookie</body></html>',
             'loop' => "<html><body>\n{% for i in 1..12 %}{{ craft.users().id(i).one() ? '' }}{% endfor %}\n</body></html>",
@@ -402,6 +403,24 @@ class PagesTest extends TestCase
                 $cache->set(\suprim\speedy\services\Cacher::SKIPPED_PARAMS, $all, 7 * 86400);
             }
         }
+    }
+
+    public function testAVisitorWithCookiesGetsThePageCachedForEveryone(): void
+    {
+        $cookies = ['headers' => ['Cookie' => 'cookieConsent=accepted']];
+        $url = self::$base . '/' . self::$prefix . '/consent';
+        $jobs = fn() => (new \craft\db\Query())->from(\craft\db\Table::QUEUE)->where(['like', 'job', self::$prefix . '/consent'])->column();
+
+        // Not cached yet: built for this visitor, not saved from a request with cookies, but queued to build.
+        $this->assertSame('SKIP request cookies', $this->speedy($this->get('consent', $cookies)));
+        $this->assertCount(1, $jobs(), 'One background build.');
+        $this->get('consent', $cookies);
+        $this->assertCount(1, $jobs(), 'Not one for every visitor.');
+
+        // Once built, visitors with cookies get the cached copy too.
+        Craft::$app->getDb()->createCommand()->delete(\craft\db\Table::QUEUE, ['id' => $jobs()])->execute();
+        Plugin::getInstance()->warmer->warm([$url], false);
+        $this->assertSame('HIT', $this->speedy($this->get('consent', $cookies)));
     }
 
     public function testApiIsOffWithoutAKey(): void

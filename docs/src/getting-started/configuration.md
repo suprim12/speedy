@@ -47,6 +47,7 @@ return [
 | `queryStrings` | `'skip'` | `'skip'`: pages with a query string are cached only for the parameters in `cachedParams`. `'ignore'`: they’re cached without it, for sites that never use query strings for content. Also on the Query strings tab |
 | `cachedParams` | `[]` | Query parameters that make a page of their own, such as `['page', 'view']` ([Pagination and filters](/guides/not-cached#pagination-and-filters)). Also on the Query strings tab |
 | `maxQueryPages` | `100` | The most query string versions of one page to keep ([Pagination and filters](/guides/not-cached#pagination-and-filters)) |
+| `maxCacheSize` | `null` | The most disk space cached pages may use, in MB, such as `500` on a small hosting plan. Past it, pages already cached are still sent and cleared, but new ones aren’t saved. `null` for no limit |
 | `ignoredElementTypes` | `[]` | Element types whose changes never clear pages, such as `[craft\elements\User::class]` |
 | `clearInRequest` | `'auto'` | Clear pages straight away instead of in the queue: `'auto'` only while the queue isn’t running, `true` always, `false` never ([Cron and queue](/recipes/cron#if-the-queue-stops)) |
 | `ignoreUnchangedSaves` | `true` | Don’t clear pages when something is saved without changes ([How clearing works](/guides/clearing#what-doesn-t-clear-pages)) |

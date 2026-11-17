@@ -509,6 +509,7 @@ class Clearer extends Component
         $since = (int)($data['lastExpire'] ?? $now - 3600);
 
         $plugin->storage->pruneLocks();
+        $plugin->storage->deleteOldTrash();
         $keys = $plugin->storage->takeExpired($now);
         $count = $keys ? $this->clearKeys($keys, Craft::t('speedy', 'Scheduled content changed')) : 0;
         $count += $this->clearWentLive($since, $now);

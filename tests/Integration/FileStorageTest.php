@@ -125,4 +125,64 @@ class FileStorageTest extends TestCase
         $storage->write('example.com/news', '<html>News</html>', 'https://example.com/news', [], null);
         $this->assertFileExists($ignore);
     }
+
+    public function testOldTrashIsDeletedWithoutTheQueue(): void
+    {
+        $storage = $this->plugin()->storage;
+        $storage->write('example.com/news', '<html>News</html>', 'https://example.com/news', [], null);
+        $storage->clearAll();
+        $trash = glob($storage->dataRoot() . '/trash/*', GLOB_ONLYDIR) ?: [];
+        $this->assertNotEmpty($trash, 'Clearing everything moves the pages to the trash.');
+
+        // Recent trash is left for the queue job.
+        foreach ($trash as $dir) {
+            touch($dir);
+        }
+        $storage->deleteOldTrash();
+        $this->assertSame(count($trash), count(glob($storage->dataRoot() . '/trash/*', GLOB_ONLYDIR) ?: []));
+
+        // Trash the queue never got to is deleted by cron or garbage collection.
+        foreach ($trash as $dir) {
+            touch($dir, time() - 3600);
+        }
+        $storage->deleteOldTrash();
+        $this->assertSame([], glob($storage->dataRoot() . '/trash/*', GLOB_ONLYDIR) ?: []);
+    }
+
+    public function testNewPagesStopAtTheSizeLimit(): void
+    {
+        $storage = $this->plugin()->storage;
+        $this->assertFalse($storage->overSizeLimit(), 'No limit by default.');
+
+        $this->settings()->maxCacheSize = 1;
+        $storage->write('example.com/big', '<html>' . random_bytes(1200000) . '</html>', 'https://example.com/big', [], null);
+        \Craft::$app->getCache()->delete('speedy:stats:' . md5($storage->cacheRoot()));
+        $this->assertTrue($storage->overSizeLimit());
+        $this->assertStringContainsString('1 MB allowed by maxCacheSize', implode(' ', array_column($this->plugin()->insights->checks(), 'message')));
+
+        $this->settings()->maxCacheSize = 50;
+        \Craft::$app->getCache()->delete('speedy:stats:' . md5($storage->cacheRoot()));
+        $this->assertFalse($storage->overSizeLimit());
+    }
+
+    public function testCheckingWhetherTheCacheFolderCanBeOpened(): void
+    {
+        $storage = $this->plugin()->storage;
+        $host = (string)parse_url((string)\Craft::$app->getSites()->getPrimarySite()->getBaseUrl(), PHP_URL_HOST);
+        $url = 'https://' . $host . '/';
+        $rules = $this->plugin()->serverRules;
+        $client = fn(int $status, string $body) => new \GuzzleHttp\Client(['handler' => \GuzzleHttp\HandlerStack::create(new \GuzzleHttp\Handler\MockHandler([new \GuzzleHttp\Psr7\Response($status, [], $body)]))]);
+
+        $this->assertNull($rules->folderIsOpen($client(200, '<html>'), $url), 'Unknown until the homepage is cached.');
+        $storage->write((string)$storage->keyForUrl($url), '<html>Home</html>', $url, [], null);
+        $this->settings()->cachePath = \Craft::getAlias('@webroot') . '/speedy-test-' . bin2hex(random_bytes(3));
+        $storage->write((string)$storage->keyForUrl($url), '<html>Home</html>', $url, [], null);
+        try {
+            $this->assertTrue($rules->folderIsOpen($client(200, '<html>Home</html>'), $url), 'Sent at its own address: open.');
+            $this->assertFalse($rules->folderIsOpen($client(403, 'Forbidden'), $url), 'Refused: closed.');
+            $this->assertFalse($rules->folderIsOpen($client(404, ''), $url));
+        } finally {
+            \craft\helpers\FileHelper::removeDirectory($storage->cacheRoot());
+        }
+    }
 }

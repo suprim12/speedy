@@ -227,6 +227,16 @@ class Storage extends Component
     }
 
     /**
+     * Whether cached pages use the space allowed by `maxCacheSize`, going by the page count kept for five minutes.
+     */
+    public function overSizeLimit(): bool
+    {
+        $limit = Plugin::getInstance()->getSettings()->maxCacheSize;
+
+        return $limit !== null && $limit > 0 && $this->cachedStats()['bytes'] >= $limit * 1024 * 1024;
+    }
+
+    /**
      * Whether the disk is nearly full, so new pages shouldn’t be saved.
      */
     public function diskFull(): bool
@@ -412,6 +422,24 @@ class Storage extends Component
         $dir = $this->dataRoot() . '/trash';
         if (is_dir($dir)) {
             FileHelper::removeDirectory($dir);
+        }
+    }
+
+    /**
+     * Deletes cleared pages that have waited in the trash longer than this many seconds, for when the queue job that
+     * deletes them hasn’t run: every “Clear all” would otherwise leave another full copy of the cache on the disk.
+     */
+    public function deleteOldTrash(int $age = 600): void
+    {
+        foreach (glob($this->dataRoot() . '/trash/*', GLOB_ONLYDIR) ?: [] as $dir) {
+            if ((int)@filemtime($dir) < time() - $age) {
+                try {
+                    FileHelper::removeDirectory($dir);
+                } catch (\Throwable $e) {
+                    // The queue job may be deleting it at the same moment; it's tried again next time.
+                    Craft::warning("Couldn’t delete $dir: " . $e->getMessage(), 'speedy');
+                }
+            }
         }
     }
 

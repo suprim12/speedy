@@ -177,6 +177,9 @@ class Insights extends Component
         if ($plugin->storage->diskFull()) {
             $add('error', Craft::t('speedy', 'The disk is nearly full ({free} MB free), so new pages aren’t being cached. Pages already cached are still sent, and still cleared when content changes.', ['free' => intdiv((int)$plugin->storage->freeSpace(), 1048576)]));
         }
+        if ($plugin->storage->overSizeLimit()) {
+            $add('warning', Craft::t('speedy', 'Cached pages use the {limit} MB allowed by maxCacheSize, so new pages aren’t being cached. Pages already cached are still sent and cleared as usual.', ['limit' => $settings->maxCacheSize]));
+        }
         // Other full-page caches; getPlugin() only returns enabled ones.
         foreach (['blitz'] as $handle) {
             $other = Craft::$app->getPlugins()->getPlugin($handle);
@@ -227,6 +230,9 @@ class Insights extends Component
         }
         if ($general->devMode && Craft::$app->env === 'production') {
             $add('warning', Craft::t('speedy', 'devMode is on in production.'));
+        }
+        if (!$usesCache && ($plugin->storage->readData('state')['folderOpen'] ?? null) === true) {
+            $add('warning', Craft::t('speedy', 'Cached pages can be opened directly in the cache folder, such as {path}. They’re public pages, but add the [server rules](#setup) to close the folder, then click “Check server serving” again.', ['path' => '`' . $plugin->serverRules->webPath() . '/…/index.html`']));
         }
         if (!$usesCache && !($plugin->storage->readData('state')['serverChecked'] ?? false)) {
             $add('hint', Craft::t('speedy', 'Add the [server rules](#setup) so cached pages are sent without PHP, then click “Check server serving”.'));

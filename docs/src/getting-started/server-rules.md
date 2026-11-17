@@ -89,7 +89,7 @@ Header set Content-Encoding "gzip" env=SPEEDY_GZ
 
 `mod_rewrite` and `mod_headers` must be enabled. Like the nginx rules, they send the compressed copy to browsers that accept it, and refuse direct requests to the cache folder. Tested on Apache 2.4.
 
-Speedy also keeps a small `.htaccess` in `web/speedy/` that refuses direct requests, so the folder is closed on Apache even before you add the rules. Leave it in place.
+Speedy also keeps a small `.htaccess` in `web/speedy/` that refuses direct requests, so the folder is closed on Apache even before you add the rules. Leave it in place. On nginx, the folder is closed by the rules, which mark it `internal`. Until they’re added, cached pages can be opened at their own address, such as `/speedy/example.com/index.html`: they’re the same public pages, and **Check server serving** on the utility page warns about it.
 
 ## Git and deploys
 

@@ -83,6 +83,7 @@ class UtilityController extends Controller
         $result = Plugin::getInstance()->serverRules->check();
         $state = $storage->readData('state');
         $state['serverChecked'] = $result['ok'];
+        $state['folderOpen'] = $result['folderOpen'] ?? null;
         $storage->writeData('state', $state);
 
         return $result['ok'] ? $this->asSuccess($result['message']) : $this->asFailure($result['message']);

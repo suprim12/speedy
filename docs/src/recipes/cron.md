@@ -32,7 +32,7 @@ Scheduled content (an entry going live at 9 am) is handled by a delayed queue jo
 * * * * * php /path/to/craft speedy/expire > /dev/null 2>&1
 ```
 
-It does nothing when nothing has expired.
+It does nothing when nothing has expired. It also deletes pages left over from **Clear all** that the queue hasn’t deleted yet, so a stopped queue can’t fill the disk.
 
 ## Craft Cloud and managed hosts
 

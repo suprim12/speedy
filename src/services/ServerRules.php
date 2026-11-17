@@ -119,7 +119,7 @@ class ServerRules extends Component
     /**
      * Requests the homepage twice and works out who served the second copy.
      *
-     * @return array{ok: bool, message: string, ms: ?int}
+     * @return array{ok: bool, message: string, ms: ?int, folderOpen?: ?bool}
      */
     public function check(): array
     {
@@ -139,6 +139,17 @@ class ServerRules extends Component
             return ['ok' => false, 'message' => Craft::t('speedy', 'Couldn’t load {url}: {error}', ['url' => $url, 'error' => $e->getMessage()]), 'ms' => null];
         }
 
+        $result = $this->describe($response, $ms);
+        $result['folderOpen'] = $this->folderIsOpen($client, $url);
+
+        return $result;
+    }
+
+    /**
+     * @return array{ok: bool, message: string, ms: ?int}
+     */
+    private function describe(\Psr\Http\Message\ResponseInterface $response, int $ms): array
+    {
         $state = $response->getHeaderLine(Cacher::HEADER);
         if ($state === 'STATIC' || ($state === '' && !$response->hasHeader('X-Powered-By'))) {
             return ['ok' => true, 'message' => Craft::t('speedy', 'Cached pages are served without PHP, in {ms} ms.', ['ms' => $ms]), 'ms' => $ms];
@@ -148,5 +159,28 @@ class ServerRules extends Component
         }
 
         return ['ok' => false, 'message' => Craft::t('speedy', 'The homepage isn’t cached ({state}).', ['state' => $state ?: Craft::t('speedy', 'no Speedy header')]), 'ms' => $ms];
+    }
+
+    /**
+     * Whether the homepage’s cached file can be opened at its own address, such as /speedy/example.com/index.html.
+     * Apache refuses it from the start; nginx once the server rules mark the folder internal. Null when unknown.
+     */
+    public function folderIsOpen(\GuzzleHttp\ClientInterface $client, string $url): ?bool
+    {
+        $storage = Plugin::getInstance()->storage;
+        $webPath = $this->webPath();
+        $key = $storage->keyForUrl($url);
+        if ($storage->usesCache() || $webPath === null || $key === null || !$storage->exists($key)) {
+            return null;
+        }
+        $parts = parse_url($url);
+        $direct = ($parts['scheme'] ?? 'https') . '://' . ($parts['host'] ?? '') . (isset($parts['port']) ? ':' . $parts['port'] : '') . $webPath . '/' . $key . '/index.html';
+        try {
+            $response = $client->request('GET', $direct, ['allow_redirects' => false, 'http_errors' => false]);
+        } catch (Throwable) {
+            return null;
+        }
+
+        return $response->getStatusCode() === 200 && str_contains((string)$response->getBody(), '<');
     }
 }
