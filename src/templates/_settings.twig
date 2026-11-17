@@ -200,7 +200,7 @@
 			{% if cdn == 'cloudflare' %}
 				{{ forms.autosuggestField({
 					label: 'API token'|t('speedy'),
-					instructions: 'With only the Zone → Cache Purge permission.'|t('speedy'),
+					instructions: 'With the Zone → Cache Purge permission, and Zone → Cache Rules → Edit to use Set up Cloudflare on the utility page.'|t('speedy'),
 					name: 'cloudflareToken',
 					value: settings.cloudflareToken,
 					suggestEnvVars: true,

@@ -20,6 +20,7 @@ use suprim\speedy\purgers\Bunny;
 use suprim\speedy\purgers\Fastly;
 use suprim\speedy\purgers\PurgerInterface;
 use suprim\speedy\purgers\Varnish;
+use suprim\speedy\services\cdn\CloudflareRules;
 use suprim\speedy\services\cdn\SigV4;
 use Throwable;
 
@@ -314,6 +315,78 @@ class Cdn extends Component
         $this->cloudfrontInvalidate(['/speedy-cache-check']);
 
         return Craft::t('speedy', 'CloudFront accepted a test invalidation (1 path).');
+    }
+
+    /**
+     * Adds the Cache Rules that let Cloudflare keep the sites’ pages, to each zone, or updates them.
+     *
+     * @return string What was done.
+     */
+    public function setUpCloudflare(): string
+    {
+        $plugin = Plugin::getInstance();
+        $settings = $plugin->getSettings();
+        if (!in_array(self::CLOUDFLARE, $this->configured(), true)) {
+            throw new \RuntimeException(Craft::t('speedy', 'Add the Cloudflare token and zone ID in Settings first.'));
+        }
+        $hosts = $plugin->cacher->certainHosts();
+        if ($hosts === null) {
+            throw new \RuntimeException(Craft::t('speedy', 'A site’s base URL is `@web`, so Speedy can’t tell which domains are the sites’. List them in `allowedHosts`.'));
+        }
+        $byZone = [];
+        $noZone = [];
+        foreach (array_unique(array_map(fn($h) => (string)preg_replace('/:\d+$/', '', $h), $hosts)) as $host) {
+            $zone = $this->cloudflareZoneFor("https://$host/");
+            if ($zone === null) {
+                $noZone[] = $host;
+            } else {
+                $byZone[$zone][] = $host;
+            }
+        }
+        if (!$byZone) {
+            throw new \RuntimeException(Craft::t('speedy', 'None of the sites’ domains has a Cloudflare zone.'));
+        }
+
+        $general = Craft::$app->getConfig()->getGeneral();
+        $paths = array_values(array_unique(array_filter([
+            $general->cpTrigger ? '/' . trim($general->cpTrigger, '/') : null,
+            '/' . trim($general->actionTrigger, '/'),
+            '/index.php',
+        ])));
+        $cookies = $plugin->serverRules->bypassCookies();
+        $rules = new CloudflareRules($this->cloudflareClient ?? Craft::createGuzzleClient(['timeout' => 20]), $settings->getCloudflareToken());
+        $updated = 0;
+        foreach ($byZone as $zone => $zoneHosts) {
+            if ($rules->apply((string)$zone, CloudflareRules::rules($zoneHosts, $paths, $cookies))) {
+                $updated++;
+            }
+        }
+
+        $storage = $plugin->storage;
+        $state = $storage->readData('cdn');
+        $state['cloudflareRules'] = ['time' => time(), 'hosts' => array_merge(...array_values($byZone))];
+        $storage->writeData('cdn', $state);
+
+        $message = $updated === count($byZone)
+            ? Craft::t('speedy', 'Cloudflare’s cache rules were already there, and are up to date.')
+            : Craft::t('speedy', 'Cloudflare now keeps pages for {hosts}.', ['hosts' => implode(', ', array_merge(...array_values($byZone)))]);
+        if ($noZone) {
+            $message .= ' ' . Craft::t('speedy', 'No zone for {hosts}.', ['hosts' => implode(', ', $noZone)]);
+        }
+
+        return $message;
+    }
+
+    /**
+     * When the Cloudflare cache rules were last set up, and for which hosts.
+     *
+     * @return array{time: int, hosts: string[]}|null
+     */
+    public function cloudflareRules(): ?array
+    {
+        $rules = Plugin::getInstance()->storage->readData('cdn')['cloudflareRules'] ?? null;
+
+        return is_array($rules) ? $rules : null;
     }
 
     /**

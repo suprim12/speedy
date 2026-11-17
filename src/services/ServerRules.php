@@ -32,9 +32,11 @@ class ServerRules extends Component
     }
 
     /**
-     * Cookies that mean a visitor gets pages built for them, as a regular expression.
+     * Parts of the names of cookies that mean a visitor gets pages built for them.
+     *
+     * @return string[]
      */
-    private function cookiePattern(): string
+    public function bypassCookies(): array
     {
         $settings = Plugin::getInstance()->getSettings();
         $names = ['_identity', Cacher::STATE_COOKIE, ...$settings->skipCookies];
@@ -42,7 +44,15 @@ class ServerRules extends Component
             $names[] = '_commerce_cart';
         }
 
-        return implode('|', array_map(fn($n) => preg_quote((string)$n, '/'), array_filter($names)));
+        return array_values(array_unique(array_filter(array_map('strval', $names))));
+    }
+
+    /**
+     * Cookies that mean a visitor gets pages built for them, as a regular expression.
+     */
+    private function cookiePattern(): string
+    {
+        return implode('|', array_map(fn($n) => preg_quote($n, '/'), $this->bypassCookies()));
     }
 
     public function nginx(): string

@@ -11,7 +11,7 @@ Speedy still works: pages are cached on your server. Speedy tells Cloudflare not
 ## With a token
 
 1. In Cloudflare, go to **My Profile → API Tokens → Create Token → Create Custom Token**.
-2. Give it one permission: **Zone → Cache Purge → Purge**.
+2. Give it two permissions: **Zone → Cache Purge → Purge**, and **Zone → Cache Rules → Edit** so Speedy can set up the cache rules below.
 3. Under **Zone Resources**, choose **Include → Specific zone →** your domain.
 4. Copy the token. Then copy the **Zone ID** from the domain’s **Overview** page.
 5. Add both to `.env`:
@@ -24,9 +24,22 @@ Speedy still works: pages are cached on your server. Speedy tells Cloudflare not
 
 Cached pages are now sent with `Cache-Control: public, s-maxage=31536000, max-age=0, stale-while-revalidate=86400, stale-if-error=86400`: Cloudflare keeps them, browsers check back each time, and Speedy clears Cloudflare whenever a page changes. If your site is down, Cloudflare keeps sending the last copy of each page for a day.
 
-## Make Cloudflare keep HTML
+## Make Cloudflare keep pages
 
-By default, Cloudflare only caches files like images. To cache pages, add a **Cache Rule** for your domain: **Eligible for cache**, and **Edge TTL → Use cache-control header if present**. Exclude `/admin*` and `/actions*`, and add **Bypass cache** when the `Cookie` header contains `_identity`, `_commerce_cart` or `speedy_state`, so logged-in visitors, carts and multi-step forms get their own pages.
+By default, Cloudflare only caches files like images. It keeps pages once a **Cache Rule** lets it.
+
+On the utility page, open the **Setup** tab and click **Set up Cloudflare**. Speedy adds two rules to each zone:
+
+1. **Keep pages** for the sites’ domains, for as long as their `Cache-Control` header says. A response without one isn’t kept, so Cloudflare only keeps the pages Speedy can clear.
+2. **Get their own pages:** visitors with the cookies of a login, a cart or a multi-step form, Ajax requests, the control panel, actions and `/index.php`. This rule comes after the first, so it wins.
+
+Your other cache rules stay as they are. Clicking it again updates Speedy’s two rules, such as after adding a domain or changing `cpTrigger`. The tab shows when they were last set up, and for which domains.
+
+If the token can’t edit cache rules, Speedy says so: add **Zone → Cache Rules → Edit** to it. A site whose base URL is `@web` needs its domains in `allowedHosts` first, so Speedy knows which they are.
+
+### Setting the rules up yourself
+
+In Cloudflare, go to **Caching → Cache Rules** and add a rule for your domain: **Eligible for cache**, and **Edge TTL → Use cache-control header if present, bypass cache if not**. Then add a second rule, below it, with **Bypass cache** for `/admin*` and `/actions*`, and when the `Cookie` header contains `_identity`, `_commerce_cart` or `speedy_state`, so logged-in visitors, carts and multi-step forms get their own pages.
 
 ## Several domains
 

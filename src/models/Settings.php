@@ -34,7 +34,7 @@ class Settings extends Model
      */
     public array|string $allowedHosts = [];
 
-    /** Cloudflare API token with the Zone → Cache Purge permission. Environment variables are supported. */
+    /** Cloudflare API token with the Zone → Cache Purge permission, and Zone → Cache Rules → Edit for Set up Cloudflare. Environment variables are supported. */
     public string $cloudflareToken = '';
 
     /** Cloudflare zone ID. */
