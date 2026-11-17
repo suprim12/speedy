@@ -62,6 +62,13 @@ class TemplatesTest extends TestCase
             'cdnNames' => $plugin->cdn->names(),
             'report' => 'Report <script>',
             'cloudfront' => ['month' => date('Y-m'), 'paths' => 12],
+            'cloudflareRules' => $full ? ['time' => time(), 'hosts' => ['example.com', 'www.example.com']] : null,
+            'coverage' => $full
+                ? ['total' => 530, 'cached' => 412, 'never' => 3, 'time' => time(), 'capped' => false, 'groups' => [
+                    ['label' => 'News <b>y</b>', 'total' => 500, 'cached' => 382, 'missing' => array_map(fn($i) => "https://example.com/news/$i", range(1, 116)), 'failed' => ['https://example.com/news/x' => 'status <b>404</b>', 'https://example.com/news/y' => 'SKIP private']],
+                    ['label' => 'Pages', 'total' => 30, 'cached' => 30, 'missing' => [], 'failed' => []],
+                ]]
+                : ['total' => 0, 'cached' => 0, 'never' => 0, 'time' => time(), 'capped' => false, 'groups' => []],
             'log' => $full ? array_fill(0, 30, ['time' => time(), 'reason' => 'Saved entry “A”', 'count' => 2, 'urls' => ['https://example.com/a'], 'cdn' => null]) : [],
             'queries' => $full ? [$row] : [],
             'slowest' => $full ? [['url' => 'https://example.com/listing', 'ms' => 12400, 'queries' => 380, 'time' => time()], ['url' => 'https://example.com/<b>about</b>', 'ms' => 640, 'queries' => 40, 'time' => time()]] : [],
@@ -84,6 +91,8 @@ class TemplatesTest extends TestCase
         $this->assertStringNotContainsString('Cleared by any change', $html);
         $this->assertStringNotContainsString('speedy-badge', $html, 'No counts on empty tabs.');
         $this->assertStringNotContainsString('Show 0 more', $html);
+        $this->assertStringNotContainsString('Coverage', $html, 'Not without content pages.');
+        $this->assertStringNotContainsString('Set up Cloudflare', $html);
     }
 
     public function testUtilityPageWithEverything(): void
@@ -101,6 +110,17 @@ class TemplatesTest extends TestCase
         $this->assertStringContainsString('Any of: Entries, at _partials/&lt;b&gt;latest&lt;/b&gt;, line 14', $html, 'The line to narrow, escaped.');
         $this->assertStringNotContainsString('<b>about</b>', $html);
         $this->assertStringContainsString('Test Cloudflare', $html);
+        $this->assertStringContainsString('Update Cloudflare’s cache rules', $html, 'Set up already.');
+        $this->assertStringContainsString('Set up for example.com, www.example.com', $html);
+        $this->assertStringContainsString('77%', $html, 'Coverage, rounded down.');
+        $this->assertStringContainsString('412 of 530 content pages', $html);
+        $this->assertStringContainsString('382 of 500', $html);
+        $this->assertStringContainsString('and 96 more', $html, 'The first 20 missing pages, then a count.');
+        $this->assertStringContainsString('2 pages couldn’t be built', $html);
+        $this->assertStringContainsString('news/x</a> · status &lt;b&gt;404&lt;/b&gt;', $html, 'With why, escaped.');
+        $this->assertStringContainsString('Build the 118 pages not cached', $html);
+        $this->assertStringContainsString('3 pages are left out by Never cache or Only cache', $html);
+        $this->assertStringContainsString('All cached', $html);
         $this->assertStringContainsString('failed: denied', $html);
         $this->assertStringContainsString('Page 2 of 3', $html);
         $this->assertStringContainsString('Why isn’t this page cached?', $html);

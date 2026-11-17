@@ -104,6 +104,32 @@ class UtilityController extends Controller
         return $this->asSuccess(Craft::t('speedy', 'Warming {count} pages in the background.', ['count' => count($urls)]));
     }
 
+    /**
+     * Builds the pages of entries, categories and other elements that aren’t cached yet.
+     */
+    public function actionBuildMissing(): ?Response
+    {
+        $plugin = Plugin::getInstance();
+        // Pages that couldn’t be built last time too, as they may work now.
+        $groups = $plugin->insights->coverage(true)['groups'];
+        $urls = array_merge(...array_column($groups, 'missing'), ...array_map(fn($g) => array_keys($g['failed']), $groups));
+        if (!$urls) {
+            return $this->asSuccess(Craft::t('speedy', 'Every page is cached.'));
+        }
+        $plugin->warmer->queue($plugin->warmer->importantFirst($urls), false);
+
+        return $this->asSuccess(Craft::t('speedy', 'Building {count, plural, =1{# page} other{# pages}} in the background.', ['count' => count($urls)]));
+    }
+
+    public function actionSetUpCloudflare(): ?Response
+    {
+        try {
+            return $this->asSuccess(Plugin::getInstance()->cdn->setUpCloudflare());
+        } catch (Throwable $e) {
+            return $this->asFailure($e->getMessage());
+        }
+    }
+
     public function actionCheckServer(): ?Response
     {
         $storage = Plugin::getInstance()->storage;

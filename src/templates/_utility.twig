@@ -9,6 +9,13 @@
 			<p class="speedy-big">{{ stats.pages|number }}</p>
 			<p class="light">{{ (stats.bytes / 1048576)|number_format(1) }} MB</p>
 		</div>
+		{% if coverage.total %}
+			<div class="speedy-card">
+				<p class="light">{{ 'Coverage'|t('speedy') }}</p>
+				<p class="speedy-big">{{ (coverage.cached / coverage.total * 100)|round(0, 'floor') }}%</p>
+				<p class="light"><a href="#pages">{{ '{cached} of {total} content pages'|t('speedy', { cached: coverage.cached|number, total: coverage.total|number }) }}</a></p>
+			</div>
+		{% endif %}
 		<div class="speedy-card">
 			<p class="light">{{ 'CDN'|t('speedy') }}</p>
 			<p class="speedy-big">{{ detected ? cdnNames[detected] : 'None seen'|t('speedy') }}</p>
@@ -107,6 +114,58 @@
 
 	<section class="speedy-panel" id="speedy-panel-pages" role="tabpanel" aria-labelledby="speedy-tab-pages">
 		<h2 class="speedy-panel__title">{{ 'Cached pages'|t('speedy') }}</h2>
+		{% if coverage.total %}
+			{% set missing = coverage.total - coverage.cached %}
+			<h3>{{ 'Coverage'|t('speedy') }}</h3>
+			<p>{{ 'The pages of entries, categories and other content with their own URL, and how many are cached. Pages are cached as visitors open them: build the rest now, so no visitor waits for one. A page that couldn’t be built says why, such as a missing template (status 404).'|t('speedy') }}</p>
+			<table class="data fullwidth speedy-pages speedy-coverage">
+				<thead><tr>
+					<th scope="col">{{ 'Section'|t('speedy') }}</th>
+					<th scope="col">{{ 'Cached'|t('speedy') }}</th>
+					<th scope="col">{{ 'Not cached yet'|t('speedy') }}</th>
+				</tr></thead>
+				<tbody>
+					{% for group in coverage.groups %}
+						<tr>
+							<td>{{ group.label }}</td>
+							<td class="nowrap">{{ '{cached} of {total}'|t('speedy', { cached: group.cached|number, total: group.total|number }) }}</td>
+							<td>
+								{% if group.missing|length %}
+									<details><summary class="light">{{ '{count, plural, =1{# page} other{# pages}}'|t('speedy', { count: group.missing|length }) }}</summary><div class="speedy-urls">
+										{% for url in group.missing|slice(0, 20) %}<div><a href="{{ url }}" target="_blank" rel="noopener">{{ url|replace({ 'https://': '', 'http://': '' }) }}</a></div>{% endfor %}
+										{% if group.missing|length > 20 %}<div>{{ 'and {count} more'|t('speedy', { count: (group.missing|length - 20)|number }) }}</div>{% endif %}
+									</div></details>
+								{% endif %}
+								{% if group.failed|length %}
+									<details><summary class="light">{{ '{count, plural, =1{# page couldn’t be built} other{# pages couldn’t be built}}'|t('speedy', { count: group.failed|length }) }}</summary><div class="speedy-urls">
+										{% for url, why in group.failed|slice(0, 20, true) %}<div><a href="{{ url }}" target="_blank" rel="noopener">{{ url|replace({ 'https://': '', 'http://': '' }) }}</a> · {{ why }}</div>{% endfor %}
+										{% if group.failed|length > 20 %}<div>{{ 'and {count} more'|t('speedy', { count: (group.failed|length - 20)|number }) }}</div>{% endif %}
+									</div></details>
+								{% endif %}
+								{% if not group.missing|length and not group.failed|length %}
+									<span class="light">{{ 'All cached'|t('speedy') }}</span>
+								{% endif %}
+							</td>
+						</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+			<div class="flex speedy-coverage-actions">
+				{% if missing and settings.isEnabled() %}
+					<form method="post">
+						{{ csrfInput() }}{{ actionInput('speedy/utility/build-missing') }}{{ redirectInput('utilities/speedy#pages') }}
+						{% set untried = coverage.groups|reduce((sum, group) => sum + group.missing|length, 0) %}
+						<button type="submit" class="btn">{{ untried ? 'Build the {count, plural, =1{# page} other{# pages}} not cached'|t('speedy', { count: missing }) : 'Try the {count, plural, =1{# page} other{# pages}} again'|t('speedy', { count: missing }) }}</button>
+					</form>
+				{% endif %}
+				<span class="light smalltext">
+					{{ 'Counted {time}.'|t('speedy', { time: coverage.time|datetime('short') }) }}
+					{% if coverage.never %}{{ '{count, plural, =1{# page is} other{# pages are}} left out by Never cache or Only cache.'|t('speedy', { count: coverage.never }) }}{% endif %}
+					{% if coverage.capped %}{{ 'Only the first {count} pages are counted.'|t('speedy', { count: constant('suprim\\speedy\\services\\Insights::COVERAGE_MOST')|number }) }}{% endif %}
+				</span>
+			</div>
+			<h3>{{ 'Cached pages'|t('speedy') }}</h3>
+		{% endif %}
 		<form method="get" class="flex speedy-search" action="{{ url('utilities/speedy') }}#pages">
 			<input type="search" name="speedySearch" value="{{ search }}" class="text" placeholder="{{ 'Search URLs'|t('speedy') }}" aria-label="{{ 'Search URLs'|t('speedy') }}" style="width: 320px;">
 			<button type="submit" class="btn">{{ 'Search'|t('speedy') }}</button>
@@ -297,8 +356,18 @@
 			{% for cdn, last in cdnLast %}
 				<p class="{{ last.error ? 'error' : 'light' }}">{{ cdnNames[cdn] ?? cdn }}: {{ last.result }} · {{ last.time|datetime('short') }}</p>
 			{% endfor %}
+			{% if 'cloudflare' in configured %}
+				<p>{{ 'Cloudflare only keeps pages once a cache rule lets it. Set up adds two rules to your zone: one keeps the sites’ pages for as long as Speedy says, the other leaves out logged-in visitors, carts, forms and the control panel. Your other rules stay as they are. The token needs the permission Zone → Cache Rules → Edit.'|t('speedy') }}</p>
+				{% if cloudflareRules %}<p class="light">{{ 'Set up for {hosts} · {time}'|t('speedy', { hosts: cloudflareRules.hosts|join(', '), time: cloudflareRules.time|datetime('short') }) }}</p>{% endif %}
+			{% endif %}
 			{% if configured|length %}
 				<div class="speedy-actions">
+					{% if 'cloudflare' in configured %}
+						<form method="post">
+							{{ csrfInput() }}{{ actionInput('speedy/utility/set-up-cloudflare') }}{{ redirectInput('utilities/speedy#setup') }}
+							<button type="submit" class="btn submit">{{ cloudflareRules ? 'Update Cloudflare’s cache rules'|t('speedy') : 'Set up Cloudflare'|t('speedy') }}</button>
+						</form>
+					{% endif %}
 					{% for cdn in configured %}
 						<form method="post">
 							{{ csrfInput() }}{{ actionInput('speedy/utility/test-cdn') }}{{ hiddenInput('cdn', cdn) }}
@@ -361,6 +430,7 @@
 .speedy-setup-action { margin-top: 12px; }
 .speedy-tabbed .speedy-panel__title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .speedy-show-more { margin-top: 10px; }
+.speedy-coverage-actions { gap: 12px; flex-wrap: wrap; margin: 12px 0 8px; }
 {% endcss %}
 
 {% js %}

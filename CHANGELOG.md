@@ -1,5 +1,11 @@
 # Release Notes for Speedy Cache
 
+## Unreleased
+
+### Added
+- **Set up Cloudflare** on the utility page adds the cache rules that let Cloudflare keep pages, leaving out logged-in visitors, carts, forms and the control panel. Other rules in the zone are kept.
+- Coverage on the utility page: how many of the pages of entries, categories and products are cached, by section, with the ones that aren’t, why a page couldn’t be built, and a button to build them all.
+
 ## 1.3.0 - 2026-11-17
 
 ### Added

@@ -394,6 +394,7 @@ class Storage extends Component
     public function clearAll(): bool
     {
         Craft::$app->getCache()->delete($this->statsCacheKey());
+        Craft::$app->getCache()->delete(Insights::COVERAGE_CACHE);
         if ($this->usesCache()) {
             $this->cache()->clearAll();
             return true;

@@ -19,11 +19,11 @@ Full-page caching that works with your templates as they are, keeps your databas
 - **Instant links.** Optional: a page starts loading as soon as a visitor points at its link, so it opens straight away.
 - **Keeps working when the queue stops.** Pages are cleared straight away, with a control panel alert, until it runs again.
 - **Forms just work.** CSRF tokens on cached pages are refreshed automatically, with no template changes.
-- **Cloudflare, CloudFront, Fastly, Bunny and Varnish built in.** Cleared when pages change, with a Cloudflare zone for each domain, and other plugins can add more. CloudFront paths are batched into wildcards to stay in the free tier.
+- **Cloudflare, CloudFront, Fastly, Bunny and Varnish built in.** Cleared when pages change, with a Cloudflare zone for each domain and one-click Cloudflare cache rules, and other plugins can add more. CloudFront paths are batched into wildcards to stay in the free tier.
 - **Scheduled content.** Pages clear when a post goes live or expires, including the listings it appears on.
 - **See why.** A plain-English log: “Saved entry ‘Summer Sale’ → 12 pages cleared”, and **Why isn’t this page cached?** opens any page as a visitor and says why, with what to change.
 - **Find slow templates.** Pages that run the same query in a loop (N+1 queries) are listed with the template and line, and how to eager-load instead.
-- **At a glance.** A dashboard widget with pages cached, recent clears and any problems, and a utility page to clear everything, one URL or a whole section. Editors can be allowed to clear pages without the rest.
+- **At a glance.** A dashboard widget with pages cached, recent clears and any problems, and a utility page to clear everything, one URL or a whole section, and to see how many of your pages are cached. Editors can be allowed to clear pages without the rest.
 - **CDN keeps you up.** With a CDN set up, it keeps sending pages for a day if the server goes down.
 - **Cache everything, or only some.** Never cache checkouts and accounts, or only cache the sections you choose.
 - **For developers.** An event at every stage, `craft.speedy.tag()`, an API and console commands.

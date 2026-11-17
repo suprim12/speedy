@@ -173,6 +173,7 @@ class Warmer extends Component
         ]);
         $pool->promise()->wait();
         $failed = array_merge($failed, $skipped);
+        $this->noteUnbuilt($built, $failed, $why);
 
         if ($rebuild) {
             // A page that can’t be rebuilt (now a 404, now private…) mustn’t stay cached.
@@ -221,6 +222,44 @@ class Warmer extends Component
         }
 
         return ['built' => count($built), 'failed' => count($failed)];
+    }
+
+    /** How many pages that couldn’t be built are remembered, for coverage, and for how long. */
+    private const UNBUILT_MOST = 5000;
+    private const UNBUILT_DAYS = 30;
+
+    /**
+     * Pages that couldn’t be built when last tried, and why, such as “status 404”.
+     *
+     * @return array<string, array{why: string, time: int}>
+     */
+    public function unbuilt(): array
+    {
+        return Plugin::getInstance()->storage->readData('unbuilt');
+    }
+
+    /**
+     * Remembers why pages couldn’t be built, and forgets those that now were.
+     *
+     * @param string[] $built
+     * @param string[] $failed
+     * @param array<string, string> $why
+     */
+    private function noteUnbuilt(array $built, array $failed, array $why): void
+    {
+        $storage = Plugin::getInstance()->storage;
+        $unbuilt = $storage->readData('unbuilt');
+        if (!$failed && !array_intersect_key($unbuilt, array_flip($built))) {
+            return;
+        }
+        $unbuilt = array_diff_key($unbuilt, array_flip($built));
+        foreach ($failed as $url) {
+            unset($unbuilt[$url]);
+            $unbuilt[$url] = ['why' => (string)($why[$url] ?? ''), 'time' => time()];
+        }
+        $since = time() - self::UNBUILT_DAYS * 86400;
+        $unbuilt = array_slice(array_filter($unbuilt, fn($u) => $u['time'] >= $since), -self::UNBUILT_MOST, null, true);
+        $storage->writeData('unbuilt', $unbuilt);
     }
 
     /**

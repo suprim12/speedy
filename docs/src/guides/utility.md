@@ -8,6 +8,7 @@
 
 - **Caching:** on or off.
 - **Pages cached** and their size on disk.
+- **Coverage:** how many of your content pages are cached, such as “412 of 530 content pages”. See [Coverage](#coverage).
 - **CDN:** the one Speedy detected, and whether it can clear it.
 - **CloudFront paths this month,** when CloudFront is set up.
 
@@ -45,6 +46,18 @@ When you’re logged in, it also reminds you that you get fresh pages yourself. 
 Below the actions, the page has four tabs. Each has its own address, such as `utilities/speedy#queries`, to link to or bookmark.
 
 ### Pages
+
+#### Coverage
+
+The pages of entries, categories, products and other elements with their own URL, and how many of them are cached, by section or group. The sections with the most pages not cached come first.
+
+- **Not cached yet** lists the pages no visitor has opened since they were last cleared.
+- **Couldn’t be built** lists the pages Speedy tried and couldn’t cache, with why, such as `status 404` for a section without a template, or `SKIP private` for a page marked private.
+- **Build the pages not cached** builds them all in the background, the most important first, and tries the ones that couldn’t be built again.
+
+Pages left out by **Never cache** or **Only cache** aren’t counted. Listings with a query string, such as `?page=2`, and pages from routes or templates without an element aren’t counted either: they’re in the list of cached pages below. Coverage is counted at most every five minutes.
+
+#### Cached pages
 
 Every cached page, sorted by URL, with a search box. For each page:
 
@@ -103,7 +116,7 @@ A page drops off the list the next time it’s rebuilt without repeated queries.
 Things you need once, or when something is wrong:
 
 - **Serve pages without PHP:** the rules for your web server, ready to copy, and **Check server serving**, which checks that the web server sends cached pages without PHP. See [Server rules](/getting-started/server-rules).
-- **CDN:** the last result from each CDN, and a **Test** button for each one that’s set up.
+- **CDN:** the last result from each CDN, a **Test** button for each one that’s set up, and **Set up Cloudflare**, which adds the cache rules Cloudflare needs to keep pages. See [Cloudflare](/guides/cloudflare#make-cloudflare-keep-pages).
 - **Support report:** a plain-text summary for support: versions, settings, CDN status, checks, recent clears, slow pages and queries, and installed plugins. Keys and tokens only appear as “set”. **Copy support report** copies it; **Email support** starts an email with it, or copies it to paste in when it’s too long for the email link.
 
 ![The support report: versions, caching settings, CDN, checks, recent clears and plugins](/images/report.jpg)

@@ -11,7 +11,10 @@ namespace suprim\speedy\services;
 
 use Craft;
 use craft\base\Component;
+use craft\base\Element;
 use craft\base\ElementInterface;
+use craft\elements\Category;
+use craft\elements\Entry;
 use craft\helpers\App;
 use craft\helpers\ElementHelper;
 use craft\helpers\Html;
@@ -53,6 +56,120 @@ class Insights extends Component
         }
 
         return ['total' => count($keys), 'pages' => $pages];
+    }
+
+    /** The most element pages coverage counts, so the utility page stays quick on very large sites. */
+    public const COVERAGE_MOST = 50000;
+
+    public const COVERAGE_CACHE = 'speedy:coverage';
+
+    /**
+     * How many of the pages of entries, categories, products and other elements with URLs are cached, by section or
+     * group, with the ones that aren’t. Pages left out by Never cache or Only cache don’t count. Counted at most every
+     * five minutes, like the cached pages, unless $fresh. Pages that couldn’t be built when last tried are listed
+     * apart, with why.
+     *
+     * @return array{total: int, cached: int, never: int, groups: array<int, array{label: string, total: int, cached: int, missing: string[], failed: array<string, string>}>, time: int, capped: bool}
+     */
+    public function coverage(bool $fresh = false): array
+    {
+        $cache = Craft::$app->getCache();
+        if (!$fresh) {
+            $coverage = $cache->get(self::COVERAGE_CACHE);
+            if (is_array($coverage) && isset($coverage['groups'])) {
+                return $coverage;
+            }
+        }
+        $plugin = Plugin::getInstance();
+        $settings = $plugin->getSettings();
+        $storage = $plugin->storage;
+        $cached = [];
+        foreach ($storage->allKeys() as $key) {
+            $cached[$key] = true;
+        }
+        $unbuilt = $plugin->warmer->unbuilt();
+        $sites = [];
+        foreach (Craft::$app->getSites()->getAllSites() as $site) {
+            if ($site->hasUrls && $site->getBaseUrl()) {
+                $sites[$site->id] = rtrim((string)$site->getBaseUrl(), '/');
+            }
+        }
+
+        $groups = [];
+        $never = 0;
+        $count = 0;
+        foreach ($sites ? Craft::$app->getElements()->getAllElementTypes() : [] as $class) {
+            /** @var class-string<ElementInterface> $class */
+            if (!$class::hasUris()) {
+                continue;
+            }
+            [$groupColumn, $labels] = $this->coverageGroups($class);
+            $query = $class::find()
+                ->asArray()
+                ->site('*')
+                ->siteId(array_keys($sites))
+                ->uri(':notempty:')
+                ->select(array_filter(['elements_sites.uri', 'elements_sites.siteId', $groupColumn]))
+                ->limit(self::COVERAGE_MOST - $count + 1);
+            foreach ($query->all() as $row) {
+                if (++$count > self::COVERAGE_MOST) {
+                    break 2;
+                }
+                $uri = $row['uri'] === Element::HOMEPAGE_URI ? '' : (string)$row['uri'];
+                $url = $sites[$row['siteId']] . '/' . $uri;
+                $path = trim((string)parse_url($url, PHP_URL_PATH), '/');
+                if (Cacher::matchingPattern($path, $settings->getNeverCache()) !== null || Cacher::matchingPattern($uri, $settings->getNeverCache()) !== null
+                    || ($settings->getOnlyCache() && Cacher::matchingPattern($path, $settings->getOnlyCache()) === null && Cacher::matchingPattern($uri, $settings->getOnlyCache()) === null)) {
+                    $never++;
+                    continue;
+                }
+                $groupId = $groupColumn ? (int)$row[substr($groupColumn, strpos($groupColumn, '.') + 1)] : 0;
+                $id = "$class:$groupId";
+                $groups[$id] ??= ['label' => $labels($groupId), 'total' => 0, 'cached' => 0, 'missing' => [], 'failed' => []];
+                $groups[$id]['total']++;
+                $key = $storage->keyForUrl($url);
+                if ($key !== null && isset($cached[$key])) {
+                    $groups[$id]['cached']++;
+                } elseif (isset($unbuilt[$url])) {
+                    $groups[$id]['failed'][$url] = $unbuilt[$url]['why'];
+                } else {
+                    $groups[$id]['missing'][] = $url;
+                }
+            }
+        }
+        // The groups with the most pages not cached first.
+        uasort($groups, fn($a, $b) => [$b['total'] - $b['cached'], $a['label']] <=> [$a['total'] - $a['cached'], $b['label']]);
+
+        $coverage = [
+            'total' => array_sum(array_column($groups, 'total')),
+            'cached' => array_sum(array_column($groups, 'cached')),
+            'never' => $never,
+            'groups' => array_values($groups),
+            'time' => time(),
+            'capped' => $count > self::COVERAGE_MOST,
+        ];
+        $cache->set(self::COVERAGE_CACHE, $coverage, 300);
+
+        return $coverage;
+    }
+
+    /**
+     * The column that groups an element type’s pages, and a function that names a group: sections for entries,
+     * groups for categories, one group for other types.
+     *
+     * @param class-string<ElementInterface> $class
+     * @return array{0: ?string, 1: callable(int): string}
+     */
+    private function coverageGroups(string $class): array
+    {
+        if ($class === Entry::class) {
+            return ['entries.sectionId', fn(int $id) => Craft::$app->getEntries()->getSectionById($id)->name ?? $class::pluralDisplayName()];
+        }
+        if ($class === Category::class) {
+            return ['categories.groupId', fn(int $id) => Craft::$app->getCategories()->getGroupById($id)->name ?? $class::pluralDisplayName()];
+        }
+
+        return [null, fn() => $class::pluralDisplayName()];
     }
 
     /**
