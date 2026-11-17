@@ -1,6 +1,6 @@
 # Release Notes for Speedy Cache
 
-## Unreleased
+## 1.2.0 - 2026-11-17
 
 ### Added
 - The utility page names query parameters that often keep pages out of the cache, and says whether to cache or ignore them.

@@ -7,7 +7,9 @@ The settings page (**Settings → Plugins → Speedy Cache**) has four tabs:
 - **CDN:** your Cloudflare and CloudFront details, and whether Speedy has seen your site behind either.
 - **Advanced:** the [API](/guides/api) key, with a button to generate one, and the options below that are only set in `config/speedy.php`, with the values in use now.
 
-![Speedy Cache settings, General tab: a status strip, Cache pages, Never cache, Only cache, When content changes and After clearing everything](/images/settings.jpg)
+![Speedy Cache settings, General tab: a status strip, Cache pages, the Never cache and Only cache tables, When content changes and After clearing everything](/images/settings.jpg)
+
+![The Query strings tab: parameters seen keeping pages out of the cache with Cache and Ignore buttons, then the cached and ignored parameters](/images/query-strings.jpg)
 
 ![The Advanced tab: cache storage, the API key and the options set in config/speedy.php](/images/settings-advanced.jpg)
 
