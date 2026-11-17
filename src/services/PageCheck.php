@@ -32,7 +32,9 @@ class PageCheck extends Component
         if (empty($parts['host']) || !in_array($parts['scheme'] ?? '', ['http', 'https'], true) || !Plugin::getInstance()->cacher->isKnownSiteHost((string)$parts['host'], $parts['port'] ?? null)) {
             // Only the sites’ own pages, so this can’t be used to send requests elsewhere.
             $result['answer'] = Craft::t('speedy', 'That isn’t one of this site’s addresses.');
-            $result['fix'] = Craft::t('speedy', 'Enter a page of the site, such as {example}.', ['example' => '`' . $this->absolute('/') . '`']);
+            $result['fix'] = Plugin::getInstance()->cacher->certainHosts() === null
+                ? Craft::t('speedy', 'The site’s base URL is `@web`, which answers to any domain, so pages are checked only on domains listed in `allowedHosts` in `config/speedy.php`.')
+                : Craft::t('speedy', 'Enter a page of the site, such as {example}.', ['example' => '`' . $this->absolute('/') . '`']);
 
             return $result;
         }

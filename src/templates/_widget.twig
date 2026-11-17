@@ -22,7 +22,7 @@
 	</div>
 
 	{% for problem in problems %}
-		<p class="error speedy-widget__problem">{{ problem.message|md(inlineOnly=true) }}</p>
+		<p class="error speedy-widget__problem">{{ problem.message|md(inlineOnly=true, encode=true) }}</p>
 	{% endfor %}
 	{% for cdn, last in cdnLast|filter(l => l.error) %}
 		<p class="error speedy-widget__problem">{{ 'The last {cdn} clear failed: {result}'|t('speedy', { cdn: cdnNames[cdn] ?? cdn, result: last.result }) }}</p>

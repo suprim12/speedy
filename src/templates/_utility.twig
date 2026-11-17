@@ -32,7 +32,7 @@
 			{% for check in checks %}
 				<li class="speedy-check speedy-check--{{ check.level }}">
 					<span class="speedy-check__dot" aria-hidden="true"></span>
-					<span><strong>{{ { error: 'Problem'|t('speedy'), warning: 'Check'|t('speedy'), hint: 'Tip'|t('speedy') }[check.level] }}</strong> {{ check.message|md(inlineOnly=true) }}</span>
+					<span><strong>{{ { error: 'Problem'|t('speedy'), warning: 'Check'|t('speedy'), hint: 'Tip'|t('speedy') }[check.level] }}</strong> {{ check.message|md(inlineOnly=true, encode=true) }}</span>
 				</li>
 			{% endfor %}
 		</ul>

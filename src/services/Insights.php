@@ -228,6 +228,9 @@ class Insights extends Component
             $add('hint', Craft::t('speedy', '{count, plural, =1{# page is} other{# pages are}} cleared whenever any entry is saved, as {count, plural, =1{it lists} other{they list}} entries without choosing a section. Add `.section()` to those queries to clear them less often.', ['count' => $everything])
                 . ($plugin->getSettings()->queryReport && $plugin->queries->broad() ? ' ' . Craft::t('speedy', 'See [which lines](#queries).') : ''));
         }
+        if ($plugin->cacher->certainHosts() === null) {
+            $add('warning', Craft::t('speedy', 'A site’s base URL is `@web`, which answers to any domain. List your domains in `allowedHosts` in `config/speedy.php`, so pages are only cached for them, visitors with cookies get pages built in the background, and the warming login is sent.'));
+        }
         if (!$general->generateTransformsBeforePageLoad) {
             $add('hint', Craft::t('speedy', 'Set generateTransformsBeforePageLoad to true in config/general.php, so cached pages link to finished image transforms.'));
         }

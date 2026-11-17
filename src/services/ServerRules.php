@@ -128,7 +128,7 @@ class ServerRules extends Component
             'timeout' => 20,
             'http_errors' => false,
             'verify' => !Craft::$app->getConfig()->getGeneral()->devMode,
-            'auth' => Plugin::getInstance()->getSettings()->getWarmAuth(),
+            'auth' => Plugin::getInstance()->cacher->certainHosts() !== null ? Plugin::getInstance()->getSettings()->getWarmAuth() : null,
         ], fn($v) => $v !== null));
         try {
             $client->get($url);

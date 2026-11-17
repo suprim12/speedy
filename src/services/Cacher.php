@@ -242,7 +242,9 @@ class Cacher extends Component
             $this->hasCookie($request, self::STATE_COOKIE) => 'session',
             $this->hasCookieContaining($settings->skipCookies) => 'cookie',
             $this->isAjax($request) => 'ajax',
-            !$this->isSiteHost((string)$request->getHostName(), parse_url($request->getHostInfo() ?? '', PHP_URL_PORT), $request->getIsSecureConnection() ? $request->getSecurePort() : $request->getPort()) => 'unknown host',
+            !$this->plainHost($request) => 'unknown host',
+            // The port the server really took the request on: X-Forwarded-Port can say anything.
+            !$this->isSiteHost((string)$request->getHostName(), parse_url($request->getHostInfo() ?? '', PHP_URL_PORT), (int)($_SERVER['SERVER_PORT'] ?? 0) ?: null) => 'unknown host',
             default => null,
         };
         $this->_query = [];
@@ -391,9 +393,10 @@ class Cacher extends Component
         }
 
         if ($this->_ownCookies) {
-            // Build the copy for everyone in the background, from a request without cookies.
+            // Build the copy for everyone in the background, from a request without cookies. Only for hosts known
+            // for certain, so a made-up host can’t make the server request it.
             $url = (string)$this->_url;
-            if (Craft::$app->getCache()->add('speedy:building:' . md5((string)$this->_key), true, 60)) {
+            if ($this->certainHosts() !== null && Craft::$app->getCache()->add('speedy:building:' . md5((string)$this->_key), true, 60)) {
                 Plugin::getInstance()->warmer->queue([$url], false);
             }
             $response->getHeaders()->set(self::HEADER, 'SKIP request cookies');
@@ -846,26 +849,49 @@ class Cacher extends Component
     }
 
     /**
-     * Whether a host is one of the sites’ own, known for certain: from their base URLs, `allowedHosts`, or, when a
-     * base URL is `@web`, the host of this request. Never any host, unlike isSiteHost(), so it’s safe for requests
-     * Speedy makes itself to an address someone entered.
+     * Whether a host is one of the sites’ own, known for certain: from their base URLs or `allowedHosts`. Never any
+     * host, unlike isSiteHost(), so it’s safe for requests Speedy makes itself, such as to an address someone entered.
      */
     public function isKnownSiteHost(string $host, ?int $port = null): bool
     {
         $host = strtolower($host);
         $withPort = $port !== null && !in_array($port, [80, 443], true) ? "$host:$port" : $host;
+
+        return in_array($withPort, $this->certainHosts() ?? [], true);
+    }
+
+    /**
+     * The hosts known for certain: the sites’ base URLs and `allowedHosts`. Null when a base URL is `@web` and
+     * `allowedHosts` is empty, so the site answers to whatever host a request names.
+     *
+     * @return string[]|null
+     */
+    public function certainHosts(): ?array
+    {
         $hosts = $this->siteHosts();
         if ($hosts === false) {
-            $hosts = Plugin::getInstance()->getSettings()->getAllowedHosts();
-            $request = Craft::$app->getRequest();
-            if (!$hosts && !$request->getIsConsoleRequest()) {
-                $requestPort = parse_url((string)$request->getHostInfo(), PHP_URL_PORT);
-                $requestHost = strtolower((string)$request->getHostName());
-                $hosts = [$requestPort !== null && !in_array($requestPort, [80, 443], true) ? "$requestHost:$requestPort" : $requestHost];
-            }
+            return Plugin::getInstance()->getSettings()->getAllowedHosts() ?: null;
         }
 
-        return in_array($withPort, $hosts, true);
+        return $hosts;
+    }
+
+    /**
+     * Whether the request’s host is a plain host and port, as the page is built with it: a forwarded host such as
+     * `example.com?x` would build every link wrong, then be saved as example.com’s page. And when any host is
+     * answered, it must be the host the request was really sent to, not one named by a forwarding header.
+     */
+    private function plainHost(Request $request): bool
+    {
+        if (!preg_match('#^https?://([a-z0-9.-]+|\[[0-9a-f:.]+\])(?::\d{1,5})?$#i', (string)$request->getHostInfo(), $m)) {
+            return false;
+        }
+        if ($this->certainHosts() === null) {
+            $real = strtolower(preg_replace('/:\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? '')) ?? '');
+            return $real !== '' && $real === strtolower($m[1]);
+        }
+
+        return true;
     }
 
     /**

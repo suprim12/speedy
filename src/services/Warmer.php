@@ -113,7 +113,8 @@ class Warmer extends Component
             'allow_redirects' => false,
             'verify' => !Craft::$app->getConfig()->getGeneral()->devMode,
             // For sites behind basic authentication, such as staging.
-            'auth' => $plugin->getSettings()->getWarmAuth(),
+            // The login only goes to hosts known for certain, never to whatever host a request named.
+            'auth' => $plugin->cacher->certainHosts() !== null ? $plugin->getSettings()->getWarmAuth() : null,
         ], fn($v) => $v !== null));
         $built = [];
         $failed = [];
@@ -315,7 +316,7 @@ class Warmer extends Component
             $body = (string)Craft::createGuzzleClient(array_filter([
                 'timeout' => 20,
                 'verify' => !Craft::$app->getConfig()->getGeneral()->devMode,
-                'auth' => Plugin::getInstance()->getSettings()->getWarmAuth(),
+                'auth' => Plugin::getInstance()->cacher->certainHosts() !== null ? Plugin::getInstance()->getSettings()->getWarmAuth() : null,
             ], fn($v) => $v !== null))->get($url)->getBody();
         } catch (Throwable $e) {
             Craft::warning("Couldn’t read the sitemap $url: " . $e->getMessage(), 'speedy');
