@@ -185,4 +185,43 @@ class FileStorageTest extends TestCase
             \craft\helpers\FileHelper::removeDirectory($storage->cacheRoot());
         }
     }
+
+    public function testOnlyAFolderOfItsOwn(): void
+    {
+        $this->assertTrue(\suprim\speedy\services\Storage::isOwnFolder(\Craft::getAlias('@webroot/speedy')));
+        $this->assertTrue(\suprim\speedy\services\Storage::isOwnFolder(\Craft::getAlias('@storage/speedy')));
+        foreach (['@webroot', '@root', '@storage', '@templates', '@vendor', '@config'] as $alias) {
+            $this->assertFalse(\suprim\speedy\services\Storage::isOwnFolder(\Craft::getAlias($alias)), $alias);
+        }
+        $this->assertFalse(\suprim\speedy\services\Storage::isOwnFolder(dirname(\Craft::getAlias('@webroot'))), 'A folder holding the web root.');
+        $this->assertFalse(\suprim\speedy\services\Storage::isOwnFolder('/'));
+
+        $settings = new \suprim\speedy\models\Settings(['cachePath' => '@webroot']);
+        $this->assertFalse($settings->validate(['cachePath']));
+        $settings = new \suprim\speedy\models\Settings(['cachePath' => '@webroot/speedy']);
+        $this->assertTrue($settings->validate(['cachePath']));
+    }
+
+    public function testAFolderHoldingOtherFilesIsNeverClearedOrIgnored(): void
+    {
+        // A pretend site in the temporary folder: its templates live inside the cache path.
+        $site = "$this->tmp/site";
+        \craft\helpers\FileHelper::createDirectory("$site/templates");
+        file_put_contents("$site/templates/index.twig", 'Home');
+        $templates = \Craft::getAlias('@templates');
+        \Craft::setAlias('@templates', "$site/templates");
+        $this->settings()->cachePath = $site;
+        $storage = $this->plugin()->storage;
+        try {
+            $this->assertSame($site, $storage->unsafeFolder());
+            $storage->write('example.com/news', '<html>News</html>', 'https://example.com/news', [], null);
+            $this->assertFileDoesNotExist("$site/.gitignore", 'Not marked as ignored.');
+            $this->assertFileDoesNotExist("$site/example.com/news/index.html", 'Nothing written.');
+            $storage->clearAll();
+            $this->assertFileExists("$site/templates/index.twig", 'Not moved away.');
+            $this->assertStringContainsString('holds other files', implode(' ', array_column($this->plugin()->insights->checks(), 'message')));
+        } finally {
+            \Craft::setAlias('@templates', $templates);
+        }
+    }
 }

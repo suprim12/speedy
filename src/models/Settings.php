@@ -387,6 +387,11 @@ class Settings extends Model
             [['warmConcurrency'], 'integer', 'min' => 1, 'max' => 10],
             [['maxQueryPages'], 'integer', 'min' => 1],
             [['maxCacheSize'], 'integer', 'min' => 1],
+            [['cachePath', 'dataPath'], function(string $attribute) {
+                if (!\suprim\speedy\services\Storage::isOwnFolder((string)Craft::getAlias($this->$attribute))) {
+                    $this->addError($attribute, Craft::t('speedy', 'Use a folder of its own, such as {example}: Speedy empties it when clearing everything.', ['example' => $attribute === 'cachePath' ? '@webroot/speedy' : '@storage/speedy']));
+                }
+            }],
             [['wildcardThreshold'], 'integer', 'min' => 1],
             [['cdnMaxAge'], 'integer', 'min' => 0],
             [['apiKey'], function(string $attribute) {

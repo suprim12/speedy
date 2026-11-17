@@ -166,6 +166,9 @@ class Storage extends Component
             return;
         }
 
+        if ($this->unsafeFolder() !== null) {
+            return;
+        }
         $file = $this->htmlFile($key);
         try {
             $this->protectCacheFolder();
@@ -392,6 +395,10 @@ class Storage extends Component
             $this->cache()->clearAll();
             return;
         }
+        // Never move away a folder that isn't Speedy's, such as the web root.
+        if ($this->unsafeFolder() !== null) {
+            return;
+        }
 
         // Moving a folder is instant however many pages it holds, so clearing never times out half-way.
         // The old files are deleted afterwards, by deleteTrash().
@@ -419,6 +426,9 @@ class Storage extends Component
      */
     public function deleteTrash(): void
     {
+        if (!self::isOwnFolder($this->dataRoot())) {
+            return;
+        }
         $dir = $this->dataRoot() . '/trash';
         if (is_dir($dir)) {
             FileHelper::removeDirectory($dir);
@@ -431,6 +441,9 @@ class Storage extends Component
      */
     public function deleteOldTrash(int $age = 600): void
     {
+        if (!self::isOwnFolder($this->dataRoot())) {
+            return;
+        }
         foreach (glob($this->dataRoot() . '/trash/*', GLOB_ONLYDIR) ?: [] as $dir) {
             if ((int)@filemtime($dir) < time() - $age) {
                 try {
@@ -589,6 +602,49 @@ class Storage extends Component
     public function cache(): CacheStore
     {
         return $this->_cacheStore ??= new CacheStore();
+    }
+
+    /**
+     * The cachePath or dataPath set to a folder that isn’t Speedy’s own, such as the web root or Craft’s storage
+     * folder, or null when both are fine. Speedy clears its folders whole and keeps them out of git, so it only ever
+     * does that to a folder of its own.
+     */
+    public function unsafeFolder(): ?string
+    {
+        $folders = [$this->dataRoot()];
+        if (!$this->usesCache()) {
+            $folders[] = $this->cacheRoot();
+        }
+        foreach ($folders as $folder) {
+            if (!self::isOwnFolder($folder)) {
+                return $folder;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether a folder can be Speedy's: not one of Craft's own, such as the web root, nor a folder that holds one.
+     */
+    public static function isOwnFolder(string $folder): bool
+    {
+        $folder = rtrim(FileHelper::normalizePath($folder), '/');
+        if ($folder === '' || $folder === '.' || substr_count($folder, '/') < 1) {
+            return false;
+        }
+        foreach (['@root', '@webroot', '@storage', '@vendor', '@templates', '@config', '@contentMigrations', '@translations'] as $alias) {
+            $path = Craft::getAlias($alias, false);
+            if (!is_string($path) || $path === '') {
+                continue;
+            }
+            $path = rtrim(FileHelper::normalizePath($path), '/');
+            if ($folder === $path || str_starts_with($path . '/', $folder . '/')) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function cacheRoot(): string

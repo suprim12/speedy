@@ -66,8 +66,8 @@ return [
 | `apiKey` | `''` | A key of 16 characters or more for clearing over HTTP ([API](/guides/api)). Also on the Advanced tab. Empty turns the API off |
 | `cacheComment` | `true` | Add `<!-- Cached by Speedy Cache on … -->` to the end of cached pages |
 | `storage` | `'files'` | Where pages are kept: `'files'`, or `'craftCache'` for Craft’s cache such as Redis, shared by several servers ([Multi-site and multiple servers](/recipes/multi-site#keep-pages-in-redis)). Also on the Advanced tab |
-| `cachePath` | `'@webroot/speedy'` | Where pages are saved. Must be in the web root for [server serving](/getting-started/server-rules) |
-| `dataPath` | `'@storage/speedy'` | Where Speedy keeps tags, the log and CDN details |
+| `cachePath` | `'@webroot/speedy'` | Where pages are saved: a folder of its own, as Speedy empties it when clearing everything and keeps it out of git. Must be in the web root for [server serving](/getting-started/server-rules) |
+| `dataPath` | `'@storage/speedy'` | Where Speedy keeps tags, the log and CDN details: a folder of its own |
 | `cloudflareToken`, `cloudflareZoneId` | | [Cloudflare](/guides/cloudflare) |
 | `cloudflareZones` | `[]` | A Cloudflare zone ID for each domain, such as `['example.com' => '$CF_ZONE_COM']` ([Several zones](/guides/cloudflare#several-domains)) |
 | `cloudfrontDistributionId`, `awsAccessKeyId`, `awsSecretAccessKey` | | [CloudFront](/guides/cloudfront). The keys fall back to `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` |

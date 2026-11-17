@@ -9,6 +9,7 @@
 - Cached pages are kept out of git, so `git add` no longer picks them up.
 - Pages left over from clearing everything are deleted even when the queue isn’t running.
 - **Check server serving** warns when cached pages can be opened directly in the cache folder.
+- `cachePath` and `dataPath` must be folders of their own: set to a folder such as the web root, Speedy doesn’t cache, clear or ignore it, and says so.
 
 ## 1.2.0 - 2026-11-17
 

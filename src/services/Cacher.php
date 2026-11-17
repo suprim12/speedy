@@ -400,6 +400,11 @@ class Cacher extends Component
             return;
         }
 
+        if (Plugin::getInstance()->storage->unsafeFolder() !== null) {
+            $response->getHeaders()->set(self::HEADER, 'SKIP cache folder');
+            $response->getHeaders()->set('Cache-Control', 'private, no-cache');
+            return;
+        }
         if (Plugin::getInstance()->storage->diskFull()) {
             $response->getHeaders()->set(self::HEADER, 'SKIP disk full');
             $response->getHeaders()->set('Cache-Control', 'private, no-cache');

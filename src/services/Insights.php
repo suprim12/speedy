@@ -174,6 +174,9 @@ class Insights extends Component
                 $add('error', Craft::t('speedy', 'Speedy can’t write to {dir}.', ['dir' => $dir]));
             }
         }
+        if (($unsafe = $plugin->storage->unsafeFolder()) !== null) {
+            $add('error', Craft::t('speedy', '`cachePath` or `dataPath` is set to {folder}, which holds other files, so nothing is cached or cleared. Set it to a folder of its own, such as `@webroot/speedy`.', ['folder' => '`' . $unsafe . '`']));
+        }
         if ($plugin->storage->diskFull()) {
             $add('error', Craft::t('speedy', 'The disk is nearly full ({free} MB free), so new pages aren’t being cached. Pages already cached are still sent, and still cleared when content changes.', ['free' => intdiv((int)$plugin->storage->freeSpace(), 1048576)]));
         }
