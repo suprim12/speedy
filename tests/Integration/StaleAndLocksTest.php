@@ -85,4 +85,28 @@ class StaleAndLocksTest extends TestCase
         $this->assertSame(0, $plugin->clearer->rebuildAll('Rebuild everything'));
         $this->assertSame([], $plugin->log->recent(1), 'No “0 pages” entry in the log.');
     }
+
+    public function testGarbageCollectionDoesntClearEveryPage(): void
+    {
+        $settings = $this->settings();
+        $settings->clearInRequest = true;
+        $settings->warm = false;
+        $storage = $this->plugin()->storage;
+        $storage->write('example.com/news', '<html>News</html>', 'https://example.com/news', ['element', 'element::1'], null);
+
+        // Craft’s garbage collection, which Feed Me runs before each import, says every element changed.
+        (new class() extends \craft\services\Gc {
+            public function run(bool $force = false): void
+            {
+                Craft::$app->getElements()->invalidateAllCaches();
+            }
+        })->run();
+        $this->plugin()->clearer->flush();
+        $this->assertTrue($storage->exists('example.com/news'), 'Kept: only trashed elements were deleted.');
+
+        // Anything else that says so, such as saving a field, still clears everything.
+        Craft::$app->getElements()->invalidateAllCaches();
+        $this->plugin()->clearer->flush();
+        $this->assertFalse($storage->exists('example.com/news'));
+    }
 }

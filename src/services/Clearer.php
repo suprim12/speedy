@@ -73,6 +73,9 @@ class Clearer extends Component
         if ($event->element instanceof ElementInterface && array_key_exists(spl_object_id($event->element), $this->_saving) && $this->isUnchanged($event->element)) {
             return;
         }
+        if ($event->tags === ['element'] && $this->fromGarbageCollection()) {
+            return;
+        }
         $tags = $event->tags;
         // Drafts and revisions never appear on the live site.
         $tags = array_filter($tags, fn($t) => !str_ends_with($t, '::drafts') && !str_ends_with($t, '::revisions'));
@@ -121,6 +124,22 @@ class Clearer extends Component
                 ? $this->describe($event->element)
                 : $this->describeTags($tags);
         }
+    }
+
+    /**
+     * Whether Craft’s garbage collection is announcing that every element changed, as it does each time it runs (and
+     * Feed Me runs it before each import). It only hard-deletes elements that were already in the trash, and putting
+     * them there cleared their pages, so nothing a visitor sees has changed.
+     */
+    private function fromGarbageCollection(): bool
+    {
+        foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 15) as $frame) {
+            if (is_a((string)($frame['class'] ?? ''), \craft\services\Gc::class, true) && $frame['function'] === 'run') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
