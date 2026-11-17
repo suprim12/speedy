@@ -952,7 +952,8 @@ class Cacher extends Component
         foreach ($params as $param) {
             $param = (string)$param;
             // Plain names only: made-up parameters can’t fill the list with junk.
-            if (($allowed && $this->matchesAny($param, $allowed)) || !preg_match('/^[A-Za-z][A-Za-z0-9_\-]{0,39}$/', $param)) {
+            // Speedy’s own rebuild parameter is never one to suggest.
+            if ($param === self::WARM_PARAM || ($allowed && $this->matchesAny($param, $allowed)) || !preg_match('/^[A-Za-z][A-Za-z0-9_\-]{0,39}$/', $param)) {
                 continue;
             }
             if (!isset($seen[$param]) && count($seen) >= 20) {

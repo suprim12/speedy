@@ -218,6 +218,7 @@ class Plugin extends BasePlugin
             'configRows' => $this->configRows(),
             'ephemeral' => App::isEphemeral(),
             'cacheInfo' => CacheStore::describe(),
+            'skippedParams' => $this->insights->skippedParams(),
         ]);
     }
 

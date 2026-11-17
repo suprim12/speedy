@@ -61,46 +61,6 @@
 	}) }}
 </div>
 
-{{ forms.selectField({
-	label: 'Pages with a query string'|t('speedy'),
-	instructions: 'Such as `/homes?view=map`. Tracking parameters such as `utm_source` never stop a page being cached.'|t('speedy'),
-	name: 'queryStrings',
-	options: [
-		{ label: 'Cache the parameters listed below, each value as its own page'|t('speedy'), value: 'skip' },
-		{ label: 'Cache the page without its query string'|t('speedy'), value: 'ignore' },
-	],
-	value: settings.queryStrings,
-	disabled: 'queryStrings' in overrides,
-	warning: 'queryStrings' in overrides ? configWarning('queryStrings'),
-	toggle: true,
-	targetPrefix: 'speedy-qs-',
-}) }}
-
-<div id="speedy-qs-skip" class="flex-fields {{ settings.queryStrings != 'skip' ? 'hidden' }}">
-	{{ forms.textareaField({
-		label: 'Cached parameters'|t('speedy'),
-		instructions: 'Parameters that change what a page shows, one per line, such as `page` or `view`. `/homes?view=map` and `/homes?view=list` are cached as two pages. Other query strings aren’t cached.'|t('speedy'),
-		fieldClass: 'width-50',
-		name: 'cachedParams',
-		value: settings.cachedParams|join("\n"),
-		rows: 4,
-		class: 'code',
-		disabled: 'cachedParams' in overrides,
-		warning: 'cachedParams' in overrides ? configWarning('cachedParams'),
-	}) }}
-	{{ forms.textareaField({
-		label: 'Ignored parameters'|t('speedy'),
-		instructions: 'Parameters that never change what a page shows, such as tracking or ones only scripts read. Pages are cached without them. `*` matches anything.'|t('speedy'),
-		fieldClass: 'width-50',
-		name: 'ignoredParams',
-		value: settings.ignoredParams|join("\n"),
-		rows: 4,
-		class: 'code',
-		disabled: 'ignoredParams' in overrides,
-		warning: 'ignoredParams' in overrides ? configWarning('ignoredParams'),
-	}) }}
-</div>
-
 <div class="flex-fields">
 	{{ forms.selectField({
 		label: 'When content changes'|t('speedy'),
@@ -130,6 +90,75 @@
 	}) }}
 </div>
 
+</div>
+
+{# Query strings --------------------------------------------------------------- #}
+<div id="query-strings" class="hidden">
+<p class="speedy-intro">{{ 'Pages with a query string, such as `/homes?view=map`, aren’t cached unless you list the parameter here, so made-up query strings can’t fill the disk. Tracking parameters such as `utm_source` never stop a page being cached.'|t('speedy')|md(inlineOnly=true) }}</p>
+
+{% if skippedParams|length and settings.queryStrings == 'skip' %}
+	<div class="speedy-seen">
+		<h3>{{ 'Seen this week'|t('speedy') }}</h3>
+		<p class="light">{{ 'These parameters kept pages out of the cache. Cache one if it changes what the page shows, such as a tab; ignore it if not.'|t('speedy') }}</p>
+		<ul>
+			{% for param, seen in skippedParams %}
+				<li>
+					<code>?{{ param }}=</code>
+					<span class="light">{{ 'about {count} visits, such as {path}'|t('speedy', { count: seen.count|number, path: seen.path }) }}</span>
+					<button type="button" class="btn small speedy-add-param" data-table="cachedParams" data-param="{{ param }}">{{ 'Cache'|t('speedy') }}</button>
+					<button type="button" class="btn small speedy-add-param" data-table="ignoredParams" data-param="{{ param }}">{{ 'Ignore'|t('speedy') }}</button>
+				</li>
+			{% endfor %}
+		</ul>
+	</div>
+{% endif %}
+
+{{ forms.selectField({
+	label: 'Pages with a query string'|t('speedy'),
+	name: 'queryStrings',
+	options: [
+		{ label: 'Cache the parameters listed below, each value as its own page'|t('speedy'), value: 'skip' },
+		{ label: 'Cache the page without its query string'|t('speedy'), value: 'ignore' },
+	],
+	value: settings.queryStrings,
+	disabled: 'queryStrings' in overrides,
+	warning: 'queryStrings' in overrides ? configWarning('queryStrings'),
+	toggle: true,
+	targetPrefix: 'speedy-qs-',
+}) }}
+
+<div id="speedy-qs-skip" class="flex-fields {{ settings.queryStrings != 'skip' ? 'hidden' }}">
+	{{ forms.editableTableField({
+		label: 'Cached parameters'|t('speedy'),
+		instructions: 'Parameters that change what a page shows, such as `page` or `view`. `/homes?view=map` and `/homes?view=list` are cached as two pages.'|t('speedy'),
+		fieldClass: 'width-50',
+		id: 'cachedParams',
+		name: 'cachedParams',
+		cols: { param: { type: 'singleline', heading: 'Parameter'|t('speedy'), code: true, placeholder: 'view' } },
+		rows: settings.cachedParams|map(p => { param: p }),
+		allowAdd: true,
+		allowDelete: true,
+		allowReorder: false,
+		addRowLabel: 'Add a parameter'|t('speedy'),
+		static: 'cachedParams' in overrides,
+		warning: 'cachedParams' in overrides ? configWarning('cachedParams'),
+	}) }}
+	{{ forms.editableTableField({
+		label: 'Ignored parameters'|t('speedy'),
+		instructions: 'Parameters that never change what a page shows, such as tracking or ones only scripts read. Pages are cached without them. `*` matches anything.'|t('speedy'),
+		fieldClass: 'width-50',
+		id: 'ignoredParams',
+		name: 'ignoredParams',
+		cols: { param: { type: 'singleline', heading: 'Parameter'|t('speedy'), code: true, placeholder: 'utm_*' } },
+		rows: settings.ignoredParams|map(p => { param: p }),
+		allowAdd: true,
+		allowDelete: true,
+		allowReorder: false,
+		addRowLabel: 'Add a parameter'|t('speedy'),
+		static: 'ignoredParams' in overrides,
+		warning: 'ignoredParams' in overrides ? configWarning('ignoredParams'),
+	}) }}
+</div>
 </div>
 
 {# CDN ---------------------------------------------------------------------- #}
@@ -329,7 +358,11 @@
 .speedy-code { background: var(--gray-050, #f3f7fc); padding: 12px 14px; border-radius: 6px; font-size: 12px; margin: 0; white-space: pre-wrap; }
 .speedy-under { margin-top: -12px; margin-bottom: 24px; font-size: 13px; }
 .speedy-intro { max-width: 70ch; color: var(--light-text-color, #606d7b); margin-bottom: 20px; }
-#speedy-qs-skip { margin-bottom: 24px; }
+.speedy-seen { padding: 14px 18px; margin-bottom: 24px; border-radius: 8px; background: var(--gray-050, #f3f7fc); }
+.speedy-seen h3 { margin: 0 0 4px; }
+.speedy-seen ul { margin: 10px 0 0; }
+.speedy-seen li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 0; }
+.speedy-seen li .light { margin-right: auto; }
 .speedy-cdns { border-top: 1px solid var(--hairline-color, #e3e5e8); }
 .speedy-cdn { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; padding: 24px 0 8px; border-bottom: 1px solid var(--hairline-color, #e3e5e8); }
 .speedy-cdn__about h3 { margin: 0 0 6px; }
@@ -347,6 +380,17 @@
 {% endcss %}
 
 {% js %}
+document.querySelectorAll('.speedy-add-param').forEach(function (button) {
+	button.addEventListener('click', function () {
+		var table = document.getElementById(Craft.namespaceId(button.dataset.table, 'settings'));
+		var editable = table && $(table).data('editableTable');
+		if (!editable) { return; }
+		editable.addRow(false);
+		var inputs = table.querySelectorAll('tbody tr:last-child input[type=text], tbody tr:last-child textarea');
+		if (inputs.length) { inputs[0].value = button.dataset.param; }
+		button.closest('li').remove();
+	});
+});
 document.querySelectorAll('.speedy-generate').forEach(function (link) {
 	link.addEventListener('click', function (e) {
 		e.preventDefault();

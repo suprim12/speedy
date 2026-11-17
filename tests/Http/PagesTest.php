@@ -363,7 +363,7 @@ class PagesTest extends TestCase
             $this->assertArrayHasKey($param, $seen, 'About 300 visits, sampled.');
             $this->assertSame('/' . self::$prefix . '/plain', $seen[$param]['path']);
             $messages = implode(' ', array_column(Plugin::getInstance()->insights->checks(), 'message'));
-            $this->assertStringContainsString("add `$param` to Cached parameters", $messages);
+            $this->assertStringContainsString("add `$param` under Settings → Query strings → Cached parameters", $messages);
 
             // Once it’s listed, the suggestion goes.
             $settings = Plugin::getInstance()->getSettings();

@@ -97,7 +97,7 @@ Headers your templates or plugins send, such as `X-Robots-Tag`, `Link`, `Content
 
 ## Pagination and filters
 
-Craft paginates with paths like `/news/p2`, which are cached like any page. If your site uses query strings, such as `?page=2`, `?category=shoes` or `?view=map` for a tab, list the parameters that make a page of their own under **Cached parameters** on the settings page, or in the config file:
+Craft paginates with paths like `/news/p2`, which are cached like any page. If your site uses query strings, such as `?page=2`, `?category=shoes` or `?view=map` for a tab, list the parameters that make a page of their own under **Settings → Query strings → Cached parameters**, or in the config file:
 
 ```php
 // config/speedy.php
@@ -112,7 +112,7 @@ Search is best left out: nearly every search is different, so cached results are
 
 ### Which parameters to list
 
-Speedy notes the query parameters that keep pages out of the cache. When one is used often, such as `view` in `/homes?view=map`, the utility page says so with an example page:
+Speedy notes the query parameters that keep pages out of the cache. When one is used often, such as `view` in `/homes?view=map`, the utility page says so with an example page, and the **Query strings** settings tab lists it with buttons to cache or ignore it:
 
 - If the parameter changes what the page shows, add it to **Cached parameters**.
 - If it doesn’t, such as a parameter only scripts read, add it to **Ignored parameters**, and the page is cached without it.

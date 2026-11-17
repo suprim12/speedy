@@ -213,10 +213,17 @@ class Settings extends Model
                 unset($values['warm']);
             }
         }
-        // Parameter lists come from the settings page as text, one per line.
+        // Parameter lists come from the settings page as table rows, or as text, one per line.
         foreach (['cachedParams', 'ignoredParams'] as $name) {
-            if (isset($values[$name]) && is_string($values[$name])) {
-                $values[$name] = $this->patterns(str_replace(',', "\n", $values[$name]));
+            if (!array_key_exists($name, $values)) {
+                continue;
+            }
+            $value = $values[$name];
+            if (is_string($value)) {
+                $values[$name] = $this->patterns(str_replace(',', "\n", $value));
+            } elseif (is_array($value)) {
+                // Rows from the settings page’s table, such as [['param' => 'view']], or a plain list from config.
+                $values[$name] = $this->patterns(array_map(fn($row) => is_array($row) ? (string)($row['param'] ?? '') : (string)$row, $value));
             }
         }
         if (isset($values['rebuildCleared']) && is_string($values['rebuildCleared'])) {

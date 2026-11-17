@@ -215,7 +215,7 @@ class Insights extends Component
             $add('warning', Craft::t('speedy', '{count} CloudFront paths used this month. The first 1,000 are free; lower wildcardThreshold to use fewer.', ['count' => $usage['paths']]));
         }
         foreach ($this->skippedParams() as $param => $seen) {
-            $add('hint', Craft::t('speedy', 'About {count} visits to pages with `?{param}=`, such as {path}, weren’t cached because of it. If it changes what the page shows, add `{param}` to Cached parameters in Settings; if not, to Ignored parameters.', ['count' => $seen['count'], 'param' => $param, 'path' => Html::encode($seen['path'])]));
+            $add('hint', Craft::t('speedy', 'About {count} visits to pages with `?{param}=`, such as {path}, weren’t cached because of it. If it changes what the page shows, add `{param}` under Settings → Query strings → Cached parameters; if not, under Ignored parameters.', ['count' => $seen['count'], 'param' => $param, 'path' => Html::encode($seen['path'])]));
         }
         $everything = $plugin->storage->countPagesForTag('element::craft\elements\Entry::*');
         if ($everything > 0) {

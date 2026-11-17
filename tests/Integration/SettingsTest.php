@@ -101,6 +101,10 @@ class SettingsTest extends TestCase
         $this->assertSame(['page', 'view', 'sort'], $settings->cachedParams);
         $this->assertSame(['utm_*', 'gclid'], $settings->ignoredParams);
 
+        // Rows from the settings page’s table, including a blank one.
+        $settings->setAttributes(['cachedParams' => ['new1' => ['param' => 'view'], 'new2' => ['param' => ' '], 'new3' => ['param' => 'page']]], false);
+        $this->assertSame(['view', 'page'], $settings->cachedParams);
+
         // Arrays from config/speedy.php are kept as they are.
         $settings->setAttributes(['cachedParams' => ['page']], false);
         $this->assertSame(['page'], $settings->cachedParams);
