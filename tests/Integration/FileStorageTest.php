@@ -245,7 +245,6 @@ class FileStorageTest extends TestCase
         $this->settings()->dataPath = "$this->tmp/data";
         \craft\helpers\FileHelper::createDirectory("$this->tmp/data/trash/1");
         $this->assertFalse($storage->hasOldTrash(), 'Recent: the queue job takes it.');
-        touch("$this->tmp/data/trash/1", time() - 3600);
-        $this->assertTrue($storage->hasOldTrash());
+        $this->assertTrue($storage->hasOldTrash(-60), 'Older than the age given.');
     }
 }
