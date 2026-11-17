@@ -37,6 +37,9 @@ class Clearer extends Component
     /** Before pages are cleared: change which, or keep them. */
     public const EVENT_BEFORE_CLEAR = 'beforeClear';
 
+    /** Marks a page waiting to be rebuilt after a run of changes, until its rebuild starts. */
+    public const REBUILD_LATER = 'speedy:rebuildLater:';
+
     /** Whether pages cleared now are rebuilt, overriding the setting, such as while clearing without the queue. */
     private ?bool $_rebuild = null;
 
@@ -436,8 +439,9 @@ class Clearer extends Component
         }
         if ($later) {
             // A listing cleared by any entry is rebuilt once after a run of changes, such as an import, not after each.
+            // The mark lasts until the rebuild starts, however late the queue runs it (an hour at most).
             $cache = Craft::$app->getCache();
-            $later = array_values(array_filter($later, fn($url) => $cache->add('speedy:rebuildLater:' . md5($url), true, $delay)));
+            $later = array_values(array_filter($later, fn($url) => $cache->add(self::REBUILD_LATER . md5($url), true, $delay + 3600)));
             $plugin->warmer->queue($later, true, $rebuildKeys, $delay);
             $rebuild = array_merge($rebuild, $later);
         }

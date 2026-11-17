@@ -94,6 +94,13 @@ class Warmer extends Component
     public function warm(array $urls, bool $rebuild, ?callable $progress = null, array $keys = []): array
     {
         $plugin = Plugin::getInstance();
+        if ($rebuild) {
+            // Changes from now on need another rebuild, as this one may have started before them.
+            $cache = Craft::$app->getCache();
+            foreach ($urls as $url) {
+                $cache->delete(Clearer::REBUILD_LATER . md5($url));
+            }
+        }
         $client = Craft::createGuzzleClient(array_filter([
             'timeout' => 30,
             'http_errors' => false,
