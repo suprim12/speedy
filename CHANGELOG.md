@@ -1,6 +1,6 @@
 # Release Notes for Speedy Cache
 
-## Unreleased
+## 1.3.0 - 2026-11-17
 
 ### Added
 - `maxCacheSize`, a limit on the disk space cached pages may use.
