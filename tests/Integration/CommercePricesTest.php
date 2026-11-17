@@ -96,6 +96,8 @@ class CommercePricesTest extends TestCase
 
     public function testThePriceJobClearsWhenItFinishes(): void
     {
+        // Through the queue, whatever state this site's queue is in, so nothing real is cleared.
+        $this->settings()->clearInRequest = false;
         $job = new \craft\commerce\queue\jobs\CatalogPricing(['purchasableIds' => [$this->variantId]]);
         // Flushing would clear real pages: keep what it would clear instead.
         $pushed = [];

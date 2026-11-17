@@ -312,6 +312,9 @@ class Warmer extends Component
      */
     private function readSitemap(string $url, int $depth = 0): array
     {
+        if (!in_array(parse_url($url, PHP_URL_SCHEME), ['http', 'https'], true)) {
+            return [];
+        }
         try {
             $body = (string)Craft::createGuzzleClient(array_filter([
                 'timeout' => 20,
@@ -323,13 +326,28 @@ class Warmer extends Component
             return [];
         }
 
-        return $this->parseSitemap($body, $depth);
+        return $this->parseSitemap($body, $depth, (string)parse_url($url, PHP_URL_HOST));
     }
 
     /**
+     * Whether a sitemap may send Speedy to this address: on the sitemap’s own host, or one of the sites’, so a
+     * sitemap can’t make the server request other hosts.
+     */
+    private function sitemapMayList(string $url, string $sitemapHost): bool
+    {
+        $parts = parse_url($url);
+        if (!in_array($parts['scheme'] ?? '', ['http', 'https'], true) || empty($parts['host']) || isset($parts['user'])) {
+            return false;
+        }
+
+        return strtolower((string)$parts['host']) === strtolower($sitemapHost) || Plugin::getInstance()->cacher->isKnownSiteHost((string)$parts['host'], $parts['port'] ?? null);
+    }
+
+    /**
+     * @param string|null $host The sitemap’s host: what it lists must be on it, or one of the sites’. Null takes any.
      * @return array<string, float|null>
      */
-    public function parseSitemap(string $body, int $depth = 0): array
+    public function parseSitemap(string $body, int $depth = 0, ?string $host = null): array
     {
         $previous = libxml_use_internal_errors(true);
         $xml = simplexml_load_string($body);
@@ -340,13 +358,14 @@ class Warmer extends Component
         $urls = [];
         // A sitemap index lists other sitemaps.
         foreach ($xml->sitemap ?? [] as $sitemap) {
-            if ($depth < 2) {
-                $urls += $this->readSitemap((string)$sitemap->loc, $depth + 1);
+            $loc = trim((string)$sitemap->loc);
+            if ($depth < 2 && ($host === null || $this->sitemapMayList($loc, $host))) {
+                $urls += $this->readSitemap($loc, $depth + 1);
             }
         }
         foreach ($xml->url ?? [] as $entry) {
             $loc = trim((string)$entry->loc);
-            if ($loc !== '' && !array_key_exists($loc, $urls)) {
+            if ($loc !== '' && !array_key_exists($loc, $urls) && ($host === null || $this->sitemapMayList($loc, $host))) {
                 $priority = trim((string)$entry->priority);
                 $urls[$loc] = is_numeric($priority) ? (float)$priority : null;
             }

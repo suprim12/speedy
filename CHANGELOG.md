@@ -20,6 +20,7 @@
 - `cachePath` and `dataPath` must be folders of their own: the settings page won’t save a folder such as the web root, an uploads folder or Craft’s published resources, and set in `config/speedy.php`, Speedy doesn’t cache in it, empty it or add a `.gitignore` to it, and **Clear all** says so.
 - A page is only cached for a plain host: a request naming another, such as in `X-Forwarded-Host`, can’t save a broken copy of a page. On a site whose base URL is `@web`, the host must be the one the request was sent to.
 - On a site whose base URL is `@web` without `allowedHosts`, visitors with cookies don’t get pages built in the background and the warming login isn’t sent, so a made-up host can’t make the server request it. The utility page asks for `allowedHosts`.
+- Warming from a sitemap only requests pages and sitemaps on the sitemap’s own host or the sites’ hosts.
 - A page whose content changed while it was being rebuilt is rebuilt again, rather than keeping its older copy until something else changes.
 
 ## 1.2.0 - 2026-11-17

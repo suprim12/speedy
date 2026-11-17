@@ -21,7 +21,7 @@ Turn this off with `rebuildCleared`, and changed pages are simply removed:
 When every page is cleared, from the utility page, the command line or a deploy, Speedy can rebuild your important pages straight away. Choose which in `config/speedy.php`:
 
 ```php
-// Every page in each site’s sitemap (sitemap indexes are followed)
+// Every page in each site’s sitemap (sitemap indexes are followed, on the sitemap’s own host or your sites’)
 'warm' => 'sitemap',
 'sitemap' => 'sitemap.xml',
 
