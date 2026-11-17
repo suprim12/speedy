@@ -137,6 +137,26 @@ class PagesTest extends TestCase
         $this->assertSame('MISS', $this->speedy($this->get('analytics', [], $analytics)), 'Analytics cookies don’t stop a visitor building pages.');
     }
 
+    public function testCheckingAPageOpensItAsAVisitor(): void
+    {
+        $check = Plugin::getInstance()->pageCheck;
+        $plain = $check->check(self::$base . '/' . self::$prefix . '/plain');
+        $this->assertTrue($plain['cached'], $plain['answer']);
+
+        $skipped = $check->check(self::$base . '/' . self::$prefix . '/skip');
+        $this->assertSame('Not cached: template.', $skipped['answer']);
+        $this->assertStringContainsString('craft.speedy.skip()', (string)$skipped['why']);
+
+        $cookie = $check->check(self::$base . '/' . self::$prefix . '/raw-cookie');
+        $this->assertStringContainsString('`tracker`', (string)$cookie['why']);
+
+        $query = $check->check(self::$base . '/' . self::$prefix . '/plain?speedytestparam=1');
+        $this->assertStringContainsString('`speedytestparam`', (string)$query['why']);
+
+        $missing = $check->check(self::$base . '/' . self::$prefix . '/no-such-page');
+        $this->assertSame('Not cached: status 404.', $missing['answer']);
+    }
+
     public function testPagesThatSetARawCookieAreNotCached(): void
     {
         $this->assertSame('SKIP sets a cookie', $this->speedy($this->get('raw-cookie')));

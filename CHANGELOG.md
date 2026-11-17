@@ -4,6 +4,10 @@
 
 ### Added
 - `maxCacheSize`, a limit on the disk space cached pages may use.
+- **Why isn’t this page cached?** on the utility page: opens a page as a visitor and says why it is or isn’t cached, and what to change.
+- Pages built before their image transforms were made are rebuilt a minute later, so they link to the images themselves.
+- CDNs keep sending pages while they fetch a new copy, and for a day while the site is down (`stale-while-revalidate` and `stale-if-error`).
+- A permission to clear cached pages from entry, category and product indexes, without the rest of the utility.
 - Instant links: browsers fetch a page as soon as a visitor points at its link, so it opens straight away (`instantLinks`, off by default).
 - Pages that clear whenever anything of their type changes wait a minute before they’re rebuilt, so an import rebuilds them once (`broadRebuildDelay`).
 

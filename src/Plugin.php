@@ -38,6 +38,7 @@ use suprim\speedy\services\Clearer;
 use suprim\speedy\services\Dynamic;
 use suprim\speedy\services\Insights;
 use suprim\speedy\services\Log;
+use suprim\speedy\services\PageCheck;
 use suprim\speedy\services\Queries;
 use suprim\speedy\services\ServerRules;
 use suprim\speedy\services\Storage;
@@ -61,10 +62,14 @@ use yii\queue\Queue;
  * @property-read Insights $insights
  * @property-read Dynamic $dynamic
  * @property-read Queries $queries
+ * @property-read PageCheck $pageCheck
  * @method Settings getSettings()
  */
 class Plugin extends BasePlugin
 {
+    /** Clearing cached pages from element indexes, for people without Speedy’s utility. */
+    public const PERMISSION_CLEAR = 'speedy-clearpages';
+
     public string $schemaVersion = '1.0.0';
     public bool $hasCpSettings = true;
 
@@ -80,6 +85,7 @@ class Plugin extends BasePlugin
                 'log' => Log::class,
                 'serverRules' => ServerRules::class,
                 'insights' => Insights::class,
+                'pageCheck' => PageCheck::class,
                 'dynamic' => Dynamic::class,
                 'queries' => Queries::class,
             ],
@@ -396,6 +402,15 @@ class Plugin extends BasePlugin
             }
         });
 
+        Event::on(\craft\services\UserPermissions::class, \craft\services\UserPermissions::EVENT_REGISTER_PERMISSIONS, function(\craft\events\RegisterUserPermissionsEvent $event) {
+            $event->permissions[] = [
+                'heading' => Craft::t('speedy', 'Speedy Cache'),
+                'permissions' => [
+                    self::PERMISSION_CLEAR => ['label' => Craft::t('speedy', 'Clear cached pages from entry, category and product indexes')],
+                ],
+            ];
+        });
+
         // “Clear cached pages” in the actions menu of element indexes, for elements with pages.
         $types = [\craft\elements\Entry::class, \craft\elements\Category::class];
         if (class_exists(\craft\commerce\elements\Product::class)) {
@@ -403,7 +418,7 @@ class Plugin extends BasePlugin
         }
         foreach ($types as $type) {
             Event::on($type, Element::EVENT_REGISTER_ACTIONS, function(RegisterElementActionsEvent $event) {
-                if (Craft::$app->getUser()->checkPermission('utility:speedy')) {
+                if (ClearPages::allowed()) {
                     $event->actions[] = ClearPages::class;
                 }
             });

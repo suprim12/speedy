@@ -53,6 +53,10 @@ Commerce changes stock without saving the product, so Craft doesn’t know the p
 
 Replacing an asset’s file keeps its address, so a CDN would keep sending the old image. Speedy clears the old file and each of its transforms from your CDN, as well as the pages that show it.
 
+## Image transforms
+
+With Craft’s `generateTransformsBeforePageLoad` off, a page built before its image transforms are made links to Craft’s action that makes them, so its images would go through PHP for every visitor. Speedy rebuilds such a page a minute later, when the transforms are ready, up to three times a day. Setting `generateTransformsBeforePageLoad` to `true` avoids it altogether.
+
 ## Imports and bulk saves
 
 Saves are collected and cleared together: an import or `resave/entries` of thousands of entries queues one clear job, after the import finishes.

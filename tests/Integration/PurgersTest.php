@@ -95,6 +95,9 @@ class PurgersTest extends TestCase
         $this->settings()->bunnyPullZoneId = '1';
         $this->assertContains('bunny', $cdn->configured());
         $this->assertStringContainsString('s-maxage=', $cdn->cacheControl());
+        $this->assertStringContainsString('stale-while-revalidate=86400, stale-if-error=86400', $cdn->cacheControl(), 'The CDN sends the old copy while it refreshes, and while the site is down.');
+        $this->settings()->cdnMaxAge = 600;
+        $this->assertSame('public, s-maxage=600, max-age=0, stale-while-revalidate=600, stale-if-error=86400', $cdn->cacheControl(), 'For no longer than the max age.');
         $this->assertSame('Bunny', $cdn->names()['bunny']);
     }
 }

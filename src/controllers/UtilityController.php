@@ -65,6 +65,17 @@ class UtilityController extends Controller
         return $count ? $this->asSuccess(Craft::t('speedy', 'Cleared {url}.', ['url' => $url])) : $this->asFailure(Craft::t('speedy', '{url} isn’t cached.', ['url' => $url]));
     }
 
+    /**
+     * Opens a page as a logged-out visitor and shows why it is or isn’t cached, under the form.
+     */
+    public function actionCheckPage(): ?Response
+    {
+        $url = trim((string)$this->request->getRequiredBodyParam('url'));
+        Craft::$app->getSession()->set('speedy:pageCheck', Plugin::getInstance()->pageCheck->check($url));
+
+        return $this->redirectToPostedUrl();
+    }
+
     public function actionWarm(): ?Response
     {
         $warmer = Plugin::getInstance()->warmer;

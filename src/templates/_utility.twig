@@ -60,6 +60,27 @@
 		{% endif %}
 	</div>
 
+	{% set pageCheck = pageCheck ?? null %}
+	<div class="speedy-pagecheck">
+		<form method="post" class="flex">
+			{{ csrfInput() }}{{ actionInput('speedy/utility/check-page') }}{{ redirectInput('utilities/speedy') }}
+			<input type="text" name="url" class="text" value="{{ pageCheck.url ?? '' }}" placeholder="https://… {{ 'or'|t('speedy') }} /news" aria-label="{{ 'Page to check'|t('speedy') }}" required style="width: 320px;">
+			<button type="submit" class="btn">{{ 'Why isn’t this page cached?'|t('speedy') }}</button>
+		</form>
+		{% if pageCheck %}
+			<div class="speedy-check speedy-check--{{ pageCheck.cached ? 'ok' : 'warning' }} speedy-pagecheck__result" role="status">
+				<span class="speedy-check__dot" aria-hidden="true"></span>
+				<div>
+					<p><strong>{{ pageCheck.answer|md(inlineOnly=true, encode=true) }}</strong></p>
+					{% if pageCheck.why %}<p>{{ pageCheck.why|md(inlineOnly=true, encode=true) }}</p>{% endif %}
+					{% if pageCheck.fix %}<p><strong>{{ 'What to do:'|t('speedy') }}</strong> {{ pageCheck.fix|md(inlineOnly=true, encode=true) }}</p>{% endif %}
+					{% for note in pageCheck.notes %}<p class="light">{{ note|md(inlineOnly=true, encode=true) }}</p>{% endfor %}
+					{% if pageCheck.visits|length %}<p class="light smalltext">{{ pageCheck.visits|join(' · ') }}</p>{% endif %}
+				</div>
+			</div>
+		{% endif %}
+	</div>
+
 	{% set tabs = {
 		pages: 'Pages'|t('speedy'),
 		clears: 'Recent clears'|t('speedy'),
@@ -305,6 +326,12 @@
 .speedy-check__dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--blue-500, #3b82f6); transform: translateY(-1px); }
 .speedy-check--error .speedy-check__dot { background: var(--red-500, #ef4444); }
 .speedy-check--warning .speedy-check__dot { background: var(--yellow-500, #eab308); }
+.speedy-check--ok .speedy-check__dot { background: var(--green-500, #22c55e); }
+.speedy-pagecheck { margin-bottom: 20px; }
+.speedy-pagecheck .flex { gap: 8px; flex-wrap: wrap; }
+.speedy-pagecheck__result { margin-top: 10px; }
+.speedy-pagecheck__result p { margin: 0 0 4px; }
+.speedy-pagecheck__result p:last-child { margin-bottom: 0; }
 .speedy-search { gap: 8px; margin-bottom: 12px; }
 .speedy-deps { margin: 6px 0 0; padding-left: 18px; list-style: disc; font-size: 12px; }
 .speedy-pages td { vertical-align: top; }

@@ -43,7 +43,13 @@ class SpeedyUtility extends Utility
         $perPage = 50;
         $list = $plugin->insights->pages($search, ($page - 1) * $perPage, $perPage);
 
+        // The result of “Check a page”, shown once.
+        $session = Craft::$app->getSession();
+        $pageCheck = $session->get('speedy:pageCheck');
+        $session->remove('speedy:pageCheck');
+
         return Craft::$app->getView()->renderTemplate('speedy/_utility', [
+            'pageCheck' => is_array($pageCheck) ? $pageCheck : null,
             'checks' => $plugin->insights->checks(),
             'list' => $list,
             'search' => $search,

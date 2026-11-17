@@ -75,5 +75,5 @@ return [
 | `cloudfrontDistributionId`, `awsAccessKeyId`, `awsSecretAccessKey` | | [CloudFront](/guides/cloudfront). The keys fall back to `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` |
 | `fastlyToken`, `fastlyServiceId`, `bunnyApiKey`, `bunnyPullZoneId`, `varnishUrls` | | [Fastly, Bunny and Varnish](/guides/other-cdns) |
 | `warmUsername`, `warmPassword` | | For rebuilding pages on a site behind basic authentication, such as staging. Use environment variables |
-| `cdnMaxAge` | `31536000` | How long the CDN keeps pages, when Speedy can clear it |
+| `cdnMaxAge` | `31536000` | How long the CDN keeps pages, when Speedy can clear it. After it, the CDN sends the old copy while it fetches a new one; and while your site is down, it keeps sending pages for a day |
 | `wildcardThreshold` | `30` | CloudFront: more paths than this are grouped into wildcards |

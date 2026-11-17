@@ -29,8 +29,22 @@ class ClearPages extends ElementAction
         return self::displayName();
     }
 
+    /**
+     * Whether the current user may clear cached pages: with Speedy’s utility, or the permission to clear pages alone.
+     */
+    public static function allowed(): bool
+    {
+        $user = Craft::$app->getUser();
+
+        return $user->checkPermission('utility:speedy') || $user->checkPermission(Plugin::PERMISSION_CLEAR);
+    }
+
     public function performAction(ElementQueryInterface $query): bool
     {
+        if (!self::allowed()) {
+            $this->setMessage(Craft::t('speedy', 'You can’t clear cached pages.'));
+            return false;
+        }
         $ids = $query->status(null)->ids();
         $count = Plugin::getInstance()->clearer->clearTags(
             array_map(fn($id) => "element::$id", $ids),

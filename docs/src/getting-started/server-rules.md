@@ -13,7 +13,7 @@ php craft speedy/server-rules            # Nginx
 php craft speedy/server-rules --apache   # Apache
 ```
 
-The rules use your settings, so print them again if you change `cachePath` or set up a CDN.
+The rules use your settings, so print them again if you change `cachePath` or set up a CDN, and after updating Speedy if you use a CDN: 1.3 adds `stale-while-revalidate` and `stale-if-error` to the `Cache-Control` header they send.
 
 ## Nginx
 

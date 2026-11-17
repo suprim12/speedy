@@ -149,7 +149,11 @@ class Cdn extends Component
     public function cacheControl(): string
     {
         if ($this->configured()) {
-            return 'public, s-maxage=' . Plugin::getInstance()->getSettings()->cdnMaxAge . ', max-age=0';
+            $maxAge = Plugin::getInstance()->getSettings()->cdnMaxAge;
+            // Once a page is older than its max age, the CDN sends the old copy while it fetches the new one (for no
+            // longer than the max age itself), and keeps sending it for a day if the site is down. Speedy clears
+            // changed pages from the CDN, so neither keeps a changed page.
+            return 'public, s-maxage=' . $maxAge . ', max-age=0, stale-while-revalidate=' . min($maxAge, 86400) . ', stale-if-error=86400';
         }
 
         return 'no-cache, s-maxage=0';

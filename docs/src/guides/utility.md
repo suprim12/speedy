@@ -30,6 +30,15 @@ A tip that mentions a tab, such as **Performance**, links straight to it.
 | **Clear URL** | Clears one page, such as `https://example.com/news`, with its query string versions such as `?page=2` |
 | **Warm pages** | Builds the pages in your `warm` list now. Shown when `warm` is set |
 
+### Why isn’t this page cached?
+
+Enter an address, such as `https://example.com/homes?view=map`, or a path, such as `/homes`, and click **Why isn’t this page cached?**. Speedy opens the page twice as a logged-out visitor would and says what happened, in words:
+
+- **Cached**, how long ago it was built, and whether the web server or PHP sends it.
+- **Not cached**, why, and what to change. A query string names the parameters to add under **Query strings**; a page that sets a cookie names the cookie; **Never cache** names the pattern it matched; a redirect says where it goes.
+
+When you’re logged in, it also reminds you that you get fresh pages yourself. Only the site’s own addresses can be checked.
+
 ## Tabs
 
 Below the actions, the page has four tabs. Each has its own address, such as `utilities/speedy#queries`, to link to or bookmark.
@@ -108,7 +117,9 @@ The details panel of entries, categories, products and other elements with pages
 
 ![The actions menu of the entries index, with Clear cached pages](/images/element-action.jpg)
 
-Select entries, categories or Commerce products, and choose **Clear cached pages** from the actions menu. It clears every cached page that shows them. It needs the **Utilities → Speedy Cache** permission.
+Select entries, categories or Commerce products, and choose **Clear cached pages** from the actions menu. It clears every cached page that shows them.
+
+It needs the **Utilities → Speedy Cache** permission, or, for editors who shouldn’t see the rest of the utility, **Speedy Cache → Clear cached pages from entry, category and product indexes**.
 
 ## Dashboard widget
 

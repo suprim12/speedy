@@ -452,6 +452,7 @@ class Cacher extends Component
             }
             $expires = $event->expires;
             Plugin::getInstance()->storage->write($this->_key, $html, $url, $event->tags, $expires, $this->keptHeaders($response));
+            $this->rebuildAfterTransforms($html, $url, $this->_key);
             if ($expires !== null) {
                 Plugin::getInstance()->clearer->scheduleExpiry($expires);
             }
@@ -556,6 +557,29 @@ class Cacher extends Component
         $script = '<script>(function(){var p=' . json_encode(self::CSRF_PLACEHOLDER) . ';fetch(' . json_encode(self::relativeActionUrl('speedy/csrf')) . ',{headers:{Accept:"application/json"},credentials:"same-origin"}).then(function(r){return r.json()}).then(function(d){document.querySelectorAll("input[value=\'"+p+"\']").forEach(function(i){i.value=d.token});document.querySelectorAll("meta[content=\'"+p+"\']").forEach(function(m){m.content=d.token});window.csrfTokenValue=d.token})})();</script>';
 
         return str_contains($html, '</body>') ? substr_replace($html, $script . '</body>', strrpos($html, '</body>'), 7) : $html . $script;
+    }
+
+    /** Rebuilds of one page for its image transforms in a day, in case they’re never made, such as for a missing file. */
+    public const TRANSFORM_REBUILDS = 3;
+
+    /**
+     * A page built before its image transforms were made links to Craft’s action that makes them, so every visitor’s
+     * images would go through PHP until the page is next cleared. Craft makes them in the queue, so rebuild the page
+     * a minute later, when it can link to the images themselves. (Craft’s own template caches aren’t saved at all.)
+     */
+    private function rebuildAfterTransforms(string $html, string $url, string $key): void
+    {
+        if (!str_contains(stripslashes($html), 'assets/generate-transform')) {
+            return;
+        }
+        $cache = Craft::$app->getCache();
+        $tries = 'speedy:transformRebuilds:' . md5($url);
+        $count = (int)$cache->get($tries);
+        if ($count >= self::TRANSFORM_REBUILDS || !$cache->add(Clearer::REBUILD_LATER . md5($url), true, 60 + 3600)) {
+            return;
+        }
+        $cache->set($tries, $count + 1, 86400);
+        Plugin::getInstance()->warmer->queue([$url], true, [$url => $key], 60);
     }
 
     /**

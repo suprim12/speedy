@@ -8,6 +8,8 @@ curl -sI https://example.com/news | grep -i x-speedy
 
 ## A page is never cached
 
+On the utility page, enter the page’s address under **Why isn’t this page cached?**: it opens the page as a visitor and says why, with what to change.
+
 The header says why, after `SKIP`:
 
 | `SKIP …` | Why | What to do |

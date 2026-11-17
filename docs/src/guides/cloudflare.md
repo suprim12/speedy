@@ -22,7 +22,7 @@ Speedy still works: pages are cached on your server. Speedy tells Cloudflare not
 6. In **Settings → Plugins → Speedy Cache**, enter `$CLOUDFLARE_TOKEN` and `$CLOUDFLARE_ZONE_ID`, and save.
 7. On the utility page, click **Test Cloudflare**.
 
-Cached pages are now sent with `Cache-Control: public, s-maxage=31536000, max-age=0`: Cloudflare keeps them, browsers check back each time, and Speedy clears Cloudflare whenever a page changes.
+Cached pages are now sent with `Cache-Control: public, s-maxage=31536000, max-age=0, stale-while-revalidate=86400, stale-if-error=86400`: Cloudflare keeps them, browsers check back each time, and Speedy clears Cloudflare whenever a page changes. If your site is down, Cloudflare keeps sending the last copy of each page for a day.
 
 ## Make Cloudflare keep HTML
 
