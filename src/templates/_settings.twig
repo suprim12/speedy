@@ -96,17 +96,19 @@
 <div class="speedy-cdns">
 	{% for cdn in ['cloudflare', 'cloudfront', 'fastly', 'bunny', 'varnish'] %}
 		<div class="speedy-cdn {{ detected == cdn ? 'speedy-cdn--seen' }}">
-			<div class="speedy-cdn__head">
+			<div class="speedy-cdn__about">
 				<h3>{{ cdnNames[cdn] }}</h3>
 				{% if cdn in configured %}
 					<span class="speedy-pill speedy-pill--on">{{ 'Set up'|t('speedy') }}</span>
 				{% elseif detected == cdn %}
 					<span class="speedy-pill speedy-pill--seen">{{ 'Your site is behind it'|t('speedy') }}</span>
 				{% endif %}
+				{% if cdnLast[cdn] is defined %}
+					<p class="{{ cdnLast[cdn].error ? 'error' : 'light' }} smalltext">{{ cdnLast[cdn].result }} · {{ cdnLast[cdn].time|datetime('short') }}</p>
+				{% endif %}
+				<p class="smalltext"><a href="https://plugins.speedy.suprim.com.au/guides/{{ cdn in ['cloudflare', 'cloudfront'] ? cdn : 'other-cdns' }}" target="_blank" rel="noopener">{{ 'Setup guide'|t('speedy') }}</a></p>
 			</div>
-			{% if cdnLast[cdn] is defined %}
-				<p class="{{ cdnLast[cdn].error ? 'error' : 'light' }} smalltext">{{ cdnLast[cdn].result }} · {{ cdnLast[cdn].time|datetime('short') }}</p>
-			{% endif %}
+			<div class="speedy-cdn__fields">
 
 			{% if cdn == 'cloudflare' %}
 				{{ forms.autosuggestField({
@@ -115,6 +117,7 @@
 					name: 'cloudflareToken',
 					value: settings.cloudflareToken,
 					suggestEnvVars: true,
+					tip: '',
 					disabled: 'cloudflareToken' in overrides,
 					warning: 'cloudflareToken' in overrides ? configWarning('cloudflareToken'),
 				}) }}
@@ -124,6 +127,7 @@
 					name: 'cloudflareZoneId',
 					value: settings.cloudflareZoneId,
 					suggestEnvVars: true,
+					tip: '',
 					disabled: 'cloudflareZoneId' in overrides,
 					warning: 'cloudflareZoneId' in overrides ? configWarning('cloudflareZoneId'),
 				}) }}
@@ -134,15 +138,16 @@
 					name: 'fastlyToken',
 					value: settings.fastlyToken,
 					suggestEnvVars: true,
+					tip: '',
 					disabled: 'fastlyToken' in overrides,
 					warning: 'fastlyToken' in overrides ? configWarning('fastlyToken'),
 				}) }}
 				{{ forms.autosuggestField({
 					label: 'Service ID'|t('speedy'),
-					
 					name: 'fastlyServiceId',
 					value: settings.fastlyServiceId,
 					suggestEnvVars: true,
+					tip: '',
 					disabled: 'fastlyServiceId' in overrides,
 					warning: 'fastlyServiceId' in overrides ? configWarning('fastlyServiceId'),
 				}) }}
@@ -153,15 +158,16 @@
 					name: 'bunnyApiKey',
 					value: settings.bunnyApiKey,
 					suggestEnvVars: true,
+					tip: '',
 					disabled: 'bunnyApiKey' in overrides,
 					warning: 'bunnyApiKey' in overrides ? configWarning('bunnyApiKey'),
 				}) }}
 				{{ forms.autosuggestField({
 					label: 'Pull zone ID'|t('speedy'),
-					
 					name: 'bunnyPullZoneId',
 					value: settings.bunnyPullZoneId,
 					suggestEnvVars: true,
+					tip: '',
 					disabled: 'bunnyPullZoneId' in overrides,
 					warning: 'bunnyPullZoneId' in overrides ? configWarning('bunnyPullZoneId'),
 				}) }}
@@ -182,6 +188,7 @@
 					name: 'cloudfrontDistributionId',
 					value: settings.cloudfrontDistributionId,
 					suggestEnvVars: true,
+					tip: '',
 					disabled: 'cloudfrontDistributionId' in overrides,
 					warning: 'cloudfrontDistributionId' in overrides ? configWarning('cloudfrontDistributionId'),
 				}) }}
@@ -191,6 +198,7 @@
 					name: 'awsAccessKeyId',
 					value: settings.awsAccessKeyId,
 					suggestEnvVars: true,
+					tip: '',
 					disabled: 'awsAccessKeyId' in overrides,
 					warning: 'awsAccessKeyId' in overrides ? configWarning('awsAccessKeyId'),
 				}) }}
@@ -200,10 +208,12 @@
 					name: 'awsSecretAccessKey',
 					value: settings.awsSecretAccessKey,
 					suggestEnvVars: true,
+					tip: '',
 					disabled: 'awsSecretAccessKey' in overrides,
 					warning: 'awsSecretAccessKey' in overrides ? configWarning('awsSecretAccessKey'),
 				}) }}
 			{% endif %}
+			</div>
 		</div>
 	{% endfor %}
 </div>
@@ -276,11 +286,17 @@
 .speedy-code { background: var(--gray-050, #f3f7fc); padding: 12px 14px; border-radius: 6px; font-size: 12px; margin: 0; white-space: pre-wrap; }
 .speedy-under { margin-top: -12px; margin-bottom: 24px; font-size: 13px; }
 .speedy-intro { max-width: 70ch; color: var(--light-text-color, #606d7b); margin-bottom: 20px; }
-.speedy-cdns { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
-.speedy-cdn { border: 1px solid var(--hairline-color, #e3e5e8); border-radius: 8px; padding: 18px 20px 20px; }
-.speedy-cdn--seen { border-color: var(--blue-300, #93c5fd); }
-.speedy-cdn__head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.speedy-cdn__head h3 { margin: 0; }
+.speedy-cdns { border-top: 1px solid var(--hairline-color, #e3e5e8); }
+.speedy-cdn { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; padding: 24px 0 8px; border-bottom: 1px solid var(--hairline-color, #e3e5e8); }
+.speedy-cdn__about h3 { margin: 0 0 6px; }
+.speedy-cdn__about p { margin: 6px 0 0; }
+.speedy-cdn--seen .speedy-cdn__about h3 { color: var(--blue-700, #1d4ed8); }
+.speedy-cdn__fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0 24px; }
+/* Inputs in a row line up, however long the help above them. */
+.speedy-cdn__fields > .field { display: flex; flex-direction: column; margin: 0 0 16px !important; }
+.speedy-cdn__fields > .field > .input { margin-top: auto; }
+.speedy-cdn__fields > .field:only-child { grid-column: 1 / -1; max-width: 520px; }
+@media (max-width: 860px) { .speedy-cdn { grid-template-columns: 1fr; gap: 12px; } }
 .speedy-pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
 .speedy-pill--on { background: var(--green-100, #dcfce7); color: var(--green-700, #15803d); }
 .speedy-pill--seen { background: var(--blue-100, #dbeafe); color: var(--blue-700, #1d4ed8); }
