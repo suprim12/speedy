@@ -39,16 +39,21 @@ class BuildSavedTest extends TestCase
         parent::tearDown();
     }
 
+    private ?\craft\models\Section $section = null;
+
     private function section(): \craft\models\Section
     {
+        if ($this->section) {
+            return $this->section;
+        }
         foreach (Craft::$app->getEntries()->getAllSections() as $section) {
             foreach ($section->getSiteSettings() as $siteSettings) {
-                if ($siteSettings->hasUrls) {
-                    return $section;
+                if ($siteSettings->hasUrls && !$this->plugin()->insights->templateMissing(Entry::class, (int)$section->id, (int)$siteSettings->siteId)) {
+                    return $this->section = $section;
                 }
             }
         }
-        $this->markTestSkipped('No section with URLs.');
+        $this->markTestSkipped('No section with URLs and a template.');
     }
 
     private function save(array $attributes = [], string $suffix = ''): Entry
@@ -99,6 +104,28 @@ class BuildSavedTest extends TestCase
         $this->settings()->buildSavedPages = false;
         $this->save([], '-off');
         $this->assertSame(0, $this->queued(), 'Turned off.');
+    }
+
+    public function testNotWhenTheSectionHasNoTemplate(): void
+    {
+        $section = $this->section();
+        $insights = $this->plugin()->insights;
+        $forget = fn() => $this->_templateMissing = [];
+        $templates = [];
+        foreach ($section->getSiteSettings() as $siteId => $siteSettings) {
+            $templates[$siteId] = $siteSettings->template;
+            $siteSettings->template = 'speedy-test-no-such-template/_entry';
+        }
+        $forget->call($insights);
+        try {
+            $this->save();
+            $this->assertSame(0, $this->queued(), 'Its page would only be a 404.');
+        } finally {
+            foreach ($section->getSiteSettings() as $siteId => $siteSettings) {
+                $siteSettings->template = $templates[$siteId];
+            }
+            $forget->call($insights);
+        }
     }
 
     public function testNotWhenAlreadyCached(): void

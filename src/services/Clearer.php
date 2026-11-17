@@ -12,6 +12,8 @@ namespace suprim\speedy\services;
 use Craft;
 use craft\base\Component;
 use craft\base\ElementInterface;
+use craft\elements\Category;
+use craft\elements\Entry;
 use craft\events\InvalidateElementCachesEvent;
 use craft\helpers\ElementHelper;
 use craft\helpers\Json;
@@ -212,8 +214,9 @@ class Clearer extends Component
 
     /**
      * Notes the page of a saved element, to build at the end of the request or queue job if it isn’t cached. Not
-     * while resaving, nor for drafts, revisions and elements that aren’t live. (Craft wraps every save in a bulk
-     * operation of its own, so that can’t tell an import apart; the number of saves does, in buildNoted().)
+     * while resaving, nor for drafts, revisions, elements that aren’t live, or sections whose template doesn’t exist.
+     * (Craft wraps every save in a bulk operation of its own, so that can’t tell an import apart; the number of saves
+     * does, in buildNoted().)
      */
     private function noteSaved(ElementInterface $element): void
     {
@@ -222,8 +225,21 @@ class Clearer extends Component
             || count($this->_build) > self::BUILD_SAVED_MOST || !in_array($element->getStatus(), [\craft\base\Element::STATUS_ENABLED, 'live'], true)) {
             return;
         }
+        $this->noteBuild($element);
+    }
+
+    /**
+     * Notes an element’s page to build in buildNoted(), unless it has no URL or its section’s template doesn’t exist.
+     */
+    private function noteBuild(ElementInterface $element): void
+    {
         $url = $element->getUrl();
-        if ($url !== null && $element->uri !== null) {
+        $groupId = match (true) {
+            $element instanceof Entry => (int)$element->sectionId,
+            $element instanceof Category => (int)$element->groupId,
+            default => 0,
+        };
+        if ($url !== null && $element->uri !== null && !Plugin::getInstance()->insights->templateMissing($element::class, $groupId, (int)$element->siteId)) {
             $this->_build[$url] = $element->uri;
         }
     }
@@ -972,10 +988,7 @@ class Clearer extends Component
         if (Plugin::getInstance()->getSettings()->buildSavedPages) {
             foreach ($this->postDatedTypes() as $class) {
                 foreach ($class::find()->site('*')->status('live')->postDate($range)->uri(':notempty:')->limit(self::BUILD_SAVED_MOST)->all() as $element) {
-                    $url = $element->getUrl();
-                    if ($url !== null) {
-                        $this->_build[$url] = (string)$element->uri;
-                    }
+                    $this->noteBuild($element);
                 }
             }
             $this->buildNoted();

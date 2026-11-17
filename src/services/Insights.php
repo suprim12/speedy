@@ -18,7 +18,9 @@ use craft\elements\Entry;
 use craft\helpers\App;
 use craft\helpers\ElementHelper;
 use craft\helpers\Html;
+use craft\web\View;
 use suprim\speedy\Plugin;
+use yii\base\Event;
 
 /**
  * What’s cached and why: the cached pages list, an element’s cache status, and setup checks.
@@ -63,13 +65,16 @@ class Insights extends Component
 
     public const COVERAGE_CACHE = 'speedy:coverage';
 
+    /** @var array<string, bool> Whether each section’s or category group’s template is missing, by type, group and site. */
+    private array $_templateMissing = [];
+
     /**
      * How many of the pages of entries, categories, products and other elements with URLs are cached, by section or
      * group, with the ones that aren’t. Pages left out by Never cache or Only cache don’t count. Counted at most every
      * five minutes, like the cached pages, unless $fresh. Pages that couldn’t be built when last tried are listed
-     * apart, with why.
+     * apart, with why. Pages of sections and category groups whose template doesn’t exist are only counted, by name.
      *
-     * @return array{total: int, cached: int, never: int, groups: array<int, array{label: string, total: int, cached: int, missing: string[], failed: array<string, string>}>, time: int, capped: bool}
+     * @return array{total: int, cached: int, never: int, noTemplate: array<string, int>, groups: array<int, array{label: string, total: int, cached: int, missing: string[], failed: array<string, string>}>, time: int, capped: bool}
      */
     public function coverage(bool $fresh = false): array
     {
@@ -96,6 +101,7 @@ class Insights extends Component
 
         $groups = [];
         $never = 0;
+        $noTemplate = [];
         $count = 0;
         foreach ($sites ? Craft::$app->getElements()->getAllElementTypes() : [] as $class) {
             /** @var class-string<ElementInterface> $class */
@@ -121,6 +127,11 @@ class Insights extends Component
                     continue;
                 }
                 $groupId = $groupColumn ? (int)$row[substr($groupColumn, strpos($groupColumn, '.') + 1)] : 0;
+                if ($this->templateMissing($class, $groupId, (int)$row['siteId'])) {
+                    $label = $labels($groupId);
+                    $noTemplate[$label] = ($noTemplate[$label] ?? 0) + 1;
+                    continue;
+                }
                 $id = "$class:$groupId";
                 $groups[$id] ??= ['label' => $labels($groupId), 'total' => 0, 'cached' => 0, 'missing' => [], 'failed' => []];
                 $groups[$id]['total']++;
@@ -141,6 +152,7 @@ class Insights extends Component
             'total' => array_sum(array_column($groups, 'total')),
             'cached' => array_sum(array_column($groups, 'cached')),
             'never' => $never,
+            'noTemplate' => $noTemplate,
             'groups' => array_values($groups),
             'time' => time(),
             'capped' => $count > self::COVERAGE_MOST,
@@ -167,6 +179,55 @@ class Insights extends Component
         $only = $settings->getOnlyCache();
 
         return $only && Cacher::matchingPattern($path, $only) === null && Cacher::matchingPattern($sitePath, $only) === null;
+    }
+
+    /**
+     * Whether the pages of an entry section or category group in a site can’t be shown, because its template doesn’t
+     * exist, such as a section with URLs whose entries are only shown on other pages. Not for other element types,
+     * nested entries, a blank template, or when a plugin or module sets elements’ routes itself.
+     */
+    public function templateMissing(string $class, int $groupId, int $siteId): bool
+    {
+        $key = "$class:$groupId:$siteId";
+        if (array_key_exists($key, $this->_templateMissing)) {
+            return $this->_templateMissing[$key];
+        }
+        $settings = null;
+        if ($groupId && !Event::hasHandlers($class, Element::EVENT_SET_ROUTE)) {
+            if ($class === Entry::class) {
+                $settings = Craft::$app->getEntries()->getSectionById($groupId)?->getSiteSettings()[$siteId] ?? null;
+            } elseif ($class === Category::class) {
+                $settings = Craft::$app->getCategories()->getGroupById($groupId)?->getSiteSettings()[$siteId] ?? null;
+            }
+        }
+        $template = $settings && $settings->hasUrls ? trim((string)$settings->template) : '';
+
+        return $this->_templateMissing[$key] = $template !== '' && !$this->siteTemplateExists($template);
+    }
+
+    /**
+     * Whether a site template exists, in the templates folder, a site’s own folder in it, or a plugin’s or module’s
+     * template root. Checked in site mode, and the view is put back as it was.
+     */
+    private function siteTemplateExists(string $template): bool
+    {
+        $view = Craft::$app->getView();
+        $mode = $view->getTemplateMode();
+        try {
+            $view->setTemplateMode(View::TEMPLATE_MODE_SITE);
+            if ($view->doesTemplateExist($template)) {
+                return true;
+            }
+            foreach (Craft::$app->getSites()->getAllSites() as $site) {
+                if ($view->doesTemplateExist($site->handle . '/' . $template)) {
+                    return true;
+                }
+            }
+
+            return false;
+        } finally {
+            $view->setTemplateMode($mode);
+        }
     }
 
     /**

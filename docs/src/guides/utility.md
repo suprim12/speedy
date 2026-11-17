@@ -53,10 +53,10 @@ Below the actions, the page has four tabs. Each has its own address, such as `ut
 The pages of entries, categories, products and other elements with their own URL, and how many of them are cached, by section or group. The sections with the most pages not cached come first.
 
 - **Not cached yet** lists the pages no visitor has opened since they were last cleared.
-- **Couldn’t be built** lists the pages Speedy tried and couldn’t cache, with why, such as `status 404` for a section without a template, or `SKIP private` for a page marked private.
+- **Couldn’t be built** lists the pages Speedy tried and couldn’t cache, with why, such as `status 500` for an error in a template, or `SKIP private` for a page marked private.
 - **Build the pages not cached** builds them all in the background, the most important first, and tries the ones that couldn’t be built again.
 
-Pages left out by **Never cache** or **Only cache** aren’t counted. Listings with a query string, such as `?page=2`, and pages from routes or templates without an element aren’t counted either: they’re in the list of cached pages below. Coverage is counted at most every five minutes.
+Pages left out by **Never cache** or **Only cache** aren’t counted. Nor are sections without URLs, or sections and category groups with URLs whose template doesn’t exist, such as a section whose entries are only shown on other pages: coverage names them under the table. Listings with a query string, such as `?page=2`, and pages from routes or templates without an element aren’t counted either: they’re in the list of cached pages below. Coverage is counted at most every five minutes.
 
 #### Cached pages
 

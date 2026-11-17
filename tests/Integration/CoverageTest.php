@@ -12,12 +12,12 @@ class CoverageTest extends TestCase
 {
     private function anEntry(): Entry
     {
-        $entry = Entry::find()->uri(':notempty:')->one();
-        if (!$entry || !$entry->getUrl()) {
-            $this->markTestSkipped('No entry with a URL on this site.');
+        foreach (Entry::find()->uri(':notempty:')->limit(200)->all() as $entry) {
+            if ($entry->getUrl() && !$this->plugin()->insights->templateMissing(Entry::class, (int)$entry->sectionId, (int)$entry->siteId)) {
+                return $entry;
+            }
         }
-
-        return $entry;
+        $this->markTestSkipped('No entry with a URL and a template on this site.');
     }
 
     /**
@@ -80,6 +80,56 @@ class CoverageTest extends TestCase
         $this->assertSame($before['total'] - $after['never'] + $before['never'], $after['total']);
         foreach ($after['groups'] as $group) {
             $this->assertNotContains($entry->getUrl(), $group['missing']);
+        }
+    }
+
+    public function testSectionsWithoutATemplateAreLeftOut(): void
+    {
+        $entry = $this->anEntry();
+        $insights = $this->plugin()->insights;
+        $siteSettings = $entry->getSection()->getSiteSettings()[$entry->siteId];
+        $template = $siteSettings->template;
+        $mode = \Craft::$app->getView()->getTemplateMode();
+        $forget = fn() => $this->_templateMissing = [];
+        try {
+            $siteSettings->template = 'speedy-test-no-such-template/_entry';
+            $forget->call($insights);
+            $coverage = $insights->coverage(true);
+            $this->assertGreaterThanOrEqual(1, $coverage['noTemplate'][$entry->getSection()->name] ?? 0);
+            foreach ($coverage['groups'] as $group) {
+                $this->assertNotContains($entry->getUrl(), $group['missing']);
+            }
+            $this->assertSame($mode, \Craft::$app->getView()->getTemplateMode(), 'The view is put back as it was.');
+        } finally {
+            $siteSettings->template = $template;
+            $forget->call($insights);
+        }
+        $this->assertArrayNotHasKey($entry->getSection()->name, $insights->coverage(true)['noTemplate'], 'Counted again once it has a template.');
+    }
+
+    public function testTemplatesInSiteFoldersCount(): void
+    {
+        $insights = $this->plugin()->insights;
+        $exists = fn(string $template) => $this->siteTemplateExists($template);
+        $this->assertFalse($exists->call($insights, 'speedy-test-no-such-template/_entry'));
+        $entry = $this->anEntry();
+        $this->assertTrue($exists->call($insights, (string)$entry->getSection()->getSiteSettings()[$entry->siteId]->template));
+
+        // A template only in a site’s own folder, such as templates/default/news/_entry.twig.
+        $folder = \Craft::getAlias('@templates') . '/' . \Craft::$app->getSites()->getPrimarySite()->handle;
+        $made = !is_dir($folder);
+        $file = $folder . '/speedy-test-site-only-' . bin2hex(random_bytes(3)) . '.twig';
+        try {
+            if ($made) {
+                mkdir($folder);
+            }
+            file_put_contents($file, 'site only');
+            $this->assertTrue($exists->call($insights, basename($file, '.twig')));
+        } finally {
+            @unlink($file);
+            if ($made) {
+                @rmdir($folder);
+            }
         }
     }
 

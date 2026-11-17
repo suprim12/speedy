@@ -24,6 +24,7 @@ It’s skipped:
 
 - for drafts, disabled entries and entries that aren’t live yet;
 - for pages left out by **Never cache** or **Only cache**;
+- for sections and category groups whose template doesn’t exist, as their pages would only be a 404;
 - when resaving, such as a section’s entries after changing its URL format;
 - when more than 20 are saved in one request or queue job, such as an import. Their pages are built as visitors arrive, or by **Build the pages not cached** under [Coverage](/guides/utility#coverage).
 

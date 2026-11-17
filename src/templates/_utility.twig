@@ -126,7 +126,7 @@
 		{% if coverage.total %}
 			{% set missing = coverage.total - coverage.cached %}
 			<h3>{{ 'Coverage'|t('speedy') }}</h3>
-			<p>{{ 'The pages of entries, categories and other content with their own URL, and how many are cached. Pages are cached as visitors open them: build the rest now, so no visitor waits for one. A page that couldn’t be built says why, such as a missing template (status 404).'|t('speedy') }}</p>
+			<p>{{ 'The pages of entries, categories and other content with their own URL, and how many are cached. Pages are cached as visitors open them: build the rest now, so no visitor waits for one. A page that couldn’t be built says why, such as an error in its template (status 500).'|t('speedy') }}</p>
 			<table class="data fullwidth speedy-pages speedy-coverage">
 				<thead><tr>
 					<th scope="col">{{ 'Section'|t('speedy') }}</th>
@@ -170,6 +170,7 @@
 				<span class="light smalltext">
 					{{ 'Counted {time}.'|t('speedy', { time: coverage.time|datetime('short') }) }}
 					{% if coverage.never %}{{ '{count, plural, =1{# page is} other{# pages are}} left out by Never cache or Only cache.'|t('speedy', { count: coverage.never }) }}{% endif %}
+					{% if coverage.noTemplate ?? false %}{{ '{count, plural, =1{# page is} other{# pages are}} left out because their template doesn’t exist: {sections}.'|t('speedy', { count: coverage.noTemplate|reduce((sum, n) => sum + n, 0), sections: coverage.noTemplate|keys|join(', ') }) }}{% endif %}
 					{% if coverage.capped %}{{ 'Only the first {count} pages are counted.'|t('speedy', { count: constant('suprim\\speedy\\services\\Insights::COVERAGE_MOST')|number }) }}{% endif %}
 				</span>
 			</div>
