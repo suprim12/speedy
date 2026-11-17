@@ -14,14 +14,17 @@ Full-page caching that works with your templates as they are, keeps your databas
 - **Never a slow first visit.** Cleared pages are rebuilt in the background before the old copy is replaced, and can be after every deploy that changes project config. After clearing everything, the homepage and top pages come first.
 - **Safe by default.** Logged-in visitors, carts, form steps, flash messages and pages that set cookies are never cached, and a made-up cookie can’t reach the copy everyone gets. Drafts, autosaves and saves that change nothing never clear live pages.
 - **Query strings, your way.** Not cached unless you list them, such as `page`, with a cap per page so the disk can’t fill.
-- **Commerce stock.** Orders, control panel edits and transfers clear the product’s pages.
+- **Commerce stock and prices.** Orders, control panel edits, transfers, pricing rules and sale prices that start or end on a date clear the product’s pages.
+- **Imports rebuild once.** Listings that show every entry are rebuilt once after an import or a run of saves, not after each.
+- **Instant links.** Optional: a page starts loading as soon as a visitor points at its link, so it opens straight away.
 - **Keeps working when the queue stops.** Pages are cleared straight away, with a control panel alert, until it runs again.
 - **Forms just work.** CSRF tokens on cached pages are refreshed automatically, with no template changes.
 - **Cloudflare, CloudFront, Fastly, Bunny and Varnish built in.** Cleared when pages change, with a Cloudflare zone for each domain, and other plugins can add more. CloudFront paths are batched into wildcards to stay in the free tier.
 - **Scheduled content.** Pages clear when a post goes live or expires, including the listings it appears on.
-- **See why.** A plain-English log: “Saved entry ‘Summer Sale’ → 12 pages cleared”.
+- **See why.** A plain-English log: “Saved entry ‘Summer Sale’ → 12 pages cleared”, and **Why isn’t this page cached?** opens any page as a visitor and says why, with what to change.
 - **Find slow templates.** Pages that run the same query in a loop (N+1 queries) are listed with the template and line, and how to eager-load instead.
-- **At a glance.** A dashboard widget with pages cached, recent clears and any problems.
+- **At a glance.** A dashboard widget with pages cached, recent clears and any problems, and a utility page to clear everything, one URL or a whole section. Editors can be allowed to clear pages without the rest.
+- **CDN keeps you up.** With a CDN set up, it keeps sending pages for a day if the server goes down.
 - **Cache everything, or only some.** Never cache checkouts and accounts, or only cache the sections you choose.
 - **For developers.** An event at every stage, `craft.speedy.tag()`, an API and console commands.
 
