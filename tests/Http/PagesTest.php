@@ -45,6 +45,7 @@ class PagesTest extends TestCase
             'done' => '{% do craft.app.session.remove("speedyTestStep") %}{% redirect "/' . self::$prefix . '/step" %}',
             'dynamic' => '<html><body>Page {{ now|date("U.u") }} {{ craft.speedy.dynamic("' . self::$prefix . '/_part", { name: "Alex" }) }}</body></html>',
             '_part' => '<p>Part for {{ name }} at {{ now|date("U.u") }}</p>',
+            '_broken' => '{{ include("speedy-test-no-such-template") }}',
             'analytics' => '<html><body>Analytics</body></html>',
             'consent' => '<html><body>Consent</body></html>',
             'theme' => '<html><body>Theme {{ craft.app.request.rawCookies.getValue("theme") ?? "default" }}</body></html>',
@@ -260,6 +261,13 @@ class PagesTest extends TestCase
         $render = fn(array $tokens) => json_decode((string)$this->client()->post('/actions/speedy/dynamic/render', ['json' => ['tokens' => $tokens]])->getBody(), true);
         $this->assertStringContainsString('Part for Alex', (string)$render([$token])['parts'][0]);
         $this->assertNull($render([$token . 'x'])['parts'][0], 'Tampered tokens render nothing.');
+
+        // A part with an error keeps its placeholder, and the others still arrive.
+        $broken = \Craft::$app->getSecurity()->hashData(\craft\helpers\Json::encode(['k' => 'speedy-dynamic', 't' => self::$prefix . '/_broken', 'v' => [], 's' => \Craft::$app->getSites()->getPrimarySite()->id]));
+        $parts = $render([$broken, $token])['parts'] ?? null;
+        $this->assertIsArray($parts, 'The request still answers.');
+        $this->assertNull($parts[0]);
+        $this->assertStringContainsString('Part for Alex', (string)$parts[1]);
     }
 
     public function testRebuildsReportQueriesRunInALoop(): void

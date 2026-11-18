@@ -9,6 +9,7 @@
 
 namespace suprim\speedy\controllers;
 
+use Craft;
 use craft\web\Controller;
 use suprim\speedy\Plugin;
 use suprim\speedy\services\Dynamic;
@@ -34,7 +35,16 @@ class DynamicController extends Controller
             throw new BadRequestHttpException('Invalid tokens.');
         }
         $dynamic = Plugin::getInstance()->dynamic;
-        $parts = array_map(fn($token) => is_string($token) ? $dynamic->render($token) : null, array_values($tokens));
+        $parts = [];
+        foreach (array_values($tokens) as $token) {
+            try {
+                $parts[] = is_string($token) ? $dynamic->render($token) : null;
+            } catch (\Throwable $e) {
+                // One part with an error mustn’t keep the others off the page: it keeps its placeholder.
+                Craft::error('Couldn’t render a dynamic part: ' . $e->getMessage(), 'speedy');
+                $parts[] = null;
+            }
+        }
         $this->response->getHeaders()->set('Cache-Control', 'private, no-store');
 
         return $this->asJson(['parts' => $parts]);
