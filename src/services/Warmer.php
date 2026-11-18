@@ -107,7 +107,7 @@ class Warmer extends Component
      *
      * @param string[] $urls
      * @param array<string, string> $keys The pages’ keys by URL, when known.
-     * @param float|null $until No page is started after this time (a Unix time), such as near the end of a queue job’s time.
+     * @param float|null $until No page but the first is started after this time (a Unix time), such as near the end of a queue job’s time.
      * @param string[]|null $left Set to the pages not started by then, to build later.
      * @return array{built: int, failed: int}
      */
@@ -143,7 +143,8 @@ class Warmer extends Component
         $urls = array_values($urls);
         $requests = function() use ($urls, $plugin, $until, &$skipped, &$why, &$left) {
             foreach ($urls as $i => $url) {
-                if ($until !== null && microtime(true) >= $until) {
+                // At least one page each time, so a job that started late still makes progress.
+                if ($until !== null && $i > 0 && microtime(true) >= $until) {
                     $left = array_slice($urls, $i);
                     return;
                 }

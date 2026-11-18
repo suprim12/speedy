@@ -42,6 +42,9 @@ class DynamicController extends Controller
             } catch (\Throwable $e) {
                 // One part with an error mustn’t keep the others off the page: it keeps its placeholder.
                 Craft::error('Couldn’t render a dynamic part: ' . $e->getMessage(), 'speedy');
+                // Scripts and styles it registered before the error aren’t the next part’s.
+                Craft::$app->getView()->getHeadHtml();
+                Craft::$app->getView()->getBodyHtml();
                 $parts[] = null;
             }
         }

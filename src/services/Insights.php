@@ -476,6 +476,8 @@ class Insights extends Component
         // The URL path of the web root, such as /craft for a site in a folder of its domain.
         $base = rtrim((string)parse_url((string)Craft::getAlias('@web', false), PHP_URL_PATH), '/');
         $storage = Plugin::getInstance()->storage;
+        // Files not on disk that were asked for over HTTP, by path.
+        $asked = [];
         if ($webroot !== '' && is_dir($webroot)) {
             foreach ($storage->allKeys() as $key) {
                 if ($result['checked'] >= self::ASSET_CHECK_PAGES) {
@@ -490,14 +492,16 @@ class Insights extends Component
                     continue;
                 }
                 $result['checked']++;
-                $host = preg_replace('/:\d+$/', '', explode('/', $key, 2)[0]);
-                foreach (self::assetPaths($page['content'], (string)$host) as $path) {
+                $hostAndPort = explode('/', $key, 2)[0];
+                $host = (string)preg_replace('/:\d+$/', '', $hostAndPort);
+                foreach (self::assetPaths($page['content'], $host) as $path) {
                     if ($base !== '' && !str_starts_with($path, $base . '/')) {
                         continue;
                     }
-                    if (!is_file($webroot . substr($path, strlen($base)))) {
+                    if (!is_file($webroot . substr($path, strlen($base))) && $this->assetGone($hostAndPort, $path, $asked)) {
                         $result['pages']++;
-                        $result['example'] ??= $path;
+                        // Shown in the control panel: only plain characters, kept short.
+                        $result['example'] ??= mb_strimwidth((string)preg_replace('/[^\w\/.\-~%]/u', '', $path), 0, 120, '…');
                         break;
                     }
                 }
@@ -506,6 +510,43 @@ class Insights extends Component
         $cache->set(self::MISSING_ASSETS_CACHE, $result, 300);
 
         return $result;
+    }
+
+    /** Files not on disk asked for over HTTP in one check, at most. */
+    private const ASSET_REQUESTS = 5;
+
+    /**
+     * Whether a file that isn’t on disk is really gone: some are sent by Craft or a plugin, or from another folder by
+     * the web server. Asked for once over HTTP, to the site’s own host only, a few at most per check; past that, or
+     * when the site can’t be reached, it counts as gone only if it isn’t on disk, as checked already.
+     *
+     * @param array<string, bool> $asked Answers so far in this check, by host and path.
+     */
+    private function assetGone(string $hostAndPort, string $path, array &$asked): bool
+    {
+        $id = $hostAndPort . $path;
+        if (array_key_exists($id, $asked)) {
+            return $asked[$id];
+        }
+        $plugin = Plugin::getInstance();
+        $port = parse_url("http://$hostAndPort", PHP_URL_PORT);
+        if (count($asked) >= self::ASSET_REQUESTS || !$plugin->cacher->isKnownSiteHost((string)parse_url("http://$hostAndPort", PHP_URL_HOST), $port ?: null)) {
+            return $asked[$id] = true;
+        }
+        $scheme = parse_url((string)Craft::$app->getSites()->getPrimarySite()->getBaseUrl(), PHP_URL_SCHEME) ?: 'https';
+        try {
+            $status = Craft::createGuzzleClient(array_filter([
+                'timeout' => 5,
+                'http_errors' => false,
+                'allow_redirects' => false,
+                'verify' => !Craft::$app->getConfig()->getGeneral()->devMode,
+                'auth' => $plugin->getSettings()->getWarmAuth(),
+            ], fn($v) => $v !== null))->head("$scheme://$hostAndPort" . implode('/', array_map('rawurlencode', explode('/', $path))))->getStatusCode();
+        } catch (\Throwable) {
+            return $asked[$id] = true;
+        }
+
+        return $asked[$id] = in_array($status, [404, 410], true);
     }
 
     /**

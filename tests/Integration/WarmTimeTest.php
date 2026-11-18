@@ -27,14 +27,16 @@ class WarmTimeTest extends TestCase
         parent::tearDown();
     }
 
-    public function testNoPageIsStartedAfterTheTime(): void
+    public function testOnlyOnePageIsStartedAfterTheTime(): void
     {
-        $urls = ['https://example.com/speedy-test-a', 'https://example.com/speedy-test-b'];
+        $urls = ['https://example.com/speedy-test-a', 'https://example.com/speedy-test-b', 'https://example.com/speedy-test-c'];
         $left = null;
+        // The first is started anyway, so a job that starts late still makes progress. (It isn’t a site’s page,
+        // so it fails without a request.)
         $result = $this->plugin()->warmer->warm($urls, false, null, [], microtime(true) - 1, $left);
 
-        $this->assertSame(['built' => 0, 'failed' => 0], $result, 'Pages not started haven’t failed.');
-        $this->assertSame($urls, $left);
+        $this->assertSame(['built' => 0, 'failed' => 1], $result, 'Pages not started haven’t failed.');
+        $this->assertSame(array_slice($urls, 1), $left);
     }
 
     public function testTheTimeComesFromTheQueue(): void
@@ -68,7 +70,7 @@ class WarmTimeTest extends TestCase
         $this->assertCount(1, $jobs);
         $job = unserialize(is_resource($jobs[0]) ? stream_get_contents($jobs[0]) : $jobs[0]);
         $this->assertInstanceOf(WarmJob::class, $job);
-        $this->assertSame($urls, $job->urls);
+        $this->assertSame(['https://example.com/speedy-test-b'], $job->urls, 'The pages it had no time for.');
         $this->assertTrue($job->rebuild, 'Still a rebuild, so pages that can’t be rebuilt are removed.');
         $this->assertSame(['https://example.com/speedy-test-b' => 'example.com/speedy-test-b'], $job->keys);
     }
