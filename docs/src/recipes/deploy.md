@@ -9,7 +9,11 @@ php craft speedy/clear --rebuild
 
 Every cached page is rebuilt in the background, a few at a time (`warmConcurrency`), and cleared from your CDN as it’s replaced. Visitors keep getting the old pages until the new ones are ready, so nobody waits for a page to be built.
 
-Deploys that don’t change templates, such as PHP, config or CSS and JavaScript files with versioned names, need nothing: their pages can stay as they are.
+Rebuild after a new front-end build too. Cached pages link to the CSS and JavaScript files they were built with, and build tools such as Vite and webpack name each file after its contents, such as `main-4f2a9c.css`, so a changed style gets a new name. Deploys that change neither, such as PHP or config, need nothing: their pages can stay as they are.
+
+### Keep the old CSS and JavaScript
+
+Until a page is rebuilt, it still links to the old files. If the deploy removes them, such as by replacing `web/dist` with the new build, those pages show without their styles and scripts until they’re rebuilt. Keep the previous build’s files next to the new ones: the names never clash, so old pages keep working and new pages use the new files. Remove files more than a few days old now and then.
 
 ## Clearing instead
 
@@ -60,7 +64,13 @@ When activating it, before switching `current`:
 ```bash
 mkdir -p "$SHARED/web/speedy"
 ln -s "$SHARED/web/speedy" "$RELEASE/web/speedy"
+
+# Keep the previous build’s CSS and JavaScript, for pages built with it
+cp -rn "$PREVIOUS/web/dist/assets/." "$RELEASE/web/dist/assets/"
+find "$RELEASE/web/dist/assets" -type f -mtime +14 -delete
 ```
+
+`$PREVIOUS` is the release `current` points to before the switch. `cp -n` never replaces a file of the new build.
 
 ### After the switch
 
@@ -73,19 +83,22 @@ php craft clear-caches/compiled-templates
 php craft clear-caches/data
 ```
 
-Then rebuild the cached pages when templates changed. Visitors keep getting the old pages until the new ones are ready:
+Then rebuild the cached pages when templates or the front-end build changed. Visitors keep getting the old pages until the new ones are ready:
 
 ```bash
 php craft speedy/clear --rebuild
 ```
 
-Most deploys don’t change templates, and their pages can stay as they are. To rebuild only when they did, compare with the last deploy in your pipeline, such as:
+Many deploys change neither, and their pages can stay as they are. To rebuild only when they did, compare with the last deploy in your pipeline: the templates in git, and the build’s manifest, which lists the built files’ names:
 
 ```bash
-if ! git diff --quiet "$LAST_DEPLOYED_COMMIT" HEAD -- templates/; then
+if ! git diff --quiet "$LAST_DEPLOYED_COMMIT" HEAD -- templates/ \
+  || ! cmp -s "$PREVIOUS/web/dist/.vite/manifest.json" "$RELEASE/web/dist/.vite/manifest.json"; then
   php craft speedy/clear --rebuild
 fi
 ```
+
+Use your build’s manifest path, such as `web/dist/manifest.json`.
 
 Leave `rebuildAfterDeploy` off with this check, as above.
 
