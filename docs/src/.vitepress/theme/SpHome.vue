@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { withBase } from 'vitepress'
+import SpDemo from './SpDemo.vue'
 
 // ---------------------------------------------------------------------------
 // Hero: a small site. Each page records Craft's cache tags; saving something clears the pages that share a tag.
@@ -23,6 +24,24 @@ const ACTIONS = [
   { id: 'draft', label: 'Autosave a draft', note: 'While editing', tags: [], log: 'Draft saved: nothing cleared' },
   { id: 'footer', label: 'Edit the footer', note: 'A global set', tags: ['global:footer'], log: 'Saved global set “Footer”' },
 ]
+
+// What to fix: the utility page, played in turn.
+const DEMOS = [
+  { kind: 'why', label: 'Why isn’t it cached?' },
+  { kind: 'performance', label: 'Slow templates' },
+  { kind: 'coverage', label: 'Coverage' },
+]
+const demo = ref('why')
+// Moves on to the next demo after each play-through, until a visitor picks one.
+const picked = ref(false)
+function pick(kind) {
+  picked.value = true
+  demo.value = kind
+}
+function nextDemo() {
+  if (picked.value) return
+  demo.value = DEMOS[(DEMOS.findIndex((d) => d.kind === demo.value) + 1) % DEMOS.length].kind
+}
 
 const state = ref(Object.fromEntries(PAGES.map((p) => [p.url, 'cached'])))
 const last = ref(null)
@@ -226,6 +245,23 @@ Done resaving entries.
 <span class="sh-ok">ok</span>  a component on the cached page starts
 <span class="sh-ok">ok</span>  a component inside a dynamic part starts
 <span class="sh-ok">ok</span>  no JavaScript errors</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- What to fix ---------------------------------------------------------- -->
+    <section class="sh-shape sh-fix" aria-labelledby="sh-fix-title">
+      <div class="sh-wrap sh-shape__grid">
+        <div class="sh-shape__text">
+          <h2 id="sh-fix-title" data-reveal>It tells you what to fix</h2>
+          <p data-reveal>A page cache shouldn’t be a black box. Speedy opens any page as a visitor would and says, in words, why it isn’t cached and what to change. It finds the template line behind a slow page, and shows how much of your site is cached.</p>
+          <div class="sh-fix__tabs" role="tablist" aria-label="Utility page demos" data-reveal>
+            <button v-for="d in DEMOS" :key="d.kind" type="button" role="tab" class="sh-fix__tab" :aria-selected="demo === d.kind" @click="pick(d.kind)">{{ d.label }}</button>
+          </div>
+          <p data-reveal><a class="sh-link" :href="withBase('/guides/utility')">The utility page →</a></p>
+        </div>
+        <div class="sh-fix__demo" role="tabpanel" data-reveal data-ui>
+          <SpDemo :kind="demo" :key="demo" @done="nextDemo" />
         </div>
       </div>
     </section>
@@ -523,6 +559,15 @@ if (-f $document_root$speedy_page) <span class="t-k">{</span>
 .sh-shape__grid { display: grid; gap: 48px; align-items: center; }
 @media (min-width: 960px) { .sh-shape__grid { grid-template-columns: 6fr 6fr; gap: 64px; } }
 .sh-shape__text { display: grid; gap: 24px; }
+.sh-fix { background: var(--paper); }
+.sh-fix__tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.sh-fix__tab { padding: 10px 16px; border: 0; border-radius: 999px; background: var(--paper-2); color: var(--ink); font: 500 15px/1.2 var(--vp-font-family-base); cursor: pointer; transition: background 0.2s, color 0.2s; }
+.sh-fix__tab:hover { background: #dcd7cc; }
+.sh-fix__tab[aria-selected="true"] { background: var(--ink); color: var(--accent); }
+.sh-fix__tab:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sh-fix__demo { min-width: 0; min-height: 600px; }
+.sh-fix__demo :deep(.sd) { margin: 0; }
+@media (max-width: 959px) { .sh-fix__demo { min-height: 0; } }
 .sh-shape__text h2 { font-size: var(--s-sect); }
 .sh-shape__text > p { font-size: var(--s-lead); line-height: 1.5; }
 .sh-shape__list { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; font-size: var(--s-body); line-height: 1.5; }

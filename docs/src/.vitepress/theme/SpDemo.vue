@@ -6,6 +6,8 @@ import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 const props = defineProps({
   kind: { type: String, required: true }, // why, performance or coverage
 })
+// After each play-through, so a page can move on to another demo.
+const emit = defineEmits(['done'])
 
 const labels = {
   why: 'Checking two pages with “Why isn’t this page cached?”: one sets a cookie, the other is cached and sent by the web server.',
@@ -213,6 +215,7 @@ onMounted(async () => {
   observer.observe(frame.value)
   while (alive) {
     await scenes[props.kind]()
+    if (alive) emit('done')
     await wait(600)
   }
 })
@@ -268,8 +271,8 @@ onBeforeUnmount(() => {
         </table>
 
         <div class="sd__h">Cleared by any change</div>
-        <table class="sd__table">
-          <thead><tr><th>Query</th><th>On</th></tr></thead>
+        <table class="sd__table sd__table--fixed">
+          <thead><tr><th>Query</th><th class="sd__on">On</th></tr></thead>
           <tbody>
             <tr v-for="(row, i) in broadRows" :key="row.at" v-show="i < 3 || s.more" :class="{ 'is-in': i < s.broad || (i >= 3 && s.more) }">
               <td>
@@ -355,7 +358,9 @@ onBeforeUnmount(() => {
 .sd__btn { display: inline-block; padding: 6px 14px; border-radius: 5px; background: var(--cp-btn); font-weight: 500; transition: opacity 0.3s; }
 .sd__btn--small { margin-top: 8px; padding: 3px 10px; font-size: 12px; opacity: 0; }
 .sd__btn--small.is-in { opacity: 1; }
-.sd__nowrap { white-space: nowrap; width: 1%; }
+.sd__nowrap { white-space: nowrap; }
+.sd__table--fixed { table-layout: fixed; }
+.sd__on { width: 92px; }
 [data-at=build] { margin-top: 14px; }
 .sd__btn--submit { background: var(--cp-red); color: #fff; }
 .sd__result { display: flex; gap: 10px; margin-top: 14px; padding: 12px 14px; border-radius: 8px; background: #fff; border: 1px solid var(--cp-line); }
@@ -380,7 +385,7 @@ onBeforeUnmount(() => {
 .sd__place { color: var(--cp-light); cursor: default; }
 .sd__tri { display: inline-block; font-size: 9px; transition: transform 0.2s; }
 .sd__tri.is-open { transform: rotate(90deg); }
-.sd__code { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; margin: 6px 0 2px; padding: 8px 10px; border-radius: 6px; background: #f3f6fa; color: #334; overflow: hidden; white-space: pre; }
+.sd__code { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; margin: 6px 0 2px; padding: 8px 10px; border-radius: 6px; background: #f3f6fa; color: #334; overflow: hidden; white-space: pre; overflow-x: auto; }
 .sd__ln { color: #9aa5b1; text-align: right; }
 .sd__code .hit { background: #fff3c4; }
 .sd__meter { height: 6px; border-radius: 3px; background: #e6ebf2; overflow: hidden; margin: 6px 0 2px; }
