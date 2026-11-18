@@ -2,32 +2,46 @@
 
 # Speedy Cache for Craft CMS
 
-Full-page caching that works with your templates as they are, keeps your database clean, and clears Cloudflare, CloudFront, Fastly, Bunny and Varnish when content changes.
+**Pages in a millisecond, cleared only when they change.** Speedy Cache saves your pages as static files the web server sends without starting PHP, and uses Craft’s own cache tags to clear just the pages an edit affects. It works with your templates as they are, adds no database tables, and keeps Cloudflare, CloudFront, Fastly, Bunny and Varnish in step.
 
 <img src="https://plugins.speedy.suprim.com.au/images/how-it-works.svg" alt="Saving an entry clears the 3 pages that show it; the next request is served as a static file" width="720">
 
-## Features
+## Why Speedy Cache
 
-- **Static pages, no database tables.** Pages are saved as HTML files. What each page depends on is stored next to it, so the database never grows.
-- **Served without PHP.** Generated Nginx and Apache rules let the web server send cached pages directly, in a millisecond or two. A live check confirms it works.
-- **Smart clearing.** Uses Craft’s own cache tags: saving an entry clears the pages that show it and the pages that list its section, and nothing else.
-- **Never a slow first visit.** Cleared pages are rebuilt in the background before the old copy is replaced, and can be after every deploy that changes project config. After clearing everything, the homepage and top pages come first.
-- **Safe by default.** Logged-in visitors, carts, form steps, flash messages and pages that set cookies are never cached, and a made-up cookie can’t reach the copy everyone gets. Drafts, autosaves and saves that change nothing never clear live pages.
-- **Query strings, your way.** Not cached unless you list them, such as `page`, with a cap per page so the disk can’t fill.
-- **Commerce stock and prices.** Orders, control panel edits, transfers, pricing rules and sale prices that start or end on a date clear the product’s pages.
-- **Imports rebuild once.** Listings that show every entry are rebuilt once after an import or a run of saves, not after each.
-- **New pages built on save.** A new entry’s page is built as soon as it’s saved or goes live, and pages that show dates can be rebuilt at a set time each day.
-- **Instant links.** Optional: a page starts loading as soon as a visitor points at its link, so it opens straight away.
-- **Keeps working when the queue stops.** Pages are cleared straight away, with a control panel alert, until it runs again.
-- **Forms just work.** CSRF tokens on cached pages are refreshed automatically, with no template changes.
-- **Cloudflare, CloudFront, Fastly, Bunny and Varnish built in.** Cleared when pages change, with a Cloudflare zone for each domain and one-click Cloudflare cache rules, and other plugins can add more. CloudFront paths are batched into wildcards to stay in the free tier.
+- **Fast for every visitor.** The web server sends cached pages directly, in about a millisecond, compressed with gzip or Brotli. Returning visitors get “304 Not Modified” and download nothing.
+- **Cleared just right.** Saving an entry clears the pages that show it and the listings of its section, and nothing else. Drafts, autosaves and saves that change nothing never clear a live page.
+- **Never a slow first visit.** Cleared pages are rebuilt in the background while visitors keep getting the old copy, and a new entry’s page is built as soon as it’s saved.
+- **Safe by default.** Logged-in visitors, carts, form steps, flash messages and pages that set cookies are never cached, and a made-up cookie can’t reach the copy everyone gets.
+- **It tells you what to fix.** Open any page as a visitor from the control panel and Speedy says, in words, why it isn’t cached and what to change.
+
+## See what’s happening
+
+<img src="https://plugins.speedy.suprim.com.au/images/utility.jpg" alt="The Speedy Cache utility page: pages cached, coverage, checks and tips, and actions to rebuild or clear pages" width="720">
+
+- **Why isn’t this page cached?** Enter any address and get an answer such as “Not cached: the page sets `cart_token`”, with what to do about it.
+- **Coverage.** How many pages of each section are cached, which couldn’t be built and why, and one button to build the rest.
+- **Find slow templates.** The slowest pages, queries that run once for each item in a loop, and queries that clear a page whenever anything is saved, each with the template line that ran it.
+- **A log in plain English.** “Saved entry ‘Summer Sale’ → 12 pages cleared”, with the pages.
+- **Checks after a deploy.** Whether the web server rules are working, and whether cached pages link to CSS or JavaScript a deploy removed.
+- **A dashboard widget,** and a button on each entry to clear its pages. Editors can be allowed to clear pages without the rest of the utility.
+
+## Works with your site
+
+- **Forms just work.** Cached pages get a fresh CSRF token as they load, with no template changes, and forms with steps keep their place.
+- **Personal parts stay personal.** Put a cart count or a greeting in `craft.speedy.dynamic()` and the rest of the page stays cached.
+- **Commerce.** Orders, stock, pricing rules and sales that start or end on a date clear the product’s pages.
 - **Scheduled content.** Pages clear when a post goes live or expires, including the listings it appears on.
-- **See why.** A plain-English log: “Saved entry ‘Summer Sale’ → 12 pages cleared”, and **Why isn’t this page cached?** opens any page as a visitor and says why, with what to change.
-- **Find slow templates.** Pages that run the same query in a loop (N+1 queries) are listed with the template and line, and how to eager-load instead.
-- **At a glance.** A dashboard widget with pages cached, recent clears and any problems, and a utility page to clear everything, one URL or a whole section, and to see how many of your pages are cached. Editors can be allowed to clear pages without the rest.
-- **CDN keeps you up.** With a CDN set up, it keeps sending pages for a day if the server goes down.
-- **Cache everything, or only some.** Never cache checkouts and accounts, or only cache the sections you choose.
-- **For developers.** An event at every stage, `craft.speedy.tag()`, an API and console commands.
+- **Imports.** Thousands of saves make one clear, and listings are rebuilt once at the end, not after each save.
+- **Query strings, your way.** Only the parameters you list, such as `page`, are cached, with a cap so the disk can’t fill. Tracking codes are ignored.
+- **Form, SEO and JavaScript plugins.** Forms send from cached pages, SEO tags are kept, and Alpine.js components start, inside dynamic parts too.
+
+## Your CDN, cleared for you
+
+Cloudflare, CloudFront, Fastly, Bunny and Varnish are built in. Speedy spots your CDN from its headers, clears it when pages change, and sets up Cloudflare’s cache rules in one click. CloudFront paths are batched into wildcards to stay in the free tier. With a CDN, visitors keep getting pages for a day if your server goes down.
+
+## Tested before every release
+
+Every release passes the whole test suite on two setups: the newest Craft on nginx, and the oldest supported Craft on Apache with its server rules in place. Real requests check that nobody gets someone else’s page, that forms send from cached pages, that SEO tags are kept, and that cached files can’t be opened at their own address. [How Speedy Cache is tested](https://plugins.speedy.suprim.com.au/getting-started/testing)
 
 ## Requirements
 
@@ -43,11 +57,13 @@ php craft plugin/install speedy
 Pages are cached straight away. For the fastest pages, add the web server rules from **Utilities → Speedy Cache**, or print them:
 
 ```bash
-php craft speedy/server-rules            # Nginx
+php craft speedy/server-rules            # nginx
 php craft speedy/server-rules --apache   # Apache
 ```
 
 ## In templates
+
+Nothing to change to get started. When you need more:
 
 ```twig
 {# Never cache this page #}
@@ -76,7 +92,7 @@ php craft speedy/server-rules --apache   # Apache
 
 ## Configuration
 
-Create `config/speedy.php`:
+Most sites need two settings, both in the control panel: caching on, and the pages to never cache. For everything else, create `config/speedy.php`:
 
 ```php
 return [
@@ -89,16 +105,7 @@ return [
 ];
 ```
 
-## Running the tests
-
-The tests boot the Craft project Speedy Cache is installed in. From the project root, with PHPUnit installed in the project:
-
-```bash
-php vendor/bin/phpunit -c plugins/speedy/phpunit.xml.dist --testsuite unit,integration
-SPEEDY_TEST_URL=https://example.test php vendor/bin/phpunit -c plugins/speedy/phpunit.xml.dist   # real requests too
-```
-
-The http suite makes real requests, with its own temporary templates, so no other page cache plugin may be enabled.
+An event at every stage, an API and `craft.speedy.tag()` are there for developers.
 
 ## Support
 
