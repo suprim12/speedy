@@ -410,13 +410,19 @@ class Storage extends Component
             if (!is_dir($dir)) {
                 continue;
             }
-            $trash = $this->dataRoot() . '/trash/' . bin2hex(random_bytes(6));
-            FileHelper::createDirectory(dirname($trash));
-            if (@rename($dir, $trash)) {
-                $moved = true;
-            } else {
-                // A different disk, such as a cache folder on shared storage: delete it now instead.
-                FileHelper::removeDirectory($dir);
+            // A folder linked in, such as web/speedy shared between a deploy’s releases: moving it would move the
+            // link, so each release would get a folder of its own. What’s in it is moved instead.
+            foreach (is_link($dir) ? (glob($dir . '/*', GLOB_NOSORT) ?: []) : [$dir] as $item) {
+                $trash = $this->dataRoot() . '/trash/' . bin2hex(random_bytes(6));
+                FileHelper::createDirectory(dirname($trash));
+                if (@rename($item, $trash)) {
+                    $moved = true;
+                } elseif (is_dir($item) && !is_link($item)) {
+                    // A different disk, such as a cache folder on shared storage: delete it now instead.
+                    FileHelper::removeDirectory($item);
+                } else {
+                    @unlink($item);
+                }
             }
         }
         if ($moved) {

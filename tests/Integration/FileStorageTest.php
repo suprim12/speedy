@@ -86,6 +86,28 @@ class FileStorageTest extends TestCase
         $this->assertNotNull($storage->nextExpiry());
     }
 
+    public function testClearAllKeepsALinkedFolderLinked(): void
+    {
+        // As with releases that share web/speedy: the release’s folder is a link to the shared one.
+        $shared = "$this->tmp/shared";
+        mkdir($shared, 0775, true);
+        symlink($shared, "$this->tmp/release-web");
+        $this->settings()->cachePath = "$this->tmp/release-web";
+        $storage = $this->plugin()->storage;
+        $storage->write('example.com/news', 'news', 'https://example.com/news', ['element::1'], null);
+        $this->assertFileExists("$shared/example.com/news/index.html", 'Pages land in the shared folder.');
+
+        $this->assertTrue($storage->clearAll());
+        $this->assertTrue(is_link("$this->tmp/release-web"), 'The link stays, so releases keep sharing the folder.');
+        $this->assertFalse($storage->exists('example.com/news'));
+        $this->assertSame([], glob("$shared/*") ?: [], 'The shared folder is emptied.');
+
+        $storage->deleteTrash();
+        $this->assertDirectoryExists($shared, 'Deleting the trash leaves the shared folder.');
+        $storage->write('example.com/about', 'about', 'https://example.com/about', [], null);
+        $this->assertFileExists("$shared/example.com/about/index.html", 'New pages still land in the shared folder.');
+    }
+
     public function testClearAllMovesFilesAsideThenDeletesThem(): void
     {
         $storage = $this->plugin()->storage;

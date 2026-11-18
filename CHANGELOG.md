@@ -1,5 +1,10 @@
 # Release Notes for Speedy Cache
 
+## Unreleased
+
+### Fixed
+- **Clear all pages** replaced a cache folder linked into the site, such as `web/speedy` shared between a deploy’s releases, with a folder of its own, so releases stopped sharing it and the old pages were never deleted.
+
 ## 1.4.0 - 2026-11-18
 
 ### Added
