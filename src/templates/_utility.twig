@@ -46,66 +46,79 @@
 		</ul>
 	{% endif %}
 
-	<div class="speedy-actions">
-		<form method="post">
-			{{ csrfInput() }}{{ actionInput('speedy/utility/clear-all') }}
-			<button type="submit" class="btn submit">{{ 'Clear all pages'|t('speedy') }}</button>
-		</form>
-		<form method="post">
-			{{ csrfInput() }}{{ actionInput('speedy/utility/rebuild-all') }}
-			<button type="submit" class="btn" title="{{ 'Visitors keep getting the old copies until the new ones are ready.'|t('speedy') }}">{{ 'Rebuild all pages'|t('speedy') }}</button>
-		</form>
-		<form method="post" class="flex">
-			{{ csrfInput() }}{{ actionInput('speedy/utility/clear-url') }}
-			<input type="text" name="url" class="text" placeholder="https://… {{ 'or'|t('speedy') }} /news/*" aria-label="{{ 'URL to clear, or a pattern with *'|t('speedy') }}" title="{{ 'One page, or every page matching a pattern, such as /news/*'|t('speedy') }}" required style="width: 320px;">
-			<button type="submit" class="btn">{{ 'Clear URL'|t('speedy') }}</button>
-		</form>
-		{% if sections ?? false %}
-			<form method="post" class="flex">
-				{{ csrfInput() }}{{ actionInput('speedy/utility/clear-section') }}
-				<div class="select"><select name="sectionId" aria-label="{{ 'Section to clear'|t('speedy') }}">
-					{% for section in sections %}<option value="{{ section.value }}">{{ section.label }}</option>{% endfor %}
-				</select></div>
-				<button type="submit" class="btn" title="{{ 'Its listings and the pages that show its entries.'|t('speedy') }}">{{ 'Clear section'|t('speedy') }}</button>
+	{% set pageCheck = pageCheck ?? null %}
+	<div class="speedy-tools">
+		<div class="speedy-card speedy-tool">
+			<h2 class="speedy-tool__title">{{ 'Every page'|t('speedy') }}</h2>
+			<p class="light smalltext">{{ 'Rebuild keeps the old copies until the new ones are ready.'|t('speedy') }}</p>
+			<div class="speedy-tool__buttons">
+				<form method="post">
+					{{ csrfInput() }}{{ actionInput('speedy/utility/rebuild-all') }}
+					<button type="submit" class="btn submit">{{ 'Rebuild all pages'|t('speedy') }}</button>
+				</form>
+				<form method="post">
+					{{ csrfInput() }}{{ actionInput('speedy/utility/clear-all') }}
+					<button type="submit" class="btn">{{ 'Clear all pages'|t('speedy') }}</button>
+				</form>
+				{% if settings.warm %}
+					<form method="post">
+						{{ csrfInput() }}{{ actionInput('speedy/utility/warm') }}
+						<button type="submit" class="btn">{{ 'Warm pages'|t('speedy') }}</button>
+					</form>
+				{% endif %}
+			</div>
+		</div>
+
+		<div class="speedy-card speedy-tool">
+			<h2 class="speedy-tool__title">{{ 'Some pages'|t('speedy') }}</h2>
+			<form method="post" class="speedy-tool__row">
+				{{ csrfInput() }}{{ actionInput('speedy/utility/clear-url') }}
+				<input type="text" name="url" class="text" placeholder="https://… {{ 'or'|t('speedy') }} /news/*" aria-label="{{ 'URL to clear, or a pattern with *'|t('speedy') }}" title="{{ 'One page, or every page matching a pattern, such as /news/*'|t('speedy') }}" required>
+				<button type="submit" class="btn">{{ 'Clear URL'|t('speedy') }}</button>
 			</form>
-		{% endif %}
-		{% if sites ?? false %}
-			<form method="post" class="flex">
-				{{ csrfInput() }}{{ actionInput('speedy/utility/clear-site') }}
-				<div class="select"><select name="siteId" aria-label="{{ 'Site to clear'|t('speedy') }}">
-					{% for site in sites %}<option value="{{ site.value }}">{{ site.label }}</option>{% endfor %}
-				</select></div>
-				<button type="submit" class="btn">{{ 'Clear site'|t('speedy') }}</button>
+			{% if sections ?? false %}
+				<form method="post" class="speedy-tool__row">
+					{{ csrfInput() }}{{ actionInput('speedy/utility/clear-section') }}
+					<div class="select"><select name="sectionId" aria-label="{{ 'Section to clear'|t('speedy') }}">
+						{% for section in sections %}<option value="{{ section.value }}">{{ section.label }}</option>{% endfor %}
+					</select></div>
+					<button type="submit" class="btn" title="{{ 'Its listings and the pages that show its entries.'|t('speedy') }}">{{ 'Clear section'|t('speedy') }}</button>
+				</form>
+			{% endif %}
+			{% if sites ?? false %}
+				<form method="post" class="speedy-tool__row">
+					{{ csrfInput() }}{{ actionInput('speedy/utility/clear-site') }}
+					<div class="select"><select name="siteId" aria-label="{{ 'Site to clear'|t('speedy') }}">
+						{% for site in sites %}<option value="{{ site.value }}">{{ site.label }}</option>{% endfor %}
+					</select></div>
+					<button type="submit" class="btn">{{ 'Clear site'|t('speedy') }}</button>
+				</form>
+			{% endif %}
+		</div>
+
+		<div class="speedy-card speedy-tool">
+			<h2 class="speedy-tool__title">{{ 'Why isn’t this page cached?'|t('speedy') }}</h2>
+			<p class="light smalltext">{{ 'Opens it as a visitor would, and says what to change.'|t('speedy') }}</p>
+			<form method="post" class="speedy-tool__row">
+				{{ csrfInput() }}{{ actionInput('speedy/utility/check-page') }}{{ redirectInput('utilities/speedy') }}
+				<input type="text" name="url" class="text" value="{{ pageCheck.url ?? '' }}" placeholder="https://… {{ 'or'|t('speedy') }} /news" aria-label="{{ 'Page to check'|t('speedy') }}" required>
+				<button type="submit" class="btn">{{ 'Check'|t('speedy') }}</button>
 			</form>
-		{% endif %}
-		{% if settings.warm %}
-			<form method="post">
-				{{ csrfInput() }}{{ actionInput('speedy/utility/warm') }}
-				<button type="submit" class="btn">{{ 'Warm pages'|t('speedy') }}</button>
-			</form>
-		{% endif %}
+		</div>
 	</div>
 
-	{% set pageCheck = pageCheck ?? null %}
-	<div class="speedy-pagecheck">
-		<form method="post" class="flex">
-			{{ csrfInput() }}{{ actionInput('speedy/utility/check-page') }}{{ redirectInput('utilities/speedy') }}
-			<input type="text" name="url" class="text" value="{{ pageCheck.url ?? '' }}" placeholder="https://… {{ 'or'|t('speedy') }} /news" aria-label="{{ 'Page to check'|t('speedy') }}" required style="width: 320px;">
-			<button type="submit" class="btn">{{ 'Why isn’t this page cached?'|t('speedy') }}</button>
-		</form>
-		{% if pageCheck %}
-			<div class="speedy-check speedy-check--{{ pageCheck.cached ? 'ok' : 'warning' }} speedy-pagecheck__result" role="status">
-				<span class="speedy-check__dot" aria-hidden="true"></span>
-				<div>
-					<p><strong>{{ pageCheck.answer|md(inlineOnly=true, encode=true) }}</strong></p>
-					{% if pageCheck.why %}<p>{{ pageCheck.why|md(inlineOnly=true, encode=true) }}</p>{% endif %}
-					{% if pageCheck.fix %}<p><strong>{{ 'What to do:'|t('speedy') }}</strong> {{ pageCheck.fix|md(inlineOnly=true, encode=true) }}</p>{% endif %}
-					{% for note in pageCheck.notes %}<p class="light">{{ note|md(inlineOnly=true, encode=true) }}</p>{% endfor %}
-					{% if pageCheck.visits|length %}<p class="light smalltext">{{ pageCheck.visits|join(' · ') }}</p>{% endif %}
-				</div>
+	{% if pageCheck %}
+		<div class="speedy-check speedy-check--{{ pageCheck.cached ? 'ok' : 'warning' }} speedy-pagecheck__result" role="status">
+			<span class="speedy-check__dot" aria-hidden="true"></span>
+			<div>
+				<p><strong>{{ pageCheck.answer|md(inlineOnly=true, encode=true) }}</strong></p>
+				{% if pageCheck.why %}<p>{{ pageCheck.why|md(inlineOnly=true, encode=true) }}</p>{% endif %}
+				{% if pageCheck.fix %}<p><strong>{{ 'What to do:'|t('speedy') }}</strong> {{ pageCheck.fix|md(inlineOnly=true, encode=true) }}</p>{% endif %}
+				{% for note in pageCheck.notes %}<p class="light">{{ note|md(inlineOnly=true, encode=true) }}</p>{% endfor %}
+				{% if pageCheck.visits|length %}<p class="light smalltext">{{ pageCheck.visits|join(' · ') }}</p>{% endif %}
 			</div>
-		{% endif %}
-	</div>
+		</div>
+	{% endif %}
 
 	{% set tabs = {
 		pages: 'Pages'|t('speedy'),
@@ -372,6 +385,12 @@
 				<button type="submit" class="btn">{{ 'Check server serving'|t('speedy') }}</button>
 			</form>
 		{% endif %}
+		<h3>{{ 'CSS and JavaScript'|t('speedy') }}</h3>
+		<p>{{ 'Cached pages link to the CSS and JavaScript files they were built with. After a deploy that replaced them, check that they’re all still there.'|t('speedy') }}</p>
+		<form method="post" class="speedy-setup-action">
+			{{ csrfInput() }}{{ actionInput('speedy/utility/check-assets') }}{{ redirectInput('utilities/speedy#setup') }}
+			<button type="submit" class="btn">{{ 'Check CSS and JavaScript'|t('speedy') }}</button>
+		</form>
 
 		{% if configured|length or cdnLast|length %}
 			<h3>{{ 'CDN'|t('speedy') }}</h3>
@@ -418,7 +437,14 @@
 .speedy-card { border: 1px solid var(--hairline-color, #e3e5e8); border-radius: 8px; padding: 14px 16px; }
 .speedy-big { font-size: 22px; font-weight: 600; margin: 4px 0; }
 .speedy-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
-.speedy-actions .flex { gap: 8px; }
+.speedy-tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.speedy-tool { display: flex; flex-direction: column; gap: 10px; }
+.speedy-tool__title { font-size: 14px; font-weight: 600; margin: 0; }
+.speedy-tool p { margin: 0; }
+.speedy-tool__buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+.speedy-tool__row { display: flex; gap: 8px; }
+.speedy-tool__row .text, .speedy-tool__row .select, .speedy-tool__row select { flex: 1; min-width: 0; width: 100%; }
+.speedy-tool__row .btn { flex-shrink: 0; }
 .speedy-urls { font-size: 12px; color: var(--light-text-color, #606d7b); margin-top: 4px; }
 .speedy-code { background: #f3f7fc; padding: 12px 14px; border-radius: 6px; font-size: 12px; overflow-x: auto; white-space: pre; }
 .speedy-checks { list-style: none; margin: 0 0 20px; padding: 0; display: grid; gap: 6px; }
@@ -427,9 +453,7 @@
 .speedy-check--error .speedy-check__dot { background: var(--red-500, #ef4444); }
 .speedy-check--warning .speedy-check__dot { background: var(--yellow-500, #eab308); }
 .speedy-check--ok .speedy-check__dot { background: var(--green-500, #22c55e); }
-.speedy-pagecheck { margin-bottom: 20px; }
-.speedy-pagecheck .flex { gap: 8px; flex-wrap: wrap; }
-.speedy-pagecheck__result { margin-top: 10px; }
+.speedy-pagecheck__result { margin: -8px 0 20px; }
 .speedy-pagecheck__result p { margin: 0 0 4px; }
 .speedy-pagecheck__result p:last-child { margin-bottom: 0; }
 .speedy-search { gap: 8px; margin-bottom: 12px; }

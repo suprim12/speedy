@@ -1,5 +1,13 @@
 # Release Notes for Speedy Cache
 
+## Unreleased
+
+### Added
+- **Check CSS and JavaScript** on the utility page’s Setup tab says whether cached pages link to CSS or JavaScript that no longer exists, such as after a deploy replaced the built files, with an example. It only runs when clicked.
+
+### Changed
+- The utility page’s actions are grouped into three cards: every page, some pages, and checking a page. **Rebuild all pages** comes first, as it keeps the old copies until the new ones are ready.
+
 ## 1.4.1 - 2026-11-18
 
 ### Added

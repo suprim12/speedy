@@ -128,6 +128,7 @@ class TemplatesTest extends TestCase
         $this->assertStringContainsString('failed: denied', $html);
         $this->assertStringContainsString('Page 2 of 3', $html);
         $this->assertStringContainsString('Why isn’t this page cached?', $html);
+        $this->assertStringContainsString('speedy/utility/check-assets', $html, 'Check CSS and JavaScript, on the Setup tab.');
         $this->assertStringContainsString('<option value="1">News &lt;b&gt;x&lt;/b&gt;</option>', $html, 'Clear section, with the name escaped.');
         $this->assertStringContainsString('speedy-check--warning speedy-pagecheck__result', $html);
         $this->assertStringContainsString('<strong>Cached parameters</strong>', $html, 'The answer’s Markdown.');

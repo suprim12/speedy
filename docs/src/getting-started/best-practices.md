@@ -59,7 +59,7 @@ What to set up so pages stay fast and correct, and the surprises that catch site
 
 ### Other surprises
 
-- **A deploy that removes the old CSS and JavaScript** leaves cached pages without their styles and scripts until they’re rebuilt, as they link to the old files by name. Plugins’ files in `web/cpresources` too: a new release with an empty `cpresources` breaks forms on cached pages. Keep both ([Keep the old CSS and JavaScript](/recipes/deploy#keep-the-old-css-and-javascript)).
+- **A deploy that removes the old CSS and JavaScript** leaves cached pages without their styles and scripts until they’re rebuilt, as they link to the old files by name. Plugins’ files in `web/cpresources` too: a new release with an empty `cpresources` breaks forms on cached pages. Keep both ([Keep the old CSS and JavaScript](/recipes/deploy#keep-the-old-css-and-javascript)), and click **Check CSS and JavaScript** on the utility page’s **Setup** tab after a deploy.
 - **Links that change something when opened,** such as “add to cart” or “unsubscribe” links, are fetched ahead with [instant links](/guides/instant-links) when a visitor points at them. Mark them `data-no-prefetch`, or better, make them forms.
 - **Cached pages committed to git, or copied with rsync,** overwrite another server’s pages. Run `git rm -r --cached web/speedy` once, and leave `web/speedy/` out of copies.
 - **Big pages make a big cache.** Each page is saved with a compressed copy, and each cached parameter value adds another copy of the page, up to `maxQueryPages`. Cap the total with `maxCacheSize`.

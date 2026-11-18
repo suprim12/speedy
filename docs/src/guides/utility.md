@@ -24,10 +24,12 @@ A tip that mentions a tab, such as **Performance**, links straight to it.
 
 ### Actions
 
+Under the totals, three cards: **Every page**, **Some pages**, and **Why isn’t this page cached?**
+
 | Button | What it does |
 |---|---|
-| **Clear all pages** | Removes every cached page, clears your CDN, then warms the pages you listed |
 | **Rebuild all pages** | Rebuilds every cached page in the background. Visitors keep getting the old copies until the new ones are ready, so a busy site never has a moment with nothing cached |
+| **Clear all pages** | Removes every cached page, clears your CDN, then warms the pages you listed. Visitors wait for pages to be built again, so prefer **Rebuild all pages** |
 | **Clear URL** | Clears one page, such as `https://example.com/news`, with its query string versions such as `?page=2`. With `*`, it clears every page matching the pattern: `https://example.com/news/*` clears everything under `/news/`, and a path, such as `/news/*`, matches every domain. Up to 10 `*` |
 | **Clear section** | Clears every page that shows a section: its listings, including those of one entry type, and the pages that show its entries, such as after changing its templates. They’re rebuilt straight away. A section of more than about 500 entries is cleared in the background, and **Recent clears** shows how many |
 | **Clear site** | Clears every page of one site. Shown when there are several sites. A site at `/de/` on the same domain as another owns the pages under `/de/` |
@@ -35,7 +37,7 @@ A tip that mentions a tab, such as **Performance**, links straight to it.
 
 ### Why isn’t this page cached?
 
-Enter an address, such as `https://example.com/homes?view=map`, or a path, such as `/homes`, and click **Why isn’t this page cached?**. Speedy opens the page as a logged-out visitor would, a second time if the first visit built it, and says what happened, in words. Redirects aren’t followed, and the `warmUsername` and `warmPassword` login is used for a site behind one:
+Enter an address, such as `https://example.com/homes?view=map`, or a path, such as `/homes`, under **Why isn’t this page cached?**, and click **Check**. Speedy opens the page as a logged-out visitor would, a second time if the first visit built it, and says what happened, in words. Redirects aren’t followed, and the `warmUsername` and `warmPassword` login is used for a site behind one:
 
 - **Cached**, how long ago it was built, and whether the web server or PHP sends it.
 - **Not cached**, why, and what to change. A query string names the parameters to add under **Query strings**; a page that sets a cookie names the cookie; **Never cache** names the pattern it matched; a redirect says where it goes.
@@ -119,6 +121,7 @@ A page drops off the list the next time it’s rebuilt without repeated queries.
 Things you need once, or when something is wrong:
 
 - **Serve pages without PHP:** the rules for your web server, ready to copy, and **Check server serving**, which checks that the web server sends cached pages without PHP. See [Server rules](/getting-started/server-rules).
+- **CSS and JavaScript:** **Check CSS and JavaScript** looks at up to 100 cached pages and says whether any link to CSS or JavaScript files that are gone, such as after a deploy replaced the built files or Craft’s published plugin files, with an example. **Rebuild all pages** fixes them. It only runs when you click it, and only looks for the files on disk.
 - **CDN:** the last result from each CDN, a **Test** button for each one that’s set up, and **Set up Cloudflare**, which adds the cache rules Cloudflare needs to keep pages. See [Cloudflare](/guides/cloudflare#make-cloudflare-keep-pages).
 - **Support report:** a plain-text summary for support: versions, settings, CDN status, checks, recent clears, slow pages and queries, and installed plugins. Keys and tokens only appear as “set”. **Copy support report** copies it; **Email support** starts an email with it, or copies it to paste in when it’s too long for the email link.
 

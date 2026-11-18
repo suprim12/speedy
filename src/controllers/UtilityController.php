@@ -162,6 +162,25 @@ class UtilityController extends Controller
         return $result['ok'] ? $this->asSuccess($result['message']) : $this->asFailure($result['message']);
     }
 
+    /**
+     * Whether cached pages link to CSS or JavaScript that’s gone, such as after a deploy. Only when asked.
+     */
+    public function actionCheckAssets(): ?Response
+    {
+        $result = Plugin::getInstance()->insights->missingAssets();
+        if (!$result['checked']) {
+            return $this->asSuccess(Craft::t('speedy', 'No cached pages to check.'));
+        }
+        if (!$result['pages']) {
+            return $this->asSuccess(Craft::t('speedy', 'The CSS and JavaScript of the {count, plural, =1{# cached page} other{# cached pages}} checked are all there.', ['count' => $result['checked']]));
+        }
+
+        return $this->asFailure(Craft::t('speedy', '{count, plural, =1{# cached page links} other{# cached pages link}} to CSS or JavaScript that no longer exists, such as {path}. Rebuild all pages to fix {count, plural, =1{it} other{them}}.', [
+            'count' => $result['pages'],
+            'path' => $result['example'],
+        ]));
+    }
+
     public function actionTestCdn(): ?Response
     {
         $cdn = (string)$this->request->getRequiredBodyParam('cdn');
