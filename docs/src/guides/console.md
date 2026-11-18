@@ -1,3 +1,7 @@
+---
+description: "Every Speedy Cache console command: clear pages by URL, pattern, site or tag, rebuild, warm, check status and print the server rules."
+---
+
 # Console Commands
 
 | Command | What it does |

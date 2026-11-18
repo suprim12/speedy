@@ -201,6 +201,35 @@ Done resaving entries.
       </div>
     </section>
 
+    <!-- Tested ---------------------------------------------------------------- -->
+    <section class="sh-wrap sh-tested" aria-labelledby="sh-tested-title">
+      <div class="sh-shape__grid">
+        <div class="sh-shape__text">
+          <h2 id="sh-tested-title" data-reveal>Tested before every release</h2>
+          <p data-reveal>A page cache touches every page, so every release passes the whole test suite on two setups before it goes out: the newest Craft on nginx, and the oldest supported Craft on Apache with its server rules in place.</p>
+          <ul class="sh-shape__list" data-reveal>
+            <li><strong>Nobody gets someone else’s page.</strong> Logged-in visitors, carts, form steps and made-up cookies are all tested.</li>
+            <li><strong>Forms, SEO plugins and Alpine.js.</strong> A form is sent from a cached page, SEO tags are kept, and Alpine components start in a real browser.</li>
+            <li><strong>Real servers.</strong> Apache and nginx rules, gzip and Brotli, and 304 answers, over real requests.</li>
+          </ul>
+          <p data-reveal><a class="sh-link" :href="withBase('/getting-started/testing')">How Speedy is tested →</a></p>
+        </div>
+        <div class="sh-cdn" data-reveal data-ui>
+          <pre class="sh-tested__run"><code><span class="t-k">$</span> phpunit   <span class="sh-dim"># Craft 5.11 · PHP 8.3 · nginx</span>
+<span class="sh-ok">OK</span>  220+ tests
+<span class="t-k">$</span> phpunit   <span class="sh-dim"># Craft 5.6 · PHP 8.2 · Apache</span>
+<span class="sh-ok">OK</span>  220+ tests
+<span class="t-k">$</span> phpstan
+<span class="sh-ok">OK</span>  No errors
+<span class="t-k">$</span> node tests/Browser/alpine.mjs
+<span class="sh-ok">ok</span>  the page is cached
+<span class="sh-ok">ok</span>  a component on the cached page starts
+<span class="sh-ok">ok</span>  a component inside a dynamic part starts
+<span class="sh-ok">ok</span>  no JavaScript errors</code></pre>
+        </div>
+      </div>
+    </section>
+
     <!-- CDN ------------------------------------------------------------------- -->
     <section class="sh-shape" aria-labelledby="sh-cdn-title">
       <div class="sh-wrap sh-shape__grid">
@@ -217,7 +246,7 @@ Done resaving entries.
           <h2 id="sh-cdn-title" data-reveal>Your CDN, cleared for you</h2>
           <p data-reveal>Speedy spots your CDN from its headers. Add a token and the CDN keeps your pages too, at the edge, close to visitors. When content changes, Speedy clears it there as well.</p>
           <ul class="sh-shape__list" data-reveal>
-            <li><strong>Cloudflare.</strong> A token with one permission, Cache Purge.</li>
+            <li><strong>Cloudflare.</strong> A token with Cache Purge, and one click sets up the cache rules that let it keep pages.</li>
             <li><strong>CloudFront.</strong> Batched into wildcards to stay in the 1,000 free paths a month, with a counter. No AWS SDK.</li>
             <li><strong>No token yet?</strong> The CDN is told not to keep pages, so it never shows an old one.</li>
           </ul>
@@ -511,6 +540,9 @@ if (-f $document_root$speedy_page) <span class="t-k">{</span>
 .sh-cdn__count b { font: 500 var(--s-head)/1 'Clash Grotesk', var(--vp-font-family-base); color: var(--accent); }
 .sh-cdn__count span { color: var(--light-soft); font-size: var(--s-ui); }
 @media (max-width: 959px) { .sh-shape { padding: 112px 0; } }
+.sh-tested { padding-top: 0; padding-bottom: 160px; }
+.sh-tested__run { margin: 0; overflow-x: auto; font-family: var(--vp-font-family-mono); font-size: 14px; line-height: 1.7; white-space: pre; }
+@media (max-width: 959px) { .sh-tested { padding-bottom: 112px; } }
 
 /* Pneumatic post */
 .sh-city { background: var(--paper); padding: 160px 0; }

@@ -1,3 +1,7 @@
+---
+description: "Why a page isn’t cached, why a change doesn’t show, and other common problems with Speedy Cache, with what each X-Speedy header means and what to do."
+---
+
 # Troubleshooting
 
 Start with the `X-Speedy` header. Open the page in a private window, or use curl:
