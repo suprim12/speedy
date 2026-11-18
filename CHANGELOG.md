@@ -1,6 +1,6 @@
 # Release Notes for Speedy Cache
 
-## Unreleased
+## 1.4.1 - 2026-11-18
 
 ### Added
 - Pages sent by PHP answer “304 Not Modified” when the browser already has them, with `ETag` and `Last-Modified`, as the web server does for its own files, so returning visitors don’t download them again.
