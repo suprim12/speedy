@@ -269,6 +269,57 @@ class FileStorageTest extends TestCase
         }
     }
 
+    public function testReadsWhetherRobotsTxtKeepsSearchEnginesOutOfTheFolder(): void
+    {
+        $disallows = fn(string $robots) => \suprim\speedy\services\ServerRules::robotsDisallows($robots, '/speedy/');
+        $this->assertTrue($disallows("User-agent: *\nDisallow: /speedy/"));
+        $this->assertTrue($disallows("User-agent: *\nDisallow: /speedy"), 'Without the slash too.');
+        $this->assertTrue($disallows("user-agent: *\r\ndisallow: /speedy/* # cached pages"), 'Any case, line ending, wildcard or comment.');
+        $this->assertTrue($disallows("User-agent: Googlebot\nUser-agent: *\nDisallow: /speedy/"), 'A group naming several search engines.');
+        $this->assertTrue($disallows("User-agent: *\nDisallow: /"), 'The whole site.');
+        $this->assertFalse($disallows(''));
+        $this->assertFalse($disallows("User-agent: *\nDisallow:"), 'An empty Disallow allows everything.');
+        $this->assertFalse($disallows("User-agent: *\nDisallow: /admin/"));
+        $this->assertFalse($disallows("User-agent: BadBot\nDisallow: /\n\nUser-agent: *\nDisallow: /admin/"), 'Only one search engine kept out.');
+        $this->assertFalse($disallows("User-agent: *\nAllow: /speedy/"));
+
+        $client = fn(int $status, string $body) => new \GuzzleHttp\Client(['handler' => \GuzzleHttp\HandlerStack::create(new \GuzzleHttp\Handler\MockHandler([new \GuzzleHttp\Psr7\Response($status, [], $body)]))]);
+        $rules = $this->plugin()->serverRules;
+        $this->assertNull($rules->robotsKeepsOut($client(200, "User-agent: *\nDisallow: /"), 'https://example.com/'), 'Not asked for a folder outside the web root.');
+        $this->settings()->cachePath = \Craft::getAlias('@webroot') . '/speedy';
+        $path = (string)$rules->webPath();
+        $this->assertSame('/speedy', $path);
+        $this->assertTrue($rules->robotsKeepsOut($client(200, "User-agent: *\nDisallow: $path/"), 'https://example.com/'));
+        $this->assertFalse($rules->robotsKeepsOut($client(200, "User-agent: *\nDisallow:"), 'https://example.com/'));
+        $this->assertFalse($rules->robotsKeepsOut($client(404, ''), 'https://example.com/'), 'No robots.txt.');
+    }
+
+    public function testAnOpenFolderSaysHowToCloseIt(): void
+    {
+        $storage = $this->plugin()->storage;
+        $before = $storage->readData('state');
+        $this->settings()->cachePath = \Craft::getAlias('@webroot') . '/speedy';
+        $messages = function(array $state) use ($storage, $before): string {
+            $storage->writeData('state', $state + $before);
+
+            return implode(' ', array_column($this->plugin()->insights->checks(), 'message'));
+        };
+        try {
+            $open = $messages(['folderOpen' => true, 'robotsKeepsOut' => false]);
+            $this->assertStringContainsString('so search engines could list a second copy', $open);
+            $this->assertStringContainsString('Disallow: /speedy/', $open, 'The robots.txt line to add.');
+            $this->assertStringContainsString('location ^~ /speedy/ { internal; }', $open, 'And the one nginx line that closes it.');
+
+            $kept = $messages(['folderOpen' => true, 'robotsKeepsOut' => true]);
+            $this->assertStringContainsString('robots.txt keeps search engines out of it', $kept);
+            $this->assertStringNotContainsString('second copy', $kept);
+
+            $this->assertStringNotContainsString('opened directly', $messages(['folderOpen' => false, 'robotsKeepsOut' => null]));
+        } finally {
+            $storage->writeData('state', $before);
+        }
+    }
+
     public function testOnlyAFolderOfItsOwn(): void
     {
         $this->assertTrue(\suprim\speedy\services\Storage::isOwnFolder(\Craft::getAlias('@webroot/speedy')));

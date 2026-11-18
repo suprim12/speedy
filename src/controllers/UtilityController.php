@@ -157,6 +157,7 @@ class UtilityController extends Controller
         $state = $storage->readData('state');
         $state['serverChecked'] = $result['ok'];
         $state['folderOpen'] = $result['folderOpen'] ?? null;
+        $state['robotsKeepsOut'] = $result['robotsKeepsOut'] ?? null;
         $storage->writeData('state', $state);
 
         return $result['ok'] ? $this->asSuccess($result['message']) : $this->asFailure($result['message']);

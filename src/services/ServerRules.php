@@ -137,7 +137,7 @@ class ServerRules extends Component
     /**
      * Requests the homepage twice and works out who served the second copy.
      *
-     * @return array{ok: bool, message: string, ms: ?int, folderOpen?: ?bool}
+     * @return array{ok: bool, message: string, ms: ?int, folderOpen?: ?bool, robotsKeepsOut?: ?bool}
      */
     public function check(): array
     {
@@ -159,6 +159,8 @@ class ServerRules extends Component
 
         $result = $this->describe($response, $ms);
         $result['folderOpen'] = $this->folderIsOpen($client, $url);
+        // Only asked when it matters: an open folder that robots.txt keeps search engines out of is less pressing.
+        $result['robotsKeepsOut'] = $result['folderOpen'] ? $this->robotsKeepsOut($client, $url) : null;
 
         return $result;
     }
@@ -200,5 +202,60 @@ class ServerRules extends Component
         }
 
         return $response->getStatusCode() === 200 && str_contains((string)$response->getBody(), '<');
+    }
+
+    /**
+     * Whether the site’s robots.txt tells search engines to keep out of the cache folder. Null when it can’t be read.
+     */
+    public function robotsKeepsOut(\GuzzleHttp\ClientInterface $client, string $url): ?bool
+    {
+        $webPath = $this->webPath();
+        if ($webPath === null) {
+            return null;
+        }
+        $parts = parse_url($url);
+        $robots = ($parts['scheme'] ?? 'https') . '://' . ($parts['host'] ?? '') . (isset($parts['port']) ? ':' . $parts['port'] : '') . '/robots.txt';
+        try {
+            $response = $client->request('GET', $robots, ['allow_redirects' => true, 'http_errors' => false]);
+        } catch (Throwable) {
+            return null;
+        }
+        if ($response->getStatusCode() !== 200) {
+            return false;
+        }
+
+        return self::robotsDisallows((string)$response->getBody(), $webPath . '/');
+    }
+
+    /**
+     * Whether robots.txt rules for all search engines (`User-agent: *`) disallow a path, such as `/speedy/`.
+     */
+    public static function robotsDisallows(string $robots, string $path): bool
+    {
+        $forAll = false;
+        $inAgents = false;
+        foreach (preg_split('/\R/', $robots) ?: [] as $line) {
+            $line = trim((string)preg_replace('/#.*/', '', $line));
+            if (!str_contains($line, ':')) {
+                continue;
+            }
+            [$field, $value] = array_map('trim', explode(':', $line, 2));
+            $field = strtolower($field);
+            if ($field === 'user-agent') {
+                // A run of User-agent lines starts a new group.
+                $forAll = ($inAgents && $forAll) || $value === '*';
+                $inAgents = true;
+                continue;
+            }
+            $inAgents = false;
+            if ($forAll && $field === 'disallow' && $value !== '') {
+                $prefix = rtrim(rtrim($value, '$'), '*');
+                if ($prefix === '' || str_starts_with($path, $prefix)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

@@ -436,10 +436,17 @@ class Insights extends Component
         if ($general->devMode && Craft::$app->env === 'production') {
             $add('warning', Craft::t('speedy', 'devMode is on in production.'));
         }
-        if (!$usesCache && ($plugin->storage->readData('state')['folderOpen'] ?? null) === true) {
-            $add('warning', Craft::t('speedy', 'Cached pages can be opened directly in the cache folder, such as {path}. They’re public pages, but search engines could list these copies too: add the [server rules](#setup) to close the folder, then click “Check server serving” again.', ['path' => '`' . $plugin->serverRules->webPath() . '/…/index.html`']));
+        $state = $plugin->storage->readData('state');
+        $webPath = $plugin->serverRules->webPath();
+        // Only for a folder in the web root, so the lines to add can never name the whole site, such as `Disallow: /`.
+        if (!$usesCache && ($state['folderOpen'] ?? null) === true && $webPath !== null && $webPath !== '') {
+            if (($state['robotsKeepsOut'] ?? null) === true) {
+                $add('hint', Craft::t('speedy', 'Cached pages can be opened directly in the cache folder, such as {path}, though robots.txt keeps search engines out of it. Add the [server rules](#setup) to close it, or on nginx just {rule}, then click “Check server serving” again.', ['path' => '`' . $webPath . '/…/index.html`', 'rule' => '`location ^~ ' . $webPath . '/ { internal; }`']));
+            } else {
+                $add('warning', Craft::t('speedy', 'Cached pages can be opened directly in the cache folder, such as {path}, so search engines could list a second copy of each page. Add {robots} to robots.txt to keep them out, and close the folder with the [server rules](#setup), or on nginx just {rule}. Then click “Check server serving” again.', ['path' => '`' . $webPath . '/…/index.html`', 'robots' => '`Disallow: ' . $webPath . '/`', 'rule' => '`location ^~ ' . $webPath . '/ { internal; }`']));
+            }
         }
-        if (!$usesCache && !($plugin->storage->readData('state')['serverChecked'] ?? false)) {
+        if (!$usesCache && !($state['serverChecked'] ?? false)) {
             $add('hint', Craft::t('speedy', 'Add the [server rules](#setup) so cached pages are sent without PHP, then click “Check server serving”.'));
         }
 

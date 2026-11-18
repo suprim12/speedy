@@ -102,6 +102,15 @@ Speedy also keeps a small `.htaccess` in `web/speedy/` that refuses direct reque
 location ^~ /speedy/ { internal; }
 ```
 
+And keep search engines out of it in your `robots.txt`, which works on any server:
+
+```
+User-agent: *
+Disallow: /speedy/
+```
+
+**Check server serving** reads your `robots.txt` when the folder is open: the warning becomes a tip once it keeps search engines out, and names both lines to add until then.
+
 On other web servers, refuse requests to the cache folder the same way. Speedy’s tests open each cached file at its own address before every release, to check it’s refused while the page itself is still sent.
 
 ## Git and deploys
