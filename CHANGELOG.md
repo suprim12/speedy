@@ -1,6 +1,6 @@
 # Release Notes for Speedy Cache
 
-## Unreleased
+## 1.4.2 - 2026-11-18
 
 ### Added
 - When cached pages can be opened directly in the cache folder, **Check server serving** reads the site’s `robots.txt`, and the utility page names the `Disallow` line that keeps search engines out of the folder, and the one nginx line that closes it.
