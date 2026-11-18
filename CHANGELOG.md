@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixed
+- Background builds of slow pages failed when they ran past the queue’s time for a job (“exceeded the timeout of 300 seconds”), leaving the rest of their pages unbuilt. A job now stops starting pages a minute before its time is up, and queues the rest as a job of their own.
 - **Clear all pages** replaced a cache folder linked into the site, such as `web/speedy` shared between a deploy’s releases, with a folder of its own, so releases stopped sharing it and the old pages were never deleted.
 
 ## 1.4.0 - 2026-11-18

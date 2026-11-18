@@ -107,9 +107,11 @@ class Warmer extends Component
      *
      * @param string[] $urls
      * @param array<string, string> $keys The pages’ keys by URL, when known.
+     * @param float|null $until No page is started after this time (a Unix time), such as near the end of a queue job’s time.
+     * @param string[]|null $left Set to the pages not started by then, to build later.
      * @return array{built: int, failed: int}
      */
-    public function warm(array $urls, bool $rebuild, ?callable $progress = null, array $keys = []): array
+    public function warm(array $urls, bool $rebuild, ?callable $progress = null, array $keys = [], ?float $until = null, ?array &$left = null): array
     {
         $plugin = Plugin::getInstance();
         if ($rebuild) {
@@ -137,8 +139,14 @@ class Warmer extends Component
         $done = 0;
 
         $skipped = [];
-        $requests = function() use ($urls, $plugin, &$skipped, &$why) {
-            foreach ($urls as $url) {
+        $left = [];
+        $urls = array_values($urls);
+        $requests = function() use ($urls, $plugin, $until, &$skipped, &$why, &$left) {
+            foreach ($urls as $i => $url) {
+                if ($until !== null && microtime(true) >= $until) {
+                    $left = array_slice($urls, $i);
+                    return;
+                }
                 $parts = parse_url($url);
                 // Only the sites’ own pages, so a made-up address can’t send requests elsewhere.
                 if (empty($parts['host']) || !$plugin->cacher->isSiteHost((string)$parts['host'], $parts['port'] ?? null)) {
