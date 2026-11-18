@@ -91,19 +91,6 @@ Changes that come with project config, such as a new field, appear on pages thro
 In Speedy 1.4.0 and earlier, clearing everything moves the cache folder aside to empty it in one step. With a linked folder, that moves the link, and the release gets a folder of its own again. This happens with **Clear all pages** on the utility page, `speedy/clear` without `--rebuild`, and **Speedy Cache pages** under **Utilities → Caches** or in `clear-caches/all`. Use **Rebuild all pages** and `speedy/clear --rebuild` instead, and if it happens, link the folder again.
 :::
 
-### Without changing the deploy
-
-Set `cachePath` to a shared folder that’s already linked into each release, such as `storage`:
-
-```php
-// config/speedy.php
-return [
-    'cachePath' => '@storage/speedy-pages',
-];
-```
-
-Pages then survive deploys with one copy, but the web server can’t send them without PHP, as `storage` is outside the web root. PHP sends them instead, which is a little slower. A deploy that runs `clear-caches/all` still empties them.
-
 ### Pages committed to git
 
 If cached pages were committed before, remove them from git once, keeping the files:
