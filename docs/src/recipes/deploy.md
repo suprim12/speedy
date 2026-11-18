@@ -108,8 +108,8 @@ Use your build’s manifest path, such as `web/dist/manifest.json`.
 
 Leave `rebuildAfterDeploy` off with this check, as above.
 
-::: warning Clearing everything replaces the link
-In Speedy 1.4.0 and earlier, clearing everything moves the cache folder aside to empty it in one step. With a linked folder, that moves the link, and the release gets a folder of its own again. This happens with **Clear all pages** on the utility page, `speedy/clear` without `--rebuild`, and **Speedy Cache pages** under **Utilities → Caches** or in `clear-caches/all`. Use **Rebuild all pages** and `speedy/clear --rebuild` instead, and if it happens, link the folder again.
+::: tip Clearing everything keeps the link
+Since Speedy 1.4.1, **Clear all pages** empties the shared folder and leaves the link in place. It only empties a folder that holds Speedy’s own `.gitignore`, so a link made by mistake, such as to `persist/web`, is never emptied: the utility page says the folder isn’t Speedy’s own instead. In 1.4.0 and earlier, clearing everything replaced the link with a folder of its own; update Speedy before sharing the folder.
 :::
 
 ### Pages committed to git
