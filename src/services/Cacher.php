@@ -258,6 +258,15 @@ class Cacher extends Component
             }
         }
         $path = $request->getFullPath();
+        // A site’s index.php can change the address before Craft starts, such as taking a prefix off to show the
+        // page another way. The page is kept under the address the visitor asked for, which is also where the web
+        // server looks for it, so the two versions never share a copy.
+        $rewritten = $reason === null ? $this->rewrittenPath($request) : null;
+        if ($rewritten === false) {
+            $reason = 'rewritten URL';
+        } elseif ($rewritten !== null) {
+            $path = $rewritten;
+        }
         // Patterns match the path within the site as well, so `/` and `news*` work for a site in a folder such as /de/.
         if ($reason === null && ($never = $settings->getNeverCache()) && ($this->matchesAny($path, $never) || $this->matchesAny($request->getPathInfo(), $never))) {
             $reason = 'never cache';
@@ -280,7 +289,7 @@ class Cacher extends Component
             $key = null;
         }
 
-        if ($key !== null && $this->_warming && !$this->warmTokenMatches($request)) {
+        if ($key !== null && $this->_warming && !$this->warmTokenMatches($request, $rewritten === null ? null : rtrim($request->getBaseUrl(), '/') . '/' . $path)) {
             // A rebuild token for another page, or an old one.
             $this->_warming = false;
             $this->_skipReason = 'rebuild token';
@@ -1033,6 +1042,51 @@ class Cacher extends Component
      * Whether the request carries a rebuild token that hasn’t expired. Which page it’s for is checked once the page’s
      * key is known, in warmTokenMatches().
      */
+    /**
+     * How the site’s own index.php changed the address before Craft started: null when it didn’t, the path to keep
+     * the page under when it only took part of the address off (such as a prefix that shows the page another way),
+     * or false for any other change, such as adding a language, as the address alone might not decide the page.
+     *
+     * The server’s own copy of the address is still in getenv() with PHP-FPM, and Apache adds the path it was asked
+     * for as REDIRECT_URL when it rewrites to index.php. With neither, nothing is known to have changed.
+     */
+    public function rewrittenPath(Request $request): string|false|null
+    {
+        $asked = getenv('REQUEST_URI');
+        $asked = is_string($asked) && $asked !== '' ? parse_url($asked, PHP_URL_PATH) : ($_SERVER['REDIRECT_URL'] ?? null);
+        $now = parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+        if (!is_string($asked) || !is_string($now)) {
+            return null;
+        }
+        $segments = fn(string $path) => array_values(array_filter(explode('/', rawurldecode($path)), fn($s) => $s !== ''));
+        $asked = $segments($asked);
+        $now = $segments($now);
+        if ($asked === $now) {
+            return null;
+        }
+
+        // Only part of the address taken off: what’s left is the start and end of the address asked for.
+        $kept = count($now);
+        if ($kept >= count($asked)) {
+            return false;
+        }
+        $start = 0;
+        while ($start < $kept && $asked[$start] === $now[$start]) {
+            $start++;
+        }
+        if (array_slice($asked, count($asked) - ($kept - $start)) !== array_slice($now, $start)) {
+            return false;
+        }
+
+        // Within the site, as Craft’s own path is, when Craft is in a subfolder.
+        $base = $segments($request->getBaseUrl());
+        if (array_slice($asked, 0, count($base)) !== $base) {
+            return false;
+        }
+
+        return implode('/', array_slice($asked, count($base)));
+    }
+
     private function isWarmRequest(Request $request): bool
     {
         $given = (string)$request->getHeaders()->get('X-Speedy-Warm');
@@ -1040,11 +1094,14 @@ class Cacher extends Component
         return (bool)preg_match('/^(\d+)\.[a-f0-9]{64}$/', $given, $m) && (int)$m[1] >= time();
     }
 
-    private function warmTokenMatches(Request $request): bool
+    /**
+     * @param string|null $path The address the visitor asked for, when the site changed it before Craft started.
+     */
+    private function warmTokenMatches(Request $request, ?string $path = null): bool
     {
         $given = (string)$request->getHeaders()->get('X-Speedy-Warm');
         [$expires] = explode('.', $given, 2);
-        $path = (string)parse_url($request->getUrl(), PHP_URL_PATH);
+        $path ??= (string)parse_url($request->getUrl(), PHP_URL_PATH);
         $query = $request->getQueryParams();
         // Servers that rewrite to index.php?p=… (Craft’s path parameter) add it to every page. It’s left out only
         // when it names the page that was asked for, so it can’t point a token at another page.

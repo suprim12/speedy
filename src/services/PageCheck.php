@@ -161,6 +161,10 @@ class PageCheck extends Component
                 Craft::t('speedy', 'Caching is turned off.'),
                 Craft::t('speedy', 'Turn on **Cache pages** in [Settings]({url}).', ['url' => \craft\helpers\UrlHelper::cpUrl($settingsUrl)]),
             ],
+            $reason === 'rewritten URL' => [
+                Craft::t('speedy', 'The site’s `index.php` changes this address before Craft opens it, other than taking part of it off, so the address alone might not decide what the page shows.'),
+                null,
+            ],
             $reason === 'unknown host' => [
                 Craft::t('speedy', 'The address isn’t one of the sites’ base URLs.'),
                 Craft::t('speedy', 'Add the domain to `allowedHosts` in `config/speedy.php`.'),
