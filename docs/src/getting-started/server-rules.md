@@ -13,7 +13,7 @@ php craft speedy/server-rules            # Nginx
 php craft speedy/server-rules --apache   # Apache
 ```
 
-The rules use your settings, so print them again if you change `cachePath` or set up a CDN, and after updating Speedy if you use a CDN: 1.3 adds `stale-while-revalidate` and `stale-if-error` to the `Cache-Control` header they send.
+The rules use your settings, so print them again if you change `cachePath` or set up a CDN, and after updating Speedy if you use a CDN: 1.3 adds `stale-while-revalidate` and `stale-if-error` to the `Cache-Control` header they send. 1.4.1 adds Brotli copies: copy the rules again to send them.
 
 ## Nginx
 
@@ -35,6 +35,7 @@ location ^~ /speedy/ {
     internal;
     default_type text/html;
     gzip_static on;
+    # brotli_static on;  # Sends the Brotli copy, if nginx has the Brotli module (ngx_brotli).
     add_header X-Speedy "STATIC" always;
     add_header Cache-Control "no-cache, s-maxage=0" always;
 }
@@ -50,6 +51,7 @@ What the rules do:
 - `internal` stops anyone opening the cache folder directly.
 - nginx doesn’t pass the server block’s `add_header` lines on to a `location` that has its own, so cached pages wouldn’t get headers such as `Strict-Transport-Security` or `Content-Security-Policy`. Repeat them in the Speedy block, where the rules show an example.
 - `gzip_static` sends the compressed copy Speedy saves next to each page (`index.html.gz`), so nginx doesn’t compress it on every request. It’s included in most nginx builds; if `nginx -t` says it’s unknown, remove that line.
+- When PHP has the Brotli extension, Speedy also saves a Brotli copy (`index.html.br`), about a fifth smaller than gzip. If your nginx has the Brotli module, remove the `#` before `brotli_static on;` to send it.
 - Everything else goes to Craft as usual, which still serves cached pages through PHP.
 
 ## Apache
@@ -62,9 +64,10 @@ Add the rules to `web/.htaccess`, after `RewriteEngine On` and before Craft’s 
 # The cache folder can’t be opened directly, only through the rules below.
 RewriteCond %{ENV:REDIRECT_STATUS} ^$
 RewriteRule ^speedy/ - [F]
-RewriteRule ^speedy/.+\.html\.gz$ - [T=text/html,E=no-gzip:1,E=SPEEDY_GZ:1,L]
+RewriteRule ^speedy/.+\.html\.br$ - [T=text/html,E=no-gzip:1,E=no-brotli:1,E=SPEEDY_BR:1,L]
+RewriteRule ^speedy/.+\.html\.gz$ - [T=text/html,E=no-gzip:1,E=no-brotli:1,E=SPEEDY_GZ:1,L]
 
-# Requests that must reach Craft skip the next two rules.
+# Requests that must reach Craft skip the next three rules.
 RewriteCond %{REQUEST_METHOD} !^(GET|HEAD)$ [OR]
 RewriteCond %{QUERY_STRING} !^$ [OR]
 RewriteCond %{HTTP_COOKIE} (_identity|speedy_state|_commerce_cart) [NC,OR]
@@ -72,9 +75,12 @@ RewriteCond %{HTTP:X-Requested-With} !^$ [OR]
 RewriteCond %{HTTP:HX-Request} !^$ [OR]
 RewriteCond %{HTTP:X-Up-Target} !^$ [OR]
 RewriteCond %{HTTP:X-Speedy-Warm} !^$
-RewriteRule .* - [S=2]
+RewriteRule .* - [S=3]
 
-# The compressed copy, for browsers that accept it, or the page itself.
+# The Brotli or gzip copy, for browsers that accept it, or the page itself.
+RewriteCond %{HTTP:Accept-Encoding} \bbr\b
+RewriteCond %{DOCUMENT_ROOT}/speedy/%{HTTP_HOST}%{REQUEST_URI}/index.html.br -s
+RewriteRule .* /speedy/%{HTTP_HOST}%{REQUEST_URI}/index.html.br [L,E=SPEEDY:1]
 RewriteCond %{HTTP:Accept-Encoding} gzip
 RewriteCond %{DOCUMENT_ROOT}/speedy/%{HTTP_HOST}%{REQUEST_URI}/index.html.gz -s
 RewriteRule .* /speedy/%{HTTP_HOST}%{REQUEST_URI}/index.html.gz [L,E=SPEEDY:1]
@@ -85,9 +91,10 @@ Header set X-Speedy "STATIC" env=REDIRECT_SPEEDY
 Header set Cache-Control "no-cache, s-maxage=0" env=REDIRECT_SPEEDY
 Header set Vary "Accept-Encoding" env=REDIRECT_SPEEDY
 Header set Content-Encoding "gzip" env=SPEEDY_GZ
+Header set Content-Encoding "br" env=SPEEDY_BR
 ```
 
-`mod_rewrite` and `mod_headers` must be enabled. Like the nginx rules, they send the compressed copy to browsers that accept it, and refuse direct requests to the cache folder. Tested on Apache 2.4.
+`mod_rewrite` and `mod_headers` must be enabled. Like the nginx rules, they send the compressed copy to browsers that accept it, Brotli when there is one, and refuse direct requests to the cache folder. Tested on Apache 2.4.
 
 Speedy also keeps a small `.htaccess` in `web/speedy/` that refuses direct requests, so the folder is closed on Apache even before you add the rules. Leave it in place. On nginx, the folder is closed by the rules, which mark it `internal`. Until they’re added, cached pages can be opened at their own address, such as `/speedy/example.com/index.html`: they’re the same public pages, and **Check server serving** on the utility page warns about it.
 
