@@ -35,6 +35,7 @@ class PagesTest extends TestCase
 
         $templates = [
             'plain' => '<html><body>Plain {{ now|date("U.u") }}</body></html>',
+            'etag' => '<html><body>ETag {{ now|date("U.u") }}</body></html>',
             'form' => '<html><body><form method="post">{{ csrfInput() }}<button>Go</button></form></body></html>',
             'skip' => '{% do craft.speedy.skip() %}<html><body>Skipped</body></html>',
             'ttl' => '{% do craft.speedy.ttl(120) %}<html><body>Short-lived</body></html>',
@@ -100,6 +101,38 @@ class PagesTest extends TestCase
     private function speedy(ResponseInterface $response): string
     {
         return $response->getHeaderLine('X-Speedy');
+    }
+
+    public function testBrowsersThatHaveThePageGetA304(): void
+    {
+        // A tracking parameter makes PHP send the cached page, as the web server only sends pages without a query
+        // string; Speedy leaves the parameter out, so it’s the same page.
+        $page = 'etag?utm_source=speedy-test';
+        $first = $this->get($page);
+        $storage = Plugin::getInstance()->storage;
+        $key = (string)$storage->key((string)parse_url(self::$base, PHP_URL_HOST), self::$prefix . '/etag');
+        $etag = \suprim\speedy\services\Cacher::etag($key, (int)($storage->meta($key)['created'] ?? 0));
+
+        $hit = $this->get($page);
+        $this->assertSame('HIT', $this->speedy($hit));
+        // Some servers remove these from every response, such as nginx with `ssi on`.
+        if ($hit->getHeaderLine('ETag') !== '') {
+            // Apache adds -gzip to the tag of a response it compressed itself.
+            $this->assertSame($etag, str_replace('-gzip"', '"', $first->getHeaderLine('ETag')), 'The visitor who builds it gets its ETag too.');
+            $this->assertSame($etag, $hit->getHeaderLine('ETag'), 'The same ETag as when it was built.');
+            $this->assertNotSame('', $hit->getHeaderLine('Last-Modified'));
+        }
+
+        $again = $this->get($page, ['headers' => ['If-None-Match' => $etag]]);
+        $this->assertSame(304, $again->getStatusCode());
+        $this->assertSame('', (string)$again->getBody(), 'Nothing is sent again.');
+        $this->assertSame('HIT', $this->speedy($again));
+
+        $this->assertSame(304, $this->get($page, ['headers' => ['If-None-Match' => trim($etag, 'W/')]])->getStatusCode(), 'A strong copy of the tag matches too.');
+        $this->assertSame(304, $this->get($page, ['headers' => ['If-None-Match' => substr($etag, 0, -1) . '-gzip"']])->getStatusCode(), 'And the tag Apache gives a response it compressed.');
+        $this->assertSame(200, $this->get($page, ['headers' => ['If-None-Match' => 'W/"other"']])->getStatusCode(), 'Another tag gets the page.');
+        $this->assertSame(304, $this->get($page, ['headers' => ['If-Modified-Since' => gmdate('D, d M Y H:i:s', time() + 60) . ' GMT']])->getStatusCode());
+        $this->assertSame(200, $this->get($page, ['headers' => ['If-Modified-Since' => gmdate('D, d M Y H:i:s', time() - 3600) . ' GMT']])->getStatusCode(), 'A copy from before it was built gets the page.');
     }
 
     public function testCachesThenServesTheSameCopy(): void
@@ -221,8 +254,9 @@ class PagesTest extends TestCase
 
     public function testKeepsHeadersAndExpiry(): void
     {
+        // Sent again by PHP: a tracking parameter makes PHP send it, as the web server rules send their own headers.
         $this->get('robots');
-        $this->assertSame('geolocation=()', $this->get('robots')->getHeaderLine('Permissions-Policy'));
+        $this->assertSame('geolocation=()', $this->get('robots?utm_source=speedy-test')->getHeaderLine('Permissions-Policy'));
 
         $this->get('ttl');
         $key = Plugin::getInstance()->storage->key(parse_url(self::$base, PHP_URL_HOST), '/' . self::$prefix . '/ttl');
@@ -508,7 +542,7 @@ class PagesTest extends TestCase
         // Once built, visitors with cookies get the cached copy too.
         Craft::$app->getDb()->createCommand()->delete(\craft\db\Table::QUEUE, ['id' => $jobs()])->execute();
         Plugin::getInstance()->warmer->warm([$url], false);
-        $this->assertSame('HIT', $this->speedy($this->get('consent', $cookies)));
+        $this->assertContains($this->speedy($this->get('consent', $cookies)), ['HIT', 'STATIC'], 'By PHP, or by the web server rules.');
     }
 
     public function testApiIsOffWithoutAKey(): void

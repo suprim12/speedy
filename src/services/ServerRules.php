@@ -77,6 +77,7 @@ class ServerRules extends Component
             internal;
             default_type text/html;
             gzip_static on;
+            # brotli_static on;  # Sends the Brotli copy, if nginx has the Brotli module (ngx_brotli).
             add_header X-Speedy "STATIC" always;
             add_header Cache-Control "$cacheControl" always;
             # nginx doesn’t pass on the server block’s add_header lines here: repeat your security headers, such as
@@ -92,6 +93,8 @@ class ServerRules extends Component
         $cookies = $this->cookiePattern();
 
         $dir = ltrim($path, '/');
+        // The cache folder’s own .htaccess must know the copies these rules send, such as Brotli ones.
+        Plugin::getInstance()->storage->protectFolder();
 
         return <<<APACHE
         # Speedy Cache: serve cached pages without PHP.
@@ -100,9 +103,10 @@ class ServerRules extends Component
         # The cache folder can’t be opened directly, only through the rules below.
         RewriteCond %{ENV:REDIRECT_STATUS} ^$
         RewriteRule ^$dir/ - [F]
-        RewriteRule ^$dir/.+\.html\.gz$ - [T=text/html,E=no-gzip:1,E=SPEEDY_GZ:1,L]
+        RewriteRule ^$dir/.+\.html\.br$ - [T=text/html,E=no-gzip:1,E=no-brotli:1,E=SPEEDY_BR:1,L]
+        RewriteRule ^$dir/.+\.html\.gz$ - [T=text/html,E=no-gzip:1,E=no-brotli:1,E=SPEEDY_GZ:1,L]
 
-        # Requests that must reach Craft skip the next two rules.
+        # Requests that must reach Craft skip the next three rules.
         RewriteCond %{REQUEST_METHOD} !^(GET|HEAD)$ [OR]
         RewriteCond %{QUERY_STRING} !^$ [OR]
         RewriteCond %{HTTP_COOKIE} ($cookies) [NC,OR]
@@ -110,9 +114,12 @@ class ServerRules extends Component
         RewriteCond %{HTTP:HX-Request} !^$ [OR]
         RewriteCond %{HTTP:X-Up-Target} !^$ [OR]
         RewriteCond %{HTTP:X-Speedy-Warm} !^$
-        RewriteRule .* - [S=2]
+        RewriteRule .* - [S=3]
 
-        # The compressed copy, for browsers that accept it, or the page itself.
+        # The Brotli or gzip copy, for browsers that accept it, or the page itself.
+        RewriteCond %{HTTP:Accept-Encoding} \bbr\b
+        RewriteCond %{DOCUMENT_ROOT}$path/%{HTTP_HOST}%{REQUEST_URI}/index.html.br -s
+        RewriteRule .* $path/%{HTTP_HOST}%{REQUEST_URI}/index.html.br [L,E=SPEEDY:1]
         RewriteCond %{HTTP:Accept-Encoding} gzip
         RewriteCond %{DOCUMENT_ROOT}$path/%{HTTP_HOST}%{REQUEST_URI}/index.html.gz -s
         RewriteRule .* $path/%{HTTP_HOST}%{REQUEST_URI}/index.html.gz [L,E=SPEEDY:1]
@@ -123,6 +130,7 @@ class ServerRules extends Component
         Header set Cache-Control "$cacheControl" env=REDIRECT_SPEEDY
         Header set Vary "Accept-Encoding" env=REDIRECT_SPEEDY
         Header set Content-Encoding "gzip" env=SPEEDY_GZ
+        Header set Content-Encoding "br" env=SPEEDY_BR
         APACHE;
     }
 

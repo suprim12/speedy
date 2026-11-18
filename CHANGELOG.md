@@ -3,9 +3,11 @@
 ## Unreleased
 
 ### Added
+- Pages sent by PHP answer “304 Not Modified” when the browser already has them, with `ETag` and `Last-Modified`, as the web server does for its own files, so returning visitors don’t download them again.
 - The utility page warns when cached pages link to CSS or JavaScript that no longer exists, such as after a deploy replaced the built files or Craft’s published plugin files, with an example. Up to 30 pages are checked, at most every five minutes, only when the control panel shows the checks.
 
 ### Fixed
+- With PHP’s Brotli extension, each page was compressed at Brotli’s slowest setting, delaying the visitor who built it, and the copy was never sent. It’s now compressed quickly and sent to browsers that accept it, by PHP and by the Apache rules; the nginx rules have a line for it to turn on. Copy the server rules again to send it.
 - One dynamic part with an error in its template kept every other dynamic part on the page from loading. The others now load, and the error is logged.
 - Background builds of slow pages failed when they ran past the queue’s time for a job (“exceeded the timeout of 300 seconds”), leaving the rest of their pages unbuilt. A job now stops starting pages a minute before its time is up, and queues the rest as a job of their own.
 - **Clear all pages** replaced a cache folder linked into the site, such as `web/speedy` shared between a deploy’s releases, with a folder of its own, so releases stopped sharing it and the old pages were never deleted.

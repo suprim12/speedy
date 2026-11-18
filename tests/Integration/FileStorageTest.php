@@ -25,6 +25,37 @@ class FileStorageTest extends TestCase
         $this->assertFileDoesNotExist("$this->tmp/web/example.com/news/index.html.gz");
     }
 
+    public function testBrotliCopiesAreSentWhenAccepted(): void
+    {
+        $storage = $this->plugin()->storage;
+        $storage->write('example.com/br', '<html>Brotli</html>', 'https://example.com/br', [], null);
+        if (!function_exists('brotli_compress')) {
+            $this->assertFileDoesNotExist("$this->tmp/web/example.com/br/index.html.br");
+            $this->assertSame('gzip', $storage->read('example.com/br', true, true)['encoding'], 'Without Brotli in PHP, gzip.');
+            return;
+        }
+        $page = $storage->read('example.com/br', true, true);
+        $this->assertSame('br', $page['encoding']);
+        $this->assertSame('<html>Brotli</html>', brotli_uncompress($page['content']));
+        $this->assertSame('gzip', $storage->read('example.com/br', true, false)['encoding'], 'Gzip for browsers without Brotli.');
+        $storage->delete('example.com/br');
+        $this->assertFileDoesNotExist("$this->tmp/web/example.com/br/index.html.br");
+    }
+
+    public function testTheFolderHtaccessIsUpdatedForBrotli(): void
+    {
+        $storage = $this->plugin()->storage;
+        mkdir("$this->tmp/web", 0775, true);
+        // As written by Speedy before 1.4.1.
+        file_put_contents("$this->tmp/web/.htaccess", "# Speedy Cache: pages here are only sent through the site’s rewrite rules.\nRewriteRule \\.html\\.gz$ - [L]\n");
+        $storage->protectFolder();
+        $this->assertStringContainsString('html\\.br', (string)file_get_contents("$this->tmp/web/.htaccess"));
+
+        file_put_contents("$this->tmp/web/.htaccess", "# My own rules\n");
+        $storage->protectFolder();
+        $this->assertSame("# My own rules\n", file_get_contents("$this->tmp/web/.htaccess"), 'One that isn’t Speedy’s is left alone.');
+    }
+
     public function testDeletingAPageLeavesNoEmptyFolders(): void
     {
         $storage = $this->plugin()->storage;

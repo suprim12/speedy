@@ -174,8 +174,10 @@ class Storage extends Component
             $this->protectCacheFolder();
             // Compressed copies, so the web server (gzip_static) and PHP send them without compressing each time.
             $this->atomicWrite("$file.gz", (string)gzencode($html, 9));
+            // Brotli, when PHP has it, is smaller still. Quality 5 compresses about as fast as gzip does here: the
+            // strongest settings take a second on a large page, which a visitor building it would wait for.
             if (function_exists('brotli_compress')) {
-                $this->atomicWrite("$file.br", (string)brotli_compress($html, 11));
+                $this->atomicWrite("$file.br", (string)brotli_compress($html, self::BROTLI_QUALITY, defined('BROTLI_TEXT') ? BROTLI_TEXT : 0));
             }
             $this->atomicWrite($file, $html);
             $this->atomicWrite($this->metaFile($key), Json::encode($meta));
@@ -642,19 +644,25 @@ class Storage extends Component
         return ['pages' => $pages, 'bytes' => $bytes];
     }
 
+    /** Brotli quality for the compressed copy of each page, from 0 to 11. */
+    public const BROTLI_QUALITY = 5;
+
     /**
-     * The page to send, compressed when the visitor accepts gzip and a compressed copy exists.
+     * The page to send, compressed when the visitor accepts it and a compressed copy exists: Brotli first, then gzip.
      *
-     * @return array{content: string, gzip: bool}|null
+     * @return array{content: string, gzip: bool, encoding?: string}|null
      */
-    public function read(string $key, bool $gzip): ?array
+    public function read(string $key, bool $gzip, bool $brotli = false): ?array
     {
         if ($this->usesCache()) {
             return $this->cache()->read($key, $gzip);
         }
         $file = $this->htmlFile($key);
+        if ($brotli && is_file("$file.br")) {
+            return ['content' => (string)file_get_contents("$file.br"), 'gzip' => false, 'encoding' => 'br'];
+        }
         if ($gzip && is_file("$file.gz")) {
-            return ['content' => (string)file_get_contents("$file.gz"), 'gzip' => true];
+            return ['content' => (string)file_get_contents("$file.gz"), 'gzip' => true, 'encoding' => 'gzip'];
         }
         if (!is_file($file)) {
             return null;
@@ -919,8 +927,10 @@ class Storage extends Component
         if (!is_file($ignore)) {
             $this->atomicWrite($ignore, self::MARKER . " Don’t commit or deploy them.\n*\n");
         }
+        // Written again when it’s an older one of Speedy’s, without Brotli: the site’s rules may now send .br copies.
         $file = $this->cacheRoot() . '/.htaccess';
-        if (is_file($file)) {
+        $current = is_file($file) ? (string)@file_get_contents($file) : null;
+        if ($current !== null && (!str_starts_with($current, '# Speedy Cache') || str_contains($current, 'html\\.br'))) {
             return;
         }
         $this->atomicWrite($file, <<<APACHE
@@ -930,10 +940,21 @@ class Storage extends Component
     RewriteEngine On
     RewriteCond %{ENV:REDIRECT_STATUS} ^$
     RewriteRule ^ - [F]
-    RewriteRule \.html\.gz$ - [T=text/html,E=no-gzip:1,E=SPEEDY_GZ:1,L]
+    RewriteRule \.html\.br$ - [T=text/html,E=no-gzip:1,E=no-brotli:1,E=SPEEDY_BR:1,L]
+    RewriteRule \.html\.gz$ - [T=text/html,E=no-gzip:1,E=no-brotli:1,E=SPEEDY_GZ:1,L]
 </IfModule>
 
 APACHE);
+    }
+
+    /**
+     * Makes sure the cache folder has its .gitignore and .htaccess, such as before the server rules are copied.
+     */
+    public function protectFolder(): void
+    {
+        if (!$this->usesCache() && $this->unsafeFolder() === null) {
+            $this->protectCacheFolder();
+        }
     }
 
     private function atomicWrite(string $file, string $contents): void

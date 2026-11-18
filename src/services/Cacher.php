@@ -322,15 +322,6 @@ class Cacher extends Component
         $response->format = Response::FORMAT_RAW;
         $headers = $response->getHeaders();
         $request = Craft::$app->getRequest();
-        $acceptsGzip = $request instanceof Request && str_contains((string)$request->getHeaders()->get('Accept-Encoding'), 'gzip');
-        $page = $storage->read($key, $acceptsGzip);
-        if ($page === null) {
-            return false;
-        }
-        $response->content = $page['content'];
-        if ($page['gzip']) {
-            $headers->set('Content-Encoding', 'gzip');
-        }
         $headers->set('Vary', 'Accept-Encoding');
         $headers->set('Content-Type', 'text/html; charset=UTF-8');
         foreach ($meta['headers'] ?? [] as $name => $value) {
@@ -338,7 +329,59 @@ class Cacher extends Component
         }
         $headers->set(self::HEADER, $state);
         $headers->set('Cache-Control', $state === 'STALE' ? 'no-cache, s-maxage=0' : Plugin::getInstance()->cdn->cacheControl());
+        $created = (int)($meta['created'] ?? 0);
+        if ($created > 0) {
+            $headers->set('ETag', self::etag($key, $created));
+            $headers->set('Last-Modified', gmdate('D, d M Y H:i:s', $created) . ' GMT');
+            // The browser has this copy already: say so, without sending it again.
+            if ($request instanceof Request && $this->notModified($request, $key, $created)) {
+                $response->setStatusCode(304);
+                $response->content = '';
+                Craft::$app->end(0, $response);
+            }
+        }
+        $encodings = $request instanceof Request ? strtolower((string)$request->getHeaders()->get('Accept-Encoding')) : '';
+        $page = $storage->read($key, str_contains($encodings, 'gzip'), (bool)preg_match('/\bbr\b/', $encodings));
+        if ($page === null) {
+            return false;
+        }
+        $response->content = $page['content'];
+        $encoding = $page['encoding'] ?? ($page['gzip'] ? 'gzip' : null);
+        if ($encoding !== null) {
+            $headers->set('Content-Encoding', $encoding);
+        }
         Craft::$app->end(0, $response);
+    }
+
+    /**
+     * A page’s ETag: the same for its plain and compressed copies, and new each time it’s built.
+     */
+    public static function etag(string $key, int $created): string
+    {
+        return 'W/"' . substr(md5("$key|$created"), 0, 16) . '"';
+    }
+
+    /**
+     * Whether the browser’s copy is this one, by its ETag, or by its date when it sent no ETag.
+     */
+    private function notModified(Request $request, string $key, int $created): bool
+    {
+        $match = (string)$request->getHeaders()->get('If-None-Match');
+        if ($match !== '') {
+            $etag = self::etag($key, $created);
+            foreach (explode(',', $match) as $tag) {
+                // Apache adds -gzip or -br to the tag of a response it compressed itself.
+                $tag = (string)preg_replace('/-(gzip|br)"$/', '"', trim($tag));
+                // Weak comparison: W/"x" matches "x", as the copies only differ in compression.
+                if ($tag === '*' || $tag === $etag || 'W/' . $tag === $etag) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        $since = strtotime((string)$request->getHeaders()->get('If-Modified-Since'));
+
+        return $since !== false && $since >= $created;
     }
 
     /**
@@ -469,6 +512,12 @@ class Cacher extends Component
         }
 
         $response->getHeaders()->set(self::HEADER, $this->_warming ? 'WARM' : 'MISS');
+        // The same ETag the cached copy is sent with, so this visitor’s next visit can be answered with 304.
+        $created = (int)(Plugin::getInstance()->storage->meta((string)$this->_key)['created'] ?? 0);
+        if (!$this->_warming && $created > 0) {
+            $response->getHeaders()->set('ETag', self::etag((string)$this->_key, $created));
+            $response->getHeaders()->set('Last-Modified', gmdate('D, d M Y H:i:s', $created) . ' GMT');
+        }
         // A warming request has a one-off URL, which CDNs mustn’t keep.
         // The saved copy has no cookies, but this response may set one, such as the CSRF cookie: a CDN mustn’t keep it.
         $setsCookie = $response->getCookies()->count() > 0 || $response->getHeaders()->has('Set-Cookie');
