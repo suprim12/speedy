@@ -11,6 +11,9 @@
 - **Clear site** on the utility page, and `speedy/clear --site`, clear every page of one site.
 - **Clear its cached pages** on an entry’s, category’s or product’s details panel.
 
+### Fixed
+- Pages couldn’t be built in the background (“SKIP rebuild token”) on servers that pass the path to `index.php` as a query parameter, such as Apache with `index.php?p=$1`.
+
 ## 1.3.0 - 2026-11-17
 
 ### Added

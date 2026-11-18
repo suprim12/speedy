@@ -972,8 +972,19 @@ class Cacher extends Component
         $given = (string)$request->getHeaders()->get('X-Speedy-Warm');
         [$expires] = explode('.', $given, 2);
         $path = (string)parse_url($request->getUrl(), PHP_URL_PATH);
+        $query = $request->getQueryParams();
+        // Servers that rewrite to index.php?p=… (Craft’s path parameter) add it to every page. It’s left out only
+        // when it names the page that was asked for, so it can’t point a token at another page.
+        $pathParam = Craft::$app->getConfig()->getGeneral()->pathParam;
+        if ($pathParam && isset($query[$pathParam]) && is_string($query[$pathParam])) {
+            $named = trim(rawurldecode($query[$pathParam]), '/');
+            $asked = '/' . trim(rawurldecode($path), '/');
+            if ($named === '' || str_ends_with($asked, '/' . $named)) {
+                unset($query[$pathParam]);
+            }
+        }
 
-        return hash_equals(Plugin::getInstance()->warmer->tokenFor((string)$request->getHostName(), $path, $request->getQueryParams(), (int)$expires), $given);
+        return hash_equals(Plugin::getInstance()->warmer->tokenFor((string)$request->getHostName(), $path, $query, (int)$expires), $given);
     }
 
     /**

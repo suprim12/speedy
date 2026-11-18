@@ -327,6 +327,19 @@ class PagesTest extends TestCase
         $this->assertSame('WARM', $this->speedy($this->get('plain?speedy-warm=1', ['headers' => ['X-Speedy-Warm' => $good]])));
     }
 
+    public function testRebuildsWorkWhenTheServerAddsThePathParameter(): void
+    {
+        $pathParam = \Craft::$app->getConfig()->getGeneral()->pathParam;
+        if (!$pathParam) {
+            $this->markTestSkipped('No path parameter on this site.');
+        }
+        $warmer = Plugin::getInstance()->warmer;
+        $token = $warmer->token(self::$base . '/' . self::$prefix . '/plain?speedy-warm=1', time() + 900);
+        // As Apache sends it on with Craft’s rewrite to index.php?p=…
+        $this->assertSame('WARM', $this->speedy($this->get('plain?' . $pathParam . '=' . self::$prefix . '/plain&speedy-warm=1', ['headers' => ['X-Speedy-Warm' => $token]])));
+        $this->assertNotSame('WARM', $this->speedy($this->get('plain?' . $pathParam . '=' . self::$prefix . '/form&speedy-warm=1', ['headers' => ['X-Speedy-Warm' => $token]])), 'Naming another page doesn’t rebuild it with this token.');
+    }
+
     public function testThePathParameterCantPointAPageAtTheWrongAddress(): void
     {
         $pathParam = \Craft::$app->getConfig()->getGeneral()->pathParam;
