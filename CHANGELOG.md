@@ -6,6 +6,7 @@
 - Pages sent by PHP answer “304 Not Modified” when the browser already has them, with `ETag` and `Last-Modified`, as the web server does for its own files, so returning visitors don’t download them again.
 
 ### Fixed
+- Clearing everything left the Performance report and Speedy’s failed queue jobs about the pages it removed, so the utility page kept showing them. Both are now cleared with the pages.
 - A browser that refuses a compression in its `Accept-Encoding` header, such as `gzip;q=0`, was still sent a page compressed that way when PHP sent it.
 - With PHP’s Brotli extension, each page was compressed at Brotli’s slowest setting, delaying the visitor who built it, and the copy was never sent. It’s now compressed quickly and sent to browsers that accept it, by PHP and by the Apache rules; the nginx rules have a line for it to turn on. Copy the server rules again to send it.
 - One dynamic part with an error in its template kept every other dynamic part on the page from loading. The others now load, and the error is logged.

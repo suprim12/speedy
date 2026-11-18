@@ -13,6 +13,7 @@ class EventsTest extends TestCase
 {
     public function testAfterClearReportsWhatWasCleared(): void
     {
+        $this->skipIfTheSiteHasFailedSpeedyJobs();
         $seen = [];
         $handler = function(ClearEvent $e) use (&$seen) {
             $seen[] = [$e->reason, $e->count, $e->urls, $e->all];

@@ -43,6 +43,18 @@ abstract class TestCase extends BaseTestCase
         parent::tearDown();
     }
 
+    /**
+     * Clearing everything removes every failed Speedy job on the site: skip where the site has some of its own, so a
+     * test only ever removes what it made.
+     */
+    protected function skipIfTheSiteHasFailedSpeedyJobs(): void
+    {
+        $failed = (new \craft\db\Query())->from(\craft\db\Table::QUEUE)->where(['fail' => true])->andWhere(['like', 'description', 'Speedy Cache:%', false])->count();
+        if ($failed > 0) {
+            $this->markTestSkipped("This site has $failed failed Speedy jobs, which clearing everything would remove.");
+        }
+    }
+
     protected function plugin(): Plugin
     {
         return Plugin::getInstance();

@@ -898,6 +898,10 @@ class Clearer extends Component
             return false;
         }
         $plugin->cdn->purgeAll();
+        // About pages that are gone now: the Performance report fills again as pages are rebuilt, and failed
+        // rebuilds of the old pages would only keep a problem on the utility page.
+        $plugin->queries->clear();
+        $this->releaseFailedJobs();
         $plugin->log->add($reason, $count, []);
         $this->afterClear($reason, $count, [], true);
         if ($plugin->getSettings()->warm) {
@@ -905,6 +909,27 @@ class Clearer extends Component
         }
 
         return true;
+    }
+
+    /**
+     * Removes Speedy’s own failed queue jobs, such as rebuilds of pages that have just been cleared. Other plugins’
+     * jobs are left alone.
+     */
+    private function releaseFailedJobs(): void
+    {
+        $queue = Craft::$app->getQueue();
+        if (!$queue instanceof \craft\queue\Queue) {
+            return;
+        }
+        try {
+            foreach ($queue->getJobInfo() as $job) {
+                if (($job['status'] ?? null) === \craft\queue\Queue::STATUS_FAILED && str_starts_with((string)($job['description'] ?? ''), 'Speedy Cache:')) {
+                    $queue->release((string)$job['id']);
+                }
+            }
+        } catch (\Throwable $e) {
+            Craft::warning('Couldn’t remove failed Speedy jobs: ' . $e->getMessage(), 'speedy');
+        }
     }
 
     /**
