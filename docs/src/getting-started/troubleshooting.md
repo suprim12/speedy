@@ -48,7 +48,7 @@ The header says why, after `SKIP`:
 - **Does the content come from outside Craft?** Speedy can’t see changes in APIs or feeds. Give those pages a time limit ([Live data](/recipes/live-data)).
 - **Is it the CDN?** If the page is right on your server but old at the CDN, check the CDN result on the utility page, and use **Test Cloudflare** or **Test CloudFront**.
 
-To clear something straight away, use **Clear URL** or **Clear all pages** on the utility page, or `php craft speedy/clear`.
+To refresh a page straight away, use **Clear URL** on the utility page, or **Clear its cached pages** on the entry. To refresh every page, such as after a template change, use **Rebuild all pages** or `php craft speedy/clear --rebuild`: visitors keep getting the old pages until the new ones are ready. **Clear all pages** empties the cache, so every visitor waits for pages to be built again.
 
 ## Pages keep being cleared, such as by an import
 
@@ -80,7 +80,15 @@ The rules aren’t being used yet:
 
 ## The cache folder is large
 
-Pages are plain HTML, typically 20–100 KB each. **Utilities → Speedy Cache** shows the total. Clear everything any time; pages are rebuilt as they’re visited. To cap it, such as on a small hosting plan, set `maxCacheSize` in MB.
+Pages are plain HTML, typically 20–100 KB each, saved with a compressed copy. **Utilities → Speedy Cache** shows the total. To cap it, such as on a small hosting plan, set `maxCacheSize` in MB: past it, pages already cached are still sent, and new ones aren’t saved.
+
+Pages much bigger than that usually carry the same things on every page, which also slow visitors down:
+
+- **An icon sprite pasted into each page.** Link to it as a file instead, such as `<use href="/dist/sprite.svg#icon">`, so browsers download it once.
+- **Many image widths in each `srcset`.** Four or five widths are usually enough.
+- **Whitespace from templates.** Wrap the layout in `{% apply spaceless %}`. Compression already removes most of its cost to visitors, so it mainly saves disk.
+
+Cached parameters add a copy of the page for each value, such as `?view=map`, up to `maxQueryPages` for each page.
 
 ## The disk is nearly full
 

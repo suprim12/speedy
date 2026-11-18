@@ -7,7 +7,8 @@ Speedy clears a page when Craft content on it changes. Data from outside Craft (
 In the templates that show it:
 
 ```twig
-{% set rates = craft.app.cache.getOrSet('rates', () => fetchRates(), 300) %}
+{# Saved in Craft’s cache by your module or a cron job that fetches them #}
+{% set rates = craft.app.cache.get('rates') ?: {} %}
 {% do craft.speedy.ttl(300) %}
 ```
 

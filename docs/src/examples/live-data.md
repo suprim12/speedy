@@ -11,7 +11,8 @@ Speedy clears a page when Craft content on it changes. Data from outside Craft, 
 {# Rebuild this page every minute #}
 {% do craft.speedy.ttl(60) %}
 
-{% set rates = craft.app.cache.getOrSet('fx-rates', () => fetchRates(), 60) %}
+{# Saved in Craft’s cache by your module or a cron job that fetches the rates #}
+{% set rates = craft.app.cache.get('fx-rates') ?: {} %}
 
 {% block content %}
   <h1>Today’s rates</h1>

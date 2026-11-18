@@ -47,7 +47,7 @@ Check a page with `curl -I`: `X-Speedy: STATIC` means the web server sent it wit
 | Included URI patterns | **Only cache**, as wildcards: `news/*`, with `/` for the homepage |
 | Excluded URI patterns | `neverCache`, as wildcards: `checkout/*` |
 | Query strings cached as unique pages | `cachedParams`, the parameters that make a page of their own |
-| Query strings cached as the same page | `queryStrings` set to `'ignore'` |
+| Query strings cached as the same page | `ignoredParams` for the parameters that don’t change a page. `queryStrings` set to `'ignore'` caches every query string as the page without it, so `?page=2` and filters would show the first page: only for sites that never use query strings for content |
 | Excluded query string parameters | `ignoredParams` |
 | Regenerating pages after clearing them | `rebuildCleared` |
 | Cache duration | `defaultTtl` |

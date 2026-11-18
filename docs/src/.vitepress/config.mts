@@ -34,6 +34,7 @@ export default defineConfig({
           { text: 'Installation', link: '/getting-started/installation' },
           { text: 'Serving Without PHP', link: '/getting-started/server-rules' },
           { text: 'Configuration', link: '/getting-started/configuration' },
+          { text: 'Best Practices and Gotchas', link: '/getting-started/best-practices' },
           { text: 'Troubleshooting', link: '/getting-started/troubleshooting' },
           { text: 'Privacy and Data', link: '/getting-started/privacy' },
         ],

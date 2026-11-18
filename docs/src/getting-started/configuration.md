@@ -21,8 +21,8 @@ Everything else goes in `config/speedy.php`. Settings in the file override the s
 use craft\helpers\App;
 
 return [
-    // Turn caching off on dev and staging.
-    'enabled' => App::env('CRAFT_ENVIRONMENT') === 'production',
+    // Turn caching off on your own machine. Keep it on for staging, so problems show there first.
+    'enabled' => App::env('CRAFT_ENVIRONMENT') !== 'dev',
 
     // URL paths that are never cached. * matches anything.
     'neverCache' => ['checkout/*', 'account*', 'search'],
@@ -44,7 +44,7 @@ return [
 | `neverCache` | `[]` | URL paths never cached, such as `checkout/*`. Also on the General tab |
 | `allowedHosts` | `[]` | Host names to cache when a site’s base URL is `@web`, such as `['example.com', 'www.example.com']`. Set it on such sites: left empty, any host the request was sent to is cached, visitors with cookies don’t get pages built in the background, the warming login (`warmUsername`, `warmPassword`) isn’t sent, and **Why isn’t this page cached?** can’t check pages. The utility page warns ([Multi-site](/recipes/multi-site)) |
 | `onlyCache` | `[]` | URL paths to cache, when only some pages should be, such as `['/', 'news*']`. `/` is the homepage. Empty caches every page ([What isn’t cached](/guides/not-cached#caching-only-some-pages)) |
-| `queryStrings` | `'skip'` | `'skip'`: pages with a query string are cached only for the parameters in `cachedParams`. `'ignore'`: they’re cached without it, for sites that never use query strings for content. Also on the Query strings tab |
+| `queryStrings` | `'skip'` | `'skip'`: pages with a query string are cached only for the parameters in `cachedParams`. `'ignore'`: they’re cached without it, for sites that never use query strings for content: with `'ignore'`, `?page=2`, filters and tabs show the page without them. To leave out only some parameters, use `ignoredParams`. Also on the Query strings tab |
 | `cachedParams` | `[]` | Query parameters that make a page of their own, such as `['page', 'view']` ([Pagination and filters](/guides/not-cached#pagination-and-filters)). Also on the Query strings tab |
 | `maxQueryPages` | `100` | The most query string versions of one page to keep ([Pagination and filters](/guides/not-cached#pagination-and-filters)) |
 | `maxCacheSize` | `null` | The most disk space cached pages may use, in MB, such as `500` on a small hosting plan. Past it, pages already cached are still sent and cleared, but new ones aren’t saved. `null` for no limit. New pages then say `X-Speedy: SKIP cache full`. The total is checked every few minutes, so it can go a little over |

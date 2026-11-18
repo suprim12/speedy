@@ -1,36 +1,38 @@
 # Clear on Deploy
 
-Speedy can rebuild every cached page in the background on its own when `php craft up` applies project config changes, such as a new field or a changed section. Visitors keep getting the old pages until the new ones are ready. Turn it on in `config/speedy.php`:
-
-```php
-'rebuildAfterDeploy' => true,
-```
-
-It’s off by default: on a site with thousands of cached pages, rebuilding them all keeps the server busier for a while after each deploy. Pages are rebuilt a few at a time (`warmConcurrency`), so visitors aren’t slowed down.
-
-A deploy can also change templates, and templates aren’t content, so Speedy can’t tell which pages they affect. If a deploy changes templates but not project config, clear everything after it:
-
-```bash
-php craft up
-php craft speedy/clear
-```
-
-`speedy/clear` also clears your CDN, and queues a warm job for your `warm` list.
-
-On a busy site, rebuild instead, so visitors keep getting the old pages until the new ones are ready:
+Speedy clears pages when content changes, but templates aren’t content: after a deploy that changes templates, Speedy can’t tell which pages they affect. Rebuild the cached pages after it:
 
 ```bash
 php craft up
 php craft speedy/clear --rebuild
 ```
 
-Use `speedy/clear` when the old pages mustn’t be shown at all, such as after removing content for legal reasons. To warm during the deploy instead, so the site is fast the moment it goes live:
+Every cached page is rebuilt in the background, a few at a time (`warmConcurrency`), and cleared from your CDN as it’s replaced. Visitors keep getting the old pages until the new ones are ready, so nobody waits for a page to be built.
+
+Deploys that don’t change templates, such as PHP, config or CSS and JavaScript files with versioned names, need nothing: their pages can stay as they are.
+
+## Clearing instead
+
+`speedy/clear` without `--rebuild` removes every page and clears your CDN, so each page is built again by its next visitor. Use it when the old pages mustn’t be shown at all, such as after removing content for legal reasons:
 
 ```bash
 php craft up
 php craft speedy/clear
-php craft speedy/warm
 ```
+
+It also queues a warm job for your `warm` list, so your important pages are built first.
+
+## Project config changes
+
+`rebuildAfterDeploy` rebuilds every cached page in the background whenever a deploy applies project config changes:
+
+```php
+'rebuildAfterDeploy' => true,
+```
+
+It’s off by default, as it rebuilds every page for any change, including ones visitors never see, such as user permissions or a plugin’s settings. Most changes that show on pages, such as a new field, also change a template, so rebuilding when templates change covers them. Changes Speedy already handles itself, such as a section’s URL format, instant links or an SEO plugin’s settings, rebuild their pages without it.
+
+Turn it on if content types change without templates changing, such as a site that renders fields generically. Otherwise, after changing a named image transform, or a site’s name that templates show, click **Rebuild all pages** on the utility page.
 
 ## Release folders
 
@@ -85,7 +87,7 @@ if ! git diff --quiet "$LAST_DEPLOYED_COMMIT" HEAD -- templates/; then
 fi
 ```
 
-Changes that come with project config, such as a new field, appear on pages through templates, so the same check covers them. Leave `rebuildAfterDeploy` off with this setup, or every project config change rebuilds every page. After changing a named image transform, or a site’s name that templates show, click **Rebuild all pages** on the utility page.
+Leave `rebuildAfterDeploy` off with this check, as above.
 
 ::: warning Clearing everything replaces the link
 In Speedy 1.4.0 and earlier, clearing everything moves the cache folder aside to empty it in one step. With a linked folder, that moves the link, and the release gets a folder of its own again. This happens with **Clear all pages** on the utility page, `speedy/clear` without `--rebuild`, and **Speedy Cache pages** under **Utilities → Caches** or in `clear-caches/all`. Use **Rebuild all pages** and `speedy/clear --rebuild` instead, and if it happens, link the folder again.
@@ -99,7 +101,9 @@ If cached pages were committed before, remove them from git once, keeping the fi
 git rm -r --cached web/speedy
 ```
 
-## Only in production
+## Off while developing
+
+Caching gets in the way while building templates, so turn it off on your own machine, and keep it on for staging, so problems show there before they reach production:
 
 ```php
 // config/speedy.php
@@ -109,6 +113,9 @@ return [
 ```
 
 ```bash
-# .env in production
+# .env on your own machine
+SPEEDY_ENABLED=false
+
+# .env on staging and production
 SPEEDY_ENABLED=true
 ```

@@ -42,7 +42,7 @@ Logged in to the control panel? You’ll always see `SKIP logged in`, as logged-
 
 ## Turn it off on dev
 
-Caching usually gets in the way while building templates. Turn it off per environment in `config/speedy.php`:
+Caching usually gets in the way while building templates. Turn it off on your own machine in `config/speedy.php`, and keep it on for staging, so caching problems show there before they reach production:
 
 ```php
 <?php
@@ -50,6 +50,6 @@ Caching usually gets in the way while building templates. Turn it off per enviro
 use craft\helpers\App;
 
 return [
-    'enabled' => App::env('CRAFT_ENVIRONMENT') === 'production',
+    'enabled' => App::env('CRAFT_ENVIRONMENT') !== 'dev',
 ];
 ```

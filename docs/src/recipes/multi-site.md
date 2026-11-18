@@ -18,9 +18,9 @@ The server rules work for any number of domains, as they use the request’s hos
 
 ## Several web servers
 
-Behind a load balancer, every server must see the same cache, or a page cleared on one is still served by another. There are two ways.
+Behind a load balancer, every server must see the same cache, or a page cleared on one is still served by another. Keeping pages in Redis is the way to do it; shared network storage works, with care.
 
-### Keep pages in Redis
+### Keep pages in Redis (recommended)
 
 If Craft’s cache is Redis (or Memcached), keep pages there. In **Settings → Plugins → Speedy Cache → Advanced**, set **Cache storage** to **Craft cache**, or:
 
@@ -39,7 +39,9 @@ If Craft’s cache is the database, Speedy warns you: pages would grow the datab
 
 ### Share the cache folder
 
-Put both folders on shared storage, such as NFS or EFS: mount it at `web/speedy` on each server, and set the data folder:
+Only if Redis isn’t an option. Network storage, such as NFS or EFS, is slow with thousands of small files, and Speedy’s locks, which stop two servers building the same page or writing the same list at once, rely on file locks that some network storage doesn’t honour between servers. Test it under load before going live: two servers building one page at the same moment should end with one copy, and **Recent clears** should match on both.
+
+Put both folders on the shared storage: mount it at `web/speedy` on each server, and set the data folder:
 
 ```php
 // config/speedy.php
