@@ -1,6 +1,7 @@
 import DefaultTheme from 'vitepress/theme'
 import { nextTick, watch } from 'vue'
 import SpHome from './SpHome.vue'
+import SpDemo from './SpDemo.vue'
 import './custom.css'
 
 // Reveal home page parts as they reach the screen. A scroll check (not an observer) so parts
@@ -42,6 +43,7 @@ export default {
   extends: DefaultTheme,
   enhanceApp({ app, router }) {
     app.component('SpHome', SpHome)
+    app.component('SpDemo', SpDemo)
     if (typeof window === 'undefined') return
     watch(() => router.route.path, () => nextTick(reveal), { immediate: true })
   },

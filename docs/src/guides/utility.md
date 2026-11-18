@@ -44,6 +44,8 @@ Enter an address, such as `https://example.com/homes?view=map`, or a path, such 
 
 When you’re logged in, it also reminds you that you get fresh pages yourself. Only the site’s own addresses can be checked.
 
+<SpDemo kind="why" />
+
 ## Tabs
 
 Below the actions, the page has four tabs. Each has its own address, such as `utilities/speedy#queries`, to link to or bookmark.
@@ -57,6 +59,8 @@ The pages of entries, categories, products and other elements with their own URL
 - **Not cached yet** lists the pages no visitor has opened since they were last cleared.
 - **Couldn’t be built** lists the pages Speedy tried and couldn’t cache, with why, such as `status 500` for an error in a template, `redirects to /news` for a page that sends visitors elsewhere, or `SKIP private` for a page marked private.
 - **Build the pages not cached** builds them all in the background, the most important first, and tries the ones that couldn’t be built again.
+
+<SpDemo kind="coverage" />
 
 Pages left out by **Never cache** or **Only cache** aren’t counted. Nor are sections without URLs, entries whose URI has a query string, such as `now-selling?type=land`, which open another page, or sections and category groups with URLs whose template doesn’t exist, such as a section whose entries are only shown on other pages: coverage names them under the table. Listings with a query string, such as `?page=2`, and pages from routes or templates without an element aren’t counted either: they’re in the list of cached pages below. Coverage is counted at most every five minutes.
 
@@ -86,7 +90,7 @@ Filled in as Speedy rebuilds pages in the background, so visitors’ requests ar
 
 Each query names the template and line that ran it: click it to see the lines around it, with that line highlighted. Each list shows its first 10 rows, and each page its first 3 repeated queries, with **Show more** at the bottom for the rest. A query run by a string rendered as a template, such as a plugin’s setting, names the template file that rendered it.
 
-![The Performance tab: the slowest pages with their build times, a page cleared by any change with the template line of its query, and a page that runs the same query in a loop](/images/performance.jpg)
+<SpDemo kind="performance" />
 
 Pages that run the same database query again and again, usually once for each item in a loop. This is called an N+1 query: a news listing of 30 entries that reads each entry’s categories runs 30 extra queries, where eager-loading runs one.
 
