@@ -1,10 +1,10 @@
 # Release Notes for Speedy Cache
 
-## Unreleased
+## 1.4.0 - 2026-11-18
 
 ### Added
 - **Set up Cloudflare** on the utility page adds the cache rules that let Cloudflare keep pages, leaving out logged-in visitors, carts, forms and the control panel. Other rules in the zone are kept.
-- Coverage on the utility page: how many of the pages of entries, categories and products are cached, by section, with the ones that aren’t, why a page couldn’t be built, and a button to build them all. Sections whose template doesn’t exist are left out.
+- Coverage on the utility page: how many of the pages of entries, categories and products are cached, by section, with the ones that aren’t, why a page couldn’t be built, and a button to build them all. Sections whose template doesn’t exist, and URIs with a query string, are left out.
 - New pages are built in the background when an entry, category or product is saved or goes live, so the first visitor gets a cached page (`buildSavedPages`, on by default; not during imports).
 - **Rebuild every day** rebuilds listed pages at a set time, for pages that show dates (`dailyRebuild` and `dailyRebuildTime`).
 - **Clear URL** takes patterns such as `https://example.com/news/*` or `/news/*`, on the utility page, the command line and the API.
@@ -13,7 +13,6 @@
 - **Show the code** on the Performance tab shows the template lines where each repeated query, or query without a section, ran, and **Show more** lists all of a page’s queries.
 
 ### Fixed
-- Coverage and **Build new pages** counted entries whose URI has a query string, such as `now-selling?type=land`, as pages that couldn’t be built.
 - Pages that redirect say where to, such as “redirects to /now-selling/land”, rather than “status 302”.
 - The Performance tab named strings rendered as templates, such as `__string_template__…`, instead of the template file that rendered them.
 - Pages couldn’t be built in the background (“SKIP rebuild token”) on servers that pass the path to `index.php` as a query parameter, such as Apache with `index.php?p=$1`.

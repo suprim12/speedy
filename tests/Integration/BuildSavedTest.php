@@ -156,7 +156,12 @@ class BuildSavedTest extends TestCase
         Craft::$app->getDb()->createCommand()->delete('{{%queue}}', ['like', 'job', $this->slug])->execute();
 
         $storage = $this->plugin()->storage;
-        $storage->write((string)$storage->keyForUrl((string)$entry->getUrl()), '<html></html>', (string)$entry->getUrl(), [], null);
+        // In every site it’s in, as saving it saves each site’s version.
+        foreach (Entry::find()->id($entry->id)->site('*')->status(null)->all() as $version) {
+            if ($version->getUrl()) {
+                $storage->write((string)$storage->keyForUrl((string)$version->getUrl()), '<html></html>', (string)$version->getUrl(), [], null);
+            }
+        }
         $entry->title = 'Speedy test: build, changed';
         Craft::$app->getElements()->saveElement($entry);
         $this->assertSame(0, $this->queued(), 'A cached page is rebuilt when it’s cleared instead.');
