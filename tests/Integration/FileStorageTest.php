@@ -108,6 +108,32 @@ class FileStorageTest extends TestCase
         $this->assertFileExists("$shared/example.com/about/index.html", 'New pages still land in the shared folder.');
     }
 
+    public function testClearAllNeverEmptiesAFolderLinkedByMistake(): void
+    {
+        // Such as web/speedy linked to persist/web instead of persist/web/speedy: it holds other files.
+        $wrong = "$this->tmp/persist-web";
+        mkdir("$wrong/assets", 0775, true);
+        file_put_contents("$wrong/assets/photo.jpg", 'photo');
+        symlink($wrong, "$this->tmp/release-web");
+        $this->settings()->cachePath = "$this->tmp/release-web";
+
+        $this->assertFalse($this->plugin()->storage->clearAll(), 'Says nothing was cleared.');
+        $this->assertFileExists("$wrong/assets/photo.jpg", 'Nothing in it is touched.');
+        $this->assertTrue(is_link("$this->tmp/release-web"));
+    }
+
+    public function testClearAllWithAnEmptyOrBrokenLink(): void
+    {
+        mkdir("$this->tmp/shared", 0775, true);
+        symlink("$this->tmp/shared", "$this->tmp/release-web");
+        $this->settings()->cachePath = "$this->tmp/release-web";
+        $this->assertTrue($this->plugin()->storage->clearAll(), 'An empty shared folder, before its first page, clears fine.');
+
+        symlink("$this->tmp/gone", "$this->tmp/broken");
+        $this->settings()->cachePath = "$this->tmp/broken";
+        $this->assertTrue($this->plugin()->storage->clearAll(), 'A link to nothing has nothing to clear.');
+    }
+
     public function testClearAllMovesFilesAsideThenDeletesThem(): void
     {
         $storage = $this->plugin()->storage;

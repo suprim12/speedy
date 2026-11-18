@@ -405,14 +405,25 @@ class Storage extends Component
 
         // Moving a folder is instant however many pages it holds, so clearing never times out half-way.
         // The old files are deleted afterwards, by deleteTrash().
+        $dirs = [$this->cacheRoot(), $this->dataRoot() . '/meta', $this->dataRoot() . '/tags', $this->dataRoot() . '/expiry'];
+        // A folder linked in, such as web/speedy shared between a deploy’s releases: moving it would move the link,
+        // so each release would get a folder of its own. What’s in it is moved instead, once it’s sure the link leads
+        // to Speedy’s own folder: a link to the wrong one, such as persist/web, must never be emptied. Checked for
+        // every folder first, so nothing is cleared half-way.
+        foreach ($dirs as $dir) {
+            // A link to nothing has nothing to clear.
+            if (is_link($dir) && is_dir($dir) && !$this->linksToOwnFolder($dir, $dir === $this->cacheRoot())) {
+                Craft::warning("Didn’t clear $dir: it links to " . (realpath($dir) ?: 'nothing') . ', which isn’t a folder of Speedy’s own.', 'speedy');
+                return false;
+            }
+        }
         $moved = false;
-        foreach ([$this->cacheRoot(), $this->dataRoot() . '/meta', $this->dataRoot() . '/tags', $this->dataRoot() . '/expiry'] as $dir) {
+        foreach ($dirs as $dir) {
             if (!is_dir($dir)) {
                 continue;
             }
-            // A folder linked in, such as web/speedy shared between a deploy’s releases: moving it would move the
-            // link, so each release would get a folder of its own. What’s in it is moved instead.
-            foreach (is_link($dir) ? (glob($dir . '/*', GLOB_NOSORT) ?: []) : [$dir] as $item) {
+            $items = is_link($dir) ? array_map(fn($name) => "$dir/$name", array_filter(scandir($dir) ?: [], fn($name) => $name[0] !== '.')) : [$dir];
+            foreach ($items as $item) {
                 $trash = $this->dataRoot() . '/trash/' . bin2hex(random_bytes(6));
                 FileHelper::createDirectory(dirname($trash));
                 if (@rename($item, $trash)) {
@@ -430,6 +441,41 @@ class Storage extends Component
         }
 
         return true;
+    }
+
+    /** The first line of the .gitignore Speedy keeps in the cache folder, which marks the folder as its own. */
+    private const MARKER = '# Speedy Cache: pages here are built on each server.';
+
+    /**
+     * Whether a linked folder leads to a folder Speedy may empty: by its real path, not one of Craft’s, a site’s or
+     * an uploads folder, nor one holding them; and for the cache folder, holding Speedy’s .gitignore, which it writes
+     * there when it first saves a page, unless it’s empty.
+     */
+    private function linksToOwnFolder(string $link, bool $needsMarker): bool
+    {
+        $real = realpath($link);
+        if ($real === false || !is_dir($real) || !self::isOwnFolder($real)) {
+            return false;
+        }
+        // Craft’s folders by their real paths too, as releases link them in, such as web/assets.
+        foreach (['@root', '@webroot', '@storage', '@vendor', '@templates', '@config'] as $alias) {
+            $path = Craft::getAlias($alias, false);
+            $path = is_string($path) ? realpath($path) : false;
+            if ($path !== false && ($real === $path || str_starts_with($path . '/', $real . '/'))) {
+                return false;
+            }
+        }
+        foreach (array_keys(self::filesFolders()) as $path) {
+            $path = realpath($path);
+            if ($path !== false && ($real === $path || str_starts_with($path . '/', $real . '/') || str_starts_with($real . '/', $path . '/'))) {
+                return false;
+            }
+        }
+
+        // An empty folder has nothing to lose, such as a shared folder before its first page.
+        $empty = !array_filter(scandir($real) ?: [], fn($name) => $name[0] !== '.');
+
+        return !$needsMarker || $empty || str_starts_with((string)@file_get_contents($real . '/.gitignore', false, null, 0, 200), self::MARKER);
     }
 
     /**
@@ -870,7 +916,7 @@ class Storage extends Component
         // Cached pages are built on each server, so they're kept out of git: `git add .` mustn't commit them.
         $ignore = $this->cacheRoot() . '/.gitignore';
         if (!is_file($ignore)) {
-            $this->atomicWrite($ignore, "# Speedy Cache: pages here are built on each server. Don’t commit or deploy them.\n*\n");
+            $this->atomicWrite($ignore, self::MARKER . " Don’t commit or deploy them.\n*\n");
         }
         $file = $this->cacheRoot() . '/.htaccess';
         if (is_file($file)) {
