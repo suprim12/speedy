@@ -32,19 +32,85 @@ php craft speedy/clear
 php craft speedy/warm
 ```
 
-## Zero-downtime deploys
+## Release folders
 
-With tools that switch a `current` symlink between releases, keep the cache out of the release folder, so each release doesn’t start empty and the web server reads the same files:
+Some deploys put each version of the site in a folder of its own, such as `releases/42`, and switch a `current` link to it once it’s ready. Rollbacks and zero-downtime tools work this way. Shared folders, such as `storage` and `web/assets`, are kept outside the releases and linked into each one.
+
+Speedy saves pages in `web/speedy`, inside the release. Left as it is, each release starts with no pages cached:
+
+- The first visitor to each page waits while it’s built.
+- Every release keeps its own copy of the cache, so the disk fills with old copies.
+- Speedy keeps its records in `storage`, which is shared, so they no longer match the pages, and the utility page counts pages that are gone.
+- Rolling back to an older release sends visitors that release’s old pages, without the changes made since.
+
+### Share the cache folder
+
+Keep `web/speedy` outside the releases, like `web/assets`, and link it into each one. Speedy and the web server both follow the link, so nothing changes in Speedy’s settings or your server rules.
+
+When building the release, leave out any cached pages:
+
+```bash
+rm -rf release/web/speedy
+```
+
+When activating it, before switching `current`:
+
+```bash
+mkdir -p "$SHARED/web/speedy"
+ln -s "$SHARED/web/speedy" "$RELEASE/web/speedy"
+```
+
+### After the switch
+
+Run Speedy’s commands after `current` points to the new release, so pages are rebuilt with the new templates.
+
+Craft’s `clear-caches/all` includes **Speedy Cache pages**, so it empties the cache on every deploy. Clear only the caches you need instead, such as:
+
+```bash
+php craft clear-caches/compiled-templates
+php craft clear-caches/data
+```
+
+Then rebuild the cached pages when templates changed. Visitors keep getting the old pages until the new ones are ready:
+
+```bash
+php craft speedy/clear --rebuild
+```
+
+Most deploys don’t change templates, and their pages can stay as they are. To rebuild only when they did, compare with the last deploy in your pipeline, such as:
+
+```bash
+if ! git diff --quiet "$LAST_DEPLOYED_COMMIT" HEAD -- templates/; then
+  php craft speedy/clear --rebuild
+fi
+```
+
+Changes that come with project config, such as a new field, appear on pages through templates, so the same check covers them. Leave `rebuildAfterDeploy` off with this setup, or every project config change rebuilds every page. After changing a named image transform, or a site’s name that templates show, click **Rebuild all pages** on the utility page.
+
+::: warning Clearing everything replaces the link
+In Speedy 1.4.0 and earlier, clearing everything moves the cache folder aside to empty it in one step. With a linked folder, that moves the link, and the release gets a folder of its own again. This happens with **Clear all pages** on the utility page, `speedy/clear` without `--rebuild`, and **Speedy Cache pages** under **Utilities → Caches** or in `clear-caches/all`. Use **Rebuild all pages** and `speedy/clear --rebuild` instead, and if it happens, link the folder again.
+:::
+
+### Without changing the deploy
+
+Set `cachePath` to a shared folder that’s already linked into each release, such as `storage`:
 
 ```php
 // config/speedy.php
 return [
-    'cachePath' => '@webroot/speedy',      // web/ is usually the release’s own
-    'dataPath' => '/var/www/shared/speedy-data',
+    'cachePath' => '@storage/speedy-pages',
 ];
 ```
 
-and make `web/speedy` a shared folder, linked into each release like `storage`. Then run `speedy/clear` after the switch.
+Pages then survive deploys with one copy, but the web server can’t send them without PHP, as `storage` is outside the web root. PHP sends them instead, which is a little slower. A deploy that runs `clear-caches/all` still empties them.
+
+### Pages committed to git
+
+If cached pages were committed before, remove them from git once, keeping the files:
+
+```bash
+git rm -r --cached web/speedy
+```
 
 ## Only in production
 
