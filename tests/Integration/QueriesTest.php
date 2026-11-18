@@ -166,6 +166,28 @@ class QueriesTest extends TestCase
         $this->assertCount(\suprim\speedy\services\Queries::REPEATED_KEPT, $this->plugin()->queries->analyse($sql)['repeated']);
     }
 
+    public function testBroadQueriesAreListedOnceForEachLineWithTheirPages(): void
+    {
+        $storage = $this->plugin()->storage;
+        $before = $storage->readData('queries');
+        $menu = ['type' => 'Entries', 'at' => '_layout, line 4', 'count' => 1, 'template' => '_layout', 'line' => 4];
+        $storage->writeData('queries', [
+            'a' => ['url' => 'https://example.com/a', 'time' => 1, 'broad' => [$menu]],
+            'b' => ['url' => 'https://example.com/b', 'time' => 1, 'broad' => [$menu, ['type' => 'Assets', 'at' => 'news/_entry, line 9', 'count' => 2, 'template' => 'news/_entry', 'line' => 9]]],
+            'c' => ['url' => 'https://example.com/c', 'time' => 1, 'broad' => [$menu, $menu]],
+        ]);
+        try {
+            $places = $this->plugin()->queries->broadPlaces();
+        } finally {
+            $storage->writeData('queries', $before);
+        }
+        $this->assertCount(2, $places, 'The layout’s menu once, not once a page.');
+        $this->assertSame('_layout, line 4', $places[0]['at'], 'The line on most pages first.');
+        $this->assertSame(['https://example.com/a', 'https://example.com/b', 'https://example.com/c'], $places[0]['pages']);
+        $this->assertSame(['https://example.com/b'], $places[1]['pages']);
+        $this->assertSame('Assets', $places[1]['type']);
+    }
+
     public function testCodeOfReportsSavedBeforeIsFoundFromTheirPlace(): void
     {
         $queries = $this->plugin()->queries;

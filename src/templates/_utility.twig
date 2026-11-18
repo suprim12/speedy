@@ -245,11 +245,12 @@
 	<section class="speedy-panel" id="speedy-panel-clears" role="tabpanel" aria-labelledby="speedy-tab-clears">
 		<h2 class="speedy-panel__title">{{ 'Recent clears'|t('speedy') }}</h2>
 		{% if log|length %}
+			<div class="speedy-collapsible">
 			<table class="data fullwidth">
 				<thead><tr><th scope="col">{{ 'When'|t('speedy') }}</th><th scope="col">{{ 'Why'|t('speedy') }}</th><th scope="col">{{ 'Pages'|t('speedy') }}</th></tr></thead>
 				<tbody>
 					{% for entry in log %}
-						<tr{{ loop.index > 10 ? ' class="speedy-more" hidden' }}>
+						<tr{{ loop.index > 10 ? ' class="speedy-extra"' }}>
 							<td class="nowrap">{{ entry.time|datetime('short') }}</td>
 							<td>
 								{{ entry.reason }}
@@ -262,9 +263,8 @@
 					{% endfor %}
 				</tbody>
 			</table>
-			{% if log|length > 10 %}
-				<button type="button" class="btn small speedy-show-more">{{ 'Show {count} more'|t('speedy', { count: log|length - 10 }) }}</button>
-			{% endif %}
+			{{ speedyMacros.toggle(log|length, 10) }}
+			</div>
 		{% else %}
 			<p class="zilch">{{ 'Nothing cleared yet.'|t('speedy') }}</p>
 		{% endif %}
@@ -301,69 +301,67 @@
 		{% if broad|length %}
 			<h3 id="broad">{{ 'Cleared by any change'|t('speedy') }}</h3>
 			<p>{{ 'These pages list elements without choosing a section or group, so they’re cleared whenever any element of that type is saved, such as by an import. Narrow the query to clear them less often, for example with `.section(\'news\')`.'|t('speedy')|md(inlineOnly=true) }}</p>
-			<table class="data fullwidth speedy-pages">
-				<thead><tr>
-					<th scope="col">{{ 'Page'|t('speedy') }}</th>
-					<th scope="col">{{ 'Query'|t('speedy') }}</th>
-				</tr></thead>
-				<tbody>
-					{% for row in broad %}
-						<tr>
-							<td>
-								<a href="{{ row.url }}" target="_blank" rel="noopener">{{ row.url|replace({ 'https://': '', 'http://': '' }) }}</a>
-								<div class="light smalltext">{{ 'Checked {time}'|t('speedy', { time: row.time|datetime('short') }) }}</div>
-							</td>
-							<td>
-								{% for query in row.broad|slice(0, 5) %}
-									<div class="speedy-repeat">{{ 'Any of: {type}, at {place}'|t('speedy', { type: query.type, place: query.at }) }}<div>{{ speedyMacros.code(query.code ?? null) }}</div></div>
-								{% endfor %}
-								{% if row.broad|length > 5 %}
-									<details class="speedy-more"><summary class="light">{{ 'Show {count} more'|t('speedy', { count: row.broad|length - 5 }) }}</summary>
-										{% for query in row.broad|slice(5) %}
-											<div class="speedy-repeat">{{ 'Any of: {type}, at {place}'|t('speedy', { type: query.type, place: query.at }) }}<div>{{ speedyMacros.code(query.code ?? null) }}</div></div>
-										{% endfor %}
+			<div class="speedy-collapsible">
+				<table class="data fullwidth speedy-pages">
+					<thead><tr>
+						<th scope="col">{{ 'Query'|t('speedy') }}</th>
+						<th scope="col">{{ 'On'|t('speedy') }}</th>
+					</tr></thead>
+					<tbody>
+						{% for place in broad %}
+							<tr{% if loop.index > 10 %} class="speedy-extra"{% endif %}>
+								<td>
+									<div>{{ 'Any of: {type}'|t('speedy', { type: place.type }) }}</div>
+									{{ speedyMacros.place(place.at, place.code ?? null) }}
+								</td>
+								<td>
+									<details class="speedy-inline"><summary>{{ '{count, plural, =1{# page} other{# pages}}'|t('speedy', { count: place.pages|length }) }}</summary>
+										<ul class="speedy-urls">
+											{% for url in place.pages|slice(0, 50) %}<li><a href="{{ url }}" target="_blank" rel="noopener">{{ url|replace({ 'https://': '', 'http://': '' }) }}</a></li>{% endfor %}
+											{% if place.pages|length > 50 %}<li>{{ 'and {count} more'|t('speedy', { count: place.pages|length - 50 }) }}</li>{% endif %}
+										</ul>
 									</details>
-								{% endif %}
-							</td>
-						</tr>
-					{% endfor %}
-				</tbody>
-			</table>
+								</td>
+							</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+				{{ speedyMacros.toggle(broad|length, 10) }}
+			</div>
 		{% endif %}
 
 		<h3>{{ 'Repeated queries'|t('speedy') }}</h3>
 		<p>{{ 'Pages that run the same database query again and again, usually for each item in a loop (an N+1 query). Cached pages are still fast, but these slow down rebuilds and every visitor who isn’t sent a cached page, such as logged-in visitors. Checked whenever Speedy rebuilds a page.'|t('speedy') }}</p>
 		{% if queries|length %}
-			<table class="data fullwidth speedy-pages">
-				<thead><tr>
-					<th scope="col">{{ 'Page'|t('speedy') }}</th>
-					<th scope="col">{{ 'Queries'|t('speedy') }}</th>
-					<th scope="col">{{ 'Repeated'|t('speedy') }}</th>
-				</tr></thead>
-				<tbody>
-					{% for row in queries %}
-						<tr>
-							<td>
-								<a href="{{ row.url }}" target="_blank" rel="noopener">{{ row.url|replace({ 'https://': '', 'http://': '' }) }}</a>
-								<div class="light smalltext">{{ 'Checked {time}'|t('speedy', { time: row.time|datetime('short') }) }}{{ row.ms ? ' · ' ~ 'built in {ms} ms'|t('speedy', { ms: row.ms|number }) }}</div>
-							</td>
-							<td>{{ row.queries|number }}</td>
-							<td>
-								{% for repeat in row.repeated|slice(0, 5) %}
-									{{ speedyMacros.repeat(repeat) }}
-								{% endfor %}
-								{% if row.repeated|length > 5 %}
-									<details class="speedy-more"><summary class="light">{{ 'Show {count} more'|t('speedy', { count: row.repeated|length - 5 }) }}</summary>
-										{% for repeat in row.repeated|slice(5) %}
-											{{ speedyMacros.repeat(repeat) }}
+			<div class="speedy-collapsible">
+				<table class="data fullwidth speedy-pages">
+					<thead><tr>
+						<th scope="col">{{ 'Page'|t('speedy') }}</th>
+						<th scope="col">{{ 'Queries'|t('speedy') }}</th>
+						<th scope="col">{{ 'Repeated'|t('speedy') }}</th>
+					</tr></thead>
+					<tbody>
+						{% for row in queries %}
+							<tr{% if loop.index > 10 %} class="speedy-extra"{% endif %}>
+								<td>
+									<a href="{{ row.url }}" target="_blank" rel="noopener">{{ row.url|replace({ 'https://': '', 'http://': '' }) }}</a>
+									<div class="light smalltext">{{ 'Checked {time}'|t('speedy', { time: row.time|datetime('short') }) }}{{ row.ms ? ' · ' ~ 'built in {ms} ms'|t('speedy', { ms: row.ms|number }) }}</div>
+								</td>
+								<td>{{ row.queries|number }}</td>
+								<td>
+									<div class="speedy-collapsible">
+										{% for repeat in row.repeated %}
+											{{ speedyMacros.repeat(repeat, loop.index > 3) }}
 										{% endfor %}
-									</details>
-								{% endif %}
-							</td>
-						</tr>
-					{% endfor %}
-				</tbody>
-			</table>
+										{{ speedyMacros.toggle(row.repeated|length, 3, true) }}
+									</div>
+								</td>
+							</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+				{{ speedyMacros.toggle(queries|length, 10) }}
+			</div>
 		{% else %}
 			<p class="zilch">{{ 'No repeated queries found in the pages rebuilt so far.'|t('speedy') }}</p>
 		{% endif %}
@@ -464,14 +462,23 @@
 .speedy-report-actions { gap: 10px; margin-bottom: 8px; }
 .speedy-repeat + .speedy-repeat { margin-top: 8px; }
 .speedy-repeat .speedy-code { white-space: pre-wrap; margin-top: 4px; }
-.speedy-repeat details { display: inline-block; margin-right: 12px; vertical-align: top; }
-.speedy-repeat details[open] { display: block; }
-.speedy-more { margin-top: 8px; }
-.speedy-more > .speedy-repeat { margin-top: 8px; }
+.speedy-collapsible:not(.is-open) > .speedy-extra, .speedy-collapsible:not(.is-open) > table > tbody > .speedy-extra { display: none; }
+.speedy-toggle { margin-top: 8px; }
+.speedy-link { padding: 0; border: 0; background: none; color: var(--link-color, #3253c8); cursor: pointer; font-size: inherit; }
+.speedy-link:hover { text-decoration: underline; }
+.speedy-repeat + .speedy-link { margin-top: 4px; }
+.speedy-place > summary, .speedy-inline > summary { cursor: pointer; color: var(--link-color, #3253c8); }
+.speedy-place > summary { color: var(--light-text-color, #606d7b); }
+.speedy-place > summary:hover, .speedy-inline > summary:hover { text-decoration: underline; }
+.speedy-inline { display: inline; }
+.speedy-inline > summary { display: inline; list-style: none; }
+.speedy-inline > summary::-webkit-details-marker { display: none; }
+.speedy-inline[open] { display: block; }
+.speedy-urls { margin: 4px 0 0; padding: 0; list-style: none; }
 .speedy-repeat .speedy-lines, .speedy-lines { display: grid; grid-template-columns: max-content max-content; column-gap: 12px; white-space: pre; overflow-x: auto; max-width: 100%; }
 .speedy-lines .ln { color: #8a96a3; text-align: right; user-select: none; }
 .speedy-lines .hit { background: #fff3c4; }
-.speedy-repeat details[open] { max-width: 100%; }
+.speedy-place[open], .speedy-inline[open] { max-width: 100%; }
 .speedy-tabs { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 4px; border-bottom: 1px solid var(--hairline-color, #e3e5e8); margin: 8px 0 20px; }
 .speedy-tabs a { flex: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px; margin-bottom: -1px; border-bottom: 2px solid transparent; color: var(--light-text-color, #606d7b); text-decoration: none; font-weight: 500; }
 .speedy-tabs a:hover { color: var(--text-color, #3f4d5a); }
@@ -484,11 +491,20 @@
 .speedy-panel h3:first-of-type { margin-top: 0; }
 .speedy-setup-action { margin-top: 12px; }
 .speedy-tabbed .speedy-panel__title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.speedy-show-more { margin-top: 10px; }
 .speedy-coverage-actions { gap: 12px; flex-wrap: wrap; margin: 12px 0 8px; }
 {% endcss %}
 
 {% js %}
+// “Show N more” and “Show less”, under lists that hide all but their first items.
+document.addEventListener('click', function(e) {
+	var button = e.target.closest('.speedy-toggle');
+	if (!button) return;
+	var list = button.closest('.speedy-collapsible');
+	var open = list.classList.toggle('is-open');
+	button.setAttribute('aria-expanded', open ? 'true' : 'false');
+	button.textContent = open ? button.dataset.less : button.dataset.more;
+});
+
 document.getElementById('speedy-email-report')?.addEventListener('click', function (e) {
 	// The report goes in the email when it fits in a mailto link; otherwise it's copied to paste in.
 	var link = this, report = document.getElementById('speedy-report').textContent;
@@ -554,29 +570,39 @@ document.getElementById('speedy-copy-report')?.addEventListener('click', functio
 	var first = window.LOCATION_HASH || location.hash.slice(1);
 	if (ids.indexOf(first) !== -1) { history.replaceState(null, '', '#' + first); }
 	show(first, false);
-
-	var more = root.querySelector('.speedy-show-more');
-	more && more.addEventListener('click', function () {
-		root.querySelectorAll('.speedy-more').forEach(function (row) { row.hidden = false; });
-		more.remove();
-	});
 })();
 {% endjs %}
 
-{% macro code(code) %}
+{% macro lines(code) %}
+	<pre class="speedy-code speedy-lines">
+		{%- for n, text in code.lines -%}
+			<span class="ln{{ n == code.line ? ' hit' }}">{{ n }}</span><span class="{{ n == code.line ? 'hit' }}">{{ text ?: ' ' }}</span>
+		{%- endfor -%}
+	</pre>
+{% endmacro %}
+
+{# Where a query ran, such as `news/_index, line 12`: click it to see the code there. #}
+{% macro place(at, code) %}
+	{% import _self as speedyMacros %}
 	{%- if code -%}
-		<details><summary class="light">{{ 'Show the code'|t('speedy') }}</summary><pre class="speedy-code speedy-lines">
-			{%- for n, text in code.lines -%}
-				<span class="ln{{ n == code.line ? ' hit' }}">{{ n }}</span><span class="{{ n == code.line ? 'hit' }}">{{ text ?: ' ' }}</span>
-			{%- endfor -%}
-		</pre></details>
+		<details class="speedy-place"><summary>{{ at }}</summary>{{ speedyMacros.lines(code) }}</details>
+	{%- elseif at -%}
+		<div class="light">{{ at }}</div>
 	{%- endif -%}
 {% endmacro %}
 
-{% macro repeat(repeat) %}
+{% macro repeat(repeat, extra) %}
 	{% import _self as speedyMacros %}
-	<div class="speedy-repeat">
+	<div class="speedy-repeat{{ extra ? ' speedy-extra' }}">
 		<strong>{{ '{count}×'|t('speedy', { count: repeat.count }) }}</strong> {{ repeat.tip }}
-		<div>{{ speedyMacros.code(repeat.code ?? null) }}</div>
+		{%- if repeat.code ?? null %} <details class="speedy-inline"><summary>{{ 'Code'|t('speedy') }}</summary>{{ speedyMacros.lines(repeat.code) }}</details>{% endif %}
 	</div>
+{% endmacro %}
+
+{# “Show N more” under a list whose items after the first few are hidden, becoming “Show less” once open. #}
+{% macro toggle(total, shown, link = false) %}
+	{%- if total > shown -%}
+		{% set more = 'Show {count} more'|t('speedy', { count: total - shown }) %}
+		<button type="button" class="{{ link ? 'speedy-link' : 'btn small' }} speedy-toggle" aria-expanded="false" data-more="{{ more }}" data-less="{{ 'Show less'|t('speedy') }}">{{ more }}</button>
+	{%- endif -%}
 {% endmacro %}

@@ -248,7 +248,7 @@ class Queries extends Component
     /**
      * Pages with queries that have no section or group, so they clear whenever any element of that type is saved.
      *
-     * @return array<int, array{url: string, time: int, broad: array<int, array{type: string, at: ?string, count: int}>}>
+     * @return array<int, array{url: string, time: int, broad: array<int, array{type: string, at: ?string, count: int, template?: ?string, line?: ?int}>}>
      */
     public function broad(): array
     {
@@ -265,6 +265,34 @@ class Queries extends Component
         }
 
         return $pages;
+    }
+
+    /**
+     * The queries without a section or group, one for each template line and element type, with the pages they’re
+     * on, the line on most pages first. A layout’s menu runs on every page, so this lists it once, not once a page.
+     *
+     * @return array<int, array{type: string, at: ?string, template: ?string, line: ?int, pages: string[]}>
+     */
+    public function broadPlaces(): array
+    {
+        $places = [];
+        foreach ($this->broad() as $page) {
+            foreach ($page['broad'] as $query) {
+                $id = $query['type'] . '|' . $query['at'];
+                $places[$id] ??= [
+                    'type' => $query['type'],
+                    'at' => $query['at'],
+                    'template' => $query['template'] ?? null,
+                    'line' => $query['line'] ?? null,
+                    'pages' => [],
+                ];
+                $places[$id]['pages'][(string)$page['url']] = true;
+            }
+        }
+        $places = array_map(fn($p) => ['pages' => array_keys($p['pages'])] + $p, array_values($places));
+        usort($places, fn($a, $b) => [count($b['pages']), $a['at']] <=> [count($a['pages']), $b['at']]);
+
+        return $places;
     }
 
     /**

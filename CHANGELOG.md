@@ -1,5 +1,11 @@
 # Release Notes for Speedy Cache
 
+## Unreleased
+
+### Changed
+- **Cleared by any change** on the Performance tab lists each template line once, with the pages it’s on, the line on most pages first, rather than once for each page, so a query in a layout no longer fills the list.
+- The Performance tab’s lists show their first 10 rows, and a page’s repeated queries their first 3, with **Show more** at the bottom, which becomes **Show less** once open. Click a query’s template and line to see the code there.
+
 ## 1.4.1 - 2026-11-18
 
 ### Added

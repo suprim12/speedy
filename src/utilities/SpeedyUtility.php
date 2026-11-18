@@ -70,7 +70,7 @@ class SpeedyUtility extends Utility
             'log' => $plugin->log->recent(30),
             'queries' => $plugin->queries->withCode($plugin->queries->report(), 'repeated'),
             'slowest' => $plugin->queries->slowest(),
-            'broad' => $plugin->queries->withCode($plugin->queries->broad(), 'broad'),
+            'broad' => $plugin->queries->withCode([['places' => $plugin->queries->broadPlaces()]], 'places')[0]['places'],
             'state' => $plugin->storage->readData('state'),
             'webPath' => $plugin->serverRules->webPath(),
             'nginx' => $plugin->serverRules->nginx(),

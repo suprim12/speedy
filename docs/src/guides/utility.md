@@ -70,7 +70,7 @@ Every cached page, sorted by URL, with a search box. For each page:
 
 ### Recent clears
 
-The last clears, with when, why, how many pages and which URLs. The latest 10 are shown, with **Show more** for the rest:
+The last clears, with when, why, how many pages and which URLs. The latest 10 are shown, with **Show more** at the bottom for the rest, and **Show less** to fold them away again:
 
 ![Recent clears](/images/log.jpg)
 
@@ -81,10 +81,10 @@ Each line names what changed: “Saved entry ‘Summer Sale’ → 3 pages”, �
 Filled in as Speedy rebuilds pages in the background, so visitors’ requests are never measured. The tab shows how many pages need a look.
 
 - **Slowest pages:** the 10 pages that took longest to build, over half a second, with their number of queries. Visitors get the cached copy, but slow pages delay rebuilds, and logged-in visitors wait this long.
-- **Cleared by any change:** pages with a query that doesn’t choose a section or group, such as `craft.entries.relatedTo(entry)`, with the template and line. Saving any entry clears them, so an import can clear them again and again. Narrow the query, for example with `.section('news')`.
+- **Cleared by any change:** queries that don’t choose a section or group, such as `craft.entries.relatedTo(entry)`, one for each template line, with the pages it’s on. A query in your layout is listed once, with every page, and comes first. Saving any entry clears them, so an import can clear them again and again. Narrow the query, for example with `.section('news')`.
 - **Repeated queries:** pages that run the same query in a loop, below.
 
-Each query names the template and line that ran it. **Show the code** shows the lines around it, with that line highlighted, and **Show more** lists the rest when a page has more than five. A query run by a string rendered as a template, such as a plugin’s setting, names the template file that rendered it.
+Each query names the template and line that ran it: click it to see the lines around it, with that line highlighted. Each list shows its first 10 rows, and each page its first 3 repeated queries, with **Show more** at the bottom for the rest. A query run by a string rendered as a template, such as a plugin’s setting, names the template file that rendered it.
 
 ![The Performance tab: the slowest pages with their build times, a page cleared by any change with the template line of its query, and a page that runs the same query in a loop](/images/performance.jpg)
 

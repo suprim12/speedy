@@ -73,7 +73,10 @@ class TemplatesTest extends TestCase
             'log' => $full ? array_fill(0, 30, ['time' => time(), 'reason' => 'Saved entry “A”', 'count' => 2, 'urls' => ['https://example.com/a'], 'cdn' => null]) : [],
             'queries' => $full ? [$row] : [],
             'slowest' => $full ? [['url' => 'https://example.com/listing', 'ms' => 12400, 'queries' => 380, 'time' => time()], ['url' => 'https://example.com/<b>about</b>', 'ms' => 640, 'queries' => 40, 'time' => time()]] : [],
-            'broad' => $full ? [['url' => 'https://example.com/', 'time' => time(), 'broad' => [['type' => 'Entries', 'at' => '_partials/<b>latest</b>, line 14', 'count' => 1]]]] : [],
+            'broad' => $full ? array_merge(
+                [['type' => 'Entries', 'at' => '_partials/<b>latest</b>, line 14', 'pages' => ['https://example.com/', 'https://example.com/about'], 'code' => ['line' => 14, 'lines' => [13 => '{% set <i>x</i> %}', 14 => '{% for e in craft.entries.all() %}']]]],
+                array_map(fn($i) => ['type' => 'Assets', 'at' => "_partials/p$i, line 1", 'pages' => ['https://example.com/'], 'code' => null], range(1, 11)),
+            ) : [],
             'state' => $full ? ['lastExpire' => time()] : [],
             'webPath' => $full ? 'speedy' : null,
             'nginx' => 'location /speedy {}',
@@ -105,11 +108,17 @@ class TemplatesTest extends TestCase
             $this->assertStringContainsString('href="#' . $tab . '"', $html);
         }
         $this->assertStringContainsString('Show 20 more', $html, 'The first 10 clears, then the rest.');
-        $this->assertSame(20, substr_count($html, 'class="speedy-more" hidden'));
+        $this->assertStringContainsString('Show 2 more', $html, 'The first 10 of 12 broad queries, then the rest.');
+        $this->assertStringContainsString('data-less="Show less"', $html, 'Turning into Show less once open.');
+        $this->assertSame(20 + 2, substr_count($html, 'class="speedy-extra"'));
+        $this->assertStringContainsString('<details class="speedy-place"><summary>_partials/&lt;b&gt;latest&lt;/b&gt;, line 14</summary>', $html, 'The line opens its code.');
+        $this->assertStringContainsString('{% set &lt;i&gt;x&lt;/i&gt; %}', $html, 'Code escaped.');
+        $this->assertStringContainsString('2 pages', $html, 'One row for both pages using the line.');
+        $this->assertStringNotContainsString('Show the code', $html);
         $this->assertStringContainsString('42×', $html);
         $this->assertStringContainsString('12.4 s', $html, 'Slow pages in seconds.');
         $this->assertStringContainsString('640 ms', $html);
-        $this->assertStringContainsString('Any of: Entries, at _partials/&lt;b&gt;latest&lt;/b&gt;, line 14', $html, 'The line to narrow, escaped.');
+        $this->assertStringContainsString('Any of: Entries', $html, 'The query to narrow.');
         $this->assertStringNotContainsString('<b>about</b>', $html);
         $this->assertStringContainsString('Test Cloudflare', $html);
         $this->assertStringContainsString('Update Cloudflare’s cache rules', $html, 'Set up already.');
