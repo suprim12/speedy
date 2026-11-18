@@ -297,6 +297,28 @@ class FileStorageTest extends TestCase
         $this->assertFalse($rules->robotsKeepsOut($client(404, ''), 'https://example.com/'), 'No robots.txt.');
     }
 
+    public function testTheFolderIsNeverNamedAsTheWholeSite(): void
+    {
+        $folder = fn(string $path) => \suprim\speedy\services\ServerRules::folderPath($path);
+        $this->assertSame('/speedy', $folder('/speedy'));
+        $this->assertSame('/cache/speedy', $folder('/cache/speedy'));
+        $this->assertSame('/speedy.v2', $folder('/speedy.v2'));
+        foreach (['', '/', '//', 'speedy', '/speedy/', '/*', '/speedy*', '/$', '/.', '/..', '/../speedy', '/speedy/..', '/.hidden', '/a b', "/speedy\n/", '/speedy;'] as $bad) {
+            $this->assertNull($folder($bad), "Refused: '$bad'.");
+        }
+
+        $rules = $this->plugin()->serverRules;
+        $webroot = \Craft::getAlias('@webroot');
+        foreach ([$webroot, "$webroot/", "$webroot/.", "$webroot/sub/.."] as $cachePath) {
+            $this->settings()->cachePath = $cachePath;
+            $this->assertNull($rules->webPath(), "The web root itself, as $cachePath, is never the folder.");
+            $this->assertStringNotContainsString('location ^~ / {', $rules->nginx(), 'The rules never close the whole site.');
+            $this->assertStringNotContainsString('Disallow: /`', implode(' ', array_column($this->plugin()->insights->checks(), 'message')));
+        }
+        $this->settings()->cachePath = "$webroot/speedy";
+        $this->assertSame('/speedy', $rules->webPath());
+    }
+
     public function testAnOpenFolderSaysHowToCloseIt(): void
     {
         $storage = $this->plugin()->storage;

@@ -21,14 +21,34 @@ use Throwable;
 class ServerRules extends Component
 {
     /**
-     * The cached pages’ folder as a URL path from the web root, such as `/speedy`, or null when it isn’t in the web root.
+     * The cached pages’ folder as a URL path from the web root, such as `/speedy`, or null when it isn’t a folder
+     * below the web root. Everything that names the folder uses this, so none can name the whole site.
      */
     public function webPath(): ?string
     {
         $webroot = rtrim(str_replace('\\', '/', (string)Craft::getAlias('@webroot')), '/');
-        $root = Plugin::getInstance()->storage->cacheRoot();
+        $root = rtrim(str_replace('\\', '/', Plugin::getInstance()->storage->cacheRoot()), '/');
 
-        return str_starts_with($root, $webroot . '/') ? substr($root, strlen($webroot)) : null;
+        return str_starts_with($root, $webroot . '/') ? self::folderPath(substr($root, strlen($webroot))) : null;
+    }
+
+    /**
+     * A folder path below the web root, such as `/speedy` or `/cache/speedy`, or null for anything that could name
+     * more than it, such as `/`, an empty path, `..` or a wildcard. In `Disallow: /`, `location ^~ / { internal; }` or
+     * a rewrite rule, a path like that would hide or break the whole site.
+     */
+    public static function folderPath(string $path): ?string
+    {
+        if (!preg_match('#^(/[A-Za-z0-9_~-][A-Za-z0-9._~-]*)+$#', $path)) {
+            return null;
+        }
+        foreach (explode('/', substr($path, 1)) as $part) {
+            if (trim($part, '.') === '') {
+                return null;
+            }
+        }
+
+        return $path;
     }
 
     /**
