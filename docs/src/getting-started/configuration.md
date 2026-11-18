@@ -1,3 +1,7 @@
+---
+description: "Every Speedy Cache setting: the settings page tabs for caching, query strings, CDNs and advanced options, and all options for config/speedy.php."
+---
+
 # Configuration
 
 The settings page (**Settings → Plugins → Speedy Cache**) has four tabs:
