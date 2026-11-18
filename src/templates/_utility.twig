@@ -433,17 +433,18 @@
 </div>
 
 {% css %}
-.speedy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.speedy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
 .speedy-card { border: 1px solid var(--hairline-color, #e3e5e8); border-radius: 8px; padding: 14px 16px; }
 .speedy-big { font-size: 22px; font-weight: 600; margin: 4px 0; }
 .speedy-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
-.speedy-tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.speedy-tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px; }
 .speedy-tool { display: flex; flex-direction: column; gap: 10px; }
 .speedy-tool__title { font-size: 14px; font-weight: 600; margin: 0; }
 .speedy-tool p { margin: 0; }
-.speedy-tool__buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
-.speedy-tool__row { display: flex; gap: 8px; }
-.speedy-tool__row .text, .speedy-tool__row .select, .speedy-tool__row select { flex: 1; min-width: 0; width: 100%; }
+.speedy-tool__buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.speedy-tool__row { display: flex; flex-wrap: wrap; gap: 8px; }
+.speedy-tool__row .text, .speedy-tool__row .select { flex: 1 1 160px; min-width: 0; }
+.speedy-tool__row select { width: 100%; }
 .speedy-tool__row .btn { flex-shrink: 0; }
 .speedy-urls { font-size: 12px; color: var(--light-text-color, #606d7b); margin-top: 4px; }
 .speedy-code { background: #f3f7fc; padding: 12px 14px; border-radius: 6px; font-size: 12px; overflow-x: auto; white-space: pre; }
