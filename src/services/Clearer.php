@@ -878,8 +878,7 @@ class Clearer extends Component
 
     /**
      * Clears everything, including the CDN.
-     */
-    /**
+     *
      * @return bool False when nothing could be cleared, as the cache folder isn’t Speedy’s own.
      */
     public function clearAll(string $reason): bool

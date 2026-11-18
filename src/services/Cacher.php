@@ -820,10 +820,6 @@ class Cacher extends Component
     }
 
     /**
-     * Whether the host belongs to a site, so a forged Host header can’t fill the disk with copies.
-     * Sites whose base URL is `@web` answer on any host, so any host is accepted then.
-     */
-    /**
      * Whether pages are cached for this host, and port when it isn’t 80 or 443: a site’s, or one in `allowedHosts`.
      * When a site’s base URL is `@web`, which answers to any host, any host is cached unless `allowedHosts` lists them.
      *

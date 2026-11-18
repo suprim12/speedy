@@ -387,8 +387,7 @@ class Storage extends Component
 
     /**
      * Removes every cached page and index.
-     */
-    /**
+     *
      * @return bool False when the cache folder isn’t Speedy’s own, such as the web root, so nothing was cleared.
      */
     public function clearAll(): bool
