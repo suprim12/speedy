@@ -41,32 +41,17 @@ class MissingAssetsTest extends TestCase
             'Stylesheets and scripts on its own host, without the query string. Not icons, other hosts, inline scripts or odd paths.');
     }
 
-    public function testFilesSentByCraftArentMissing(): void
+    public function testOnlyFilesInFoldersOnDiskCount(): void
     {
-        // A script Craft sends from a template, not a file on disk.
-        $name = 'speedy-test-route-' . bin2hex(random_bytes(3)) . '.js';
-        $template = Craft::getAlias('@templates') . "/$name.twig";
-        file_put_contents($template, 'console.log(1);');
-        $site = Craft::$app->getSites()->getPrimarySite();
-        $host = (string)parse_url((string)$site->getBaseUrl(), PHP_URL_HOST);
-        $port = parse_url((string)$site->getBaseUrl(), PHP_URL_PORT);
-        $hostKey = $host . ($port && !in_array($port, [80, 443], true) ? ":$port" : '');
-        try {
-            $storage = $this->plugin()->storage;
-            $storage->write("$hostKey/speedy-test-routed", '<script src="/' . $name . '"></script>', "https://$hostKey/speedy-test-routed", [], null);
-            $this->assertSame(0, $this->plugin()->insights->missingAssets(true)['pages'], 'Craft sends it, so it isn’t missing.');
-
-            $storage->write("$hostKey/speedy-test-gone", '<script src="/speedy-test-gone-' . bin2hex(random_bytes(3)) . '.js"></script>', "https://$hostKey/speedy-test-gone", [], null);
-            $this->assertSame(1, $this->plugin()->insights->missingAssets(true)['pages'], 'A file the site answers 404 for is.');
-        } finally {
-            @unlink($template);
-        }
+        // Such as a script Craft or a plugin sends at the top, or from a folder that isn’t on disk.
+        $this->plugin()->storage->write('example.com/routed', '<script src="/sw.js"></script><script src="/speedy-test-no-such-folder/app.js"></script>', 'https://example.com/routed', [], null);
+        $this->assertSame(0, $this->plugin()->insights->missingAssets(true)['pages']);
     }
 
     public function testExamplesAreShownSafely(): void
     {
-        $this->plugin()->storage->write('example.com/odd', '<script src="/x`y&#96;z [a](b)/a.js"></script>', 'https://example.com/odd', [], null);
-        $this->assertSame('/xyzab/a.js', $this->plugin()->insights->missingAssets(true)['example']);
+        $this->plugin()->storage->write('example.com/odd', '<script src="' . $this->folder . '/x`y&#96;z [a](b).js"></script>', 'https://example.com/odd', [], null);
+        $this->assertSame($this->folder . '/xyzab.js', $this->plugin()->insights->missingAssets(true)['example']);
     }
 
     public function testCachedPagesLinkingToMissingFilesAreFound(): void
