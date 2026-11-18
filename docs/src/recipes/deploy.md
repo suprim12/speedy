@@ -66,11 +66,11 @@ mkdir -p "$SHARED/web/speedy"
 ln -s "$SHARED/web/speedy" "$RELEASE/web/speedy"
 
 # Keep the previous build’s CSS and JavaScript, for pages built with it
-cp -rn "$PREVIOUS/web/dist/assets/." "$RELEASE/web/dist/assets/"
+cp -rnp "$PREVIOUS/web/dist/assets/." "$RELEASE/web/dist/assets/"
 find "$RELEASE/web/dist/assets" -type f -mtime +14 -delete
 ```
 
-`$PREVIOUS` is the release `current` points to before the switch. `cp -n` never replaces a file of the new build.
+`$PREVIOUS` is the release `current` points to before the switch. `cp -n` never replaces a file of the new build, and `-p` keeps each file’s date, so old files are removed once they’re two weeks old.
 
 ### After the switch
 
