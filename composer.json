@@ -1,6 +1,6 @@
 {
   "name": "suprim/speedy",
-  "description": "Full-page caching for Craft CMS that sends pages in a millisecond and clears only what changed. No database tables, CDNs built in, and it tells you what to fix.",
+  "description": "Static full-page caching for Craft CMS that clears only what changed, purges your CDN, and tells you why a page isn’t cached.",
   "type": "craft-plugin",
   "license": "proprietary",
   "authors": [
