@@ -4,7 +4,6 @@
 
 ### Added
 - Pages sent by PHP answer “304 Not Modified” when the browser already has them, with `ETag` and `Last-Modified`, as the web server does for its own files, so returning visitors don’t download them again.
-- The utility page warns when cached pages link to CSS or JavaScript that no longer exists, such as after a deploy replaced the built files or Craft’s published plugin files, with an example. Up to 30 pages are checked, at most every five minutes, only when the control panel shows the checks.
 
 ### Fixed
 - A browser that refuses a compression in its `Accept-Encoding` header, such as `gzip;q=0`, was still sent a page compressed that way when PHP sent it.

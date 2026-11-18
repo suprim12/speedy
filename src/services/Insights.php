@@ -397,10 +397,6 @@ class Insights extends Component
         if ($slow) {
             $add('hint', Craft::t('speedy', '{count, plural, =1{# page runs} other{# pages run}} the same database query again and again, usually in a loop. See [Performance](#queries).', ['count' => $slow]));
         }
-        $missing = $this->missingAssets();
-        if ($missing['pages']) {
-            $add('error', Craft::t('speedy', '{count, plural, =1{# cached page links} other{# cached pages link}} to CSS or JavaScript that no longer exists, such as {path}, so {count, plural, =1{it shows} other{they show}} without {count, plural, =1{its} other{their}} styles or scripts. This usually follows a deploy that replaced the built files. Click **Rebuild all pages**, and keep the previous build’s files in future deploys.', ['count' => $missing['pages'], 'path' => '`' . $missing['example'] . '`']));
-        }
         $rebuild = $this->rebuildProblem();
         if ($rebuild) {
             $add('error', $rebuild);
@@ -448,118 +444,6 @@ class Insights extends Component
         }
 
         return $checks;
-    }
-
-    public const MISSING_ASSETS_CACHE = 'speedy:missingAssets';
-
-    /** How many cached pages the missing CSS and JavaScript check reads, at most. */
-    private const ASSET_CHECK_PAGES = 30;
-
-    /**
-     * Cached pages that link to CSS or JavaScript files that are gone from the web root, such as after a deploy
-     * replaced the built files or Craft’s published plugin files (cpresources). Up to 30 pages are read from the
-     * cache and their files looked up on disk, with no requests, at most every five minutes, and only when the
-     * control panel asks.
-     *
-     * @return array{pages: int, checked: int, example: ?string}
-     */
-    public function missingAssets(bool $fresh = false): array
-    {
-        $cache = Craft::$app->getCache();
-        if (!$fresh) {
-            $result = $cache->get(self::MISSING_ASSETS_CACHE);
-            if (is_array($result) && isset($result['pages'])) {
-                return $result;
-            }
-        }
-        $result = ['pages' => 0, 'checked' => 0, 'example' => null];
-        $webroot = rtrim((string)Craft::getAlias('@webroot', false), '/');
-        // The URL path of the web root, such as /craft for a site in a folder of its domain.
-        $base = rtrim((string)parse_url((string)Craft::getAlias('@web', false), PHP_URL_PATH), '/');
-        $storage = Plugin::getInstance()->storage;
-        if ($webroot !== '' && is_dir($webroot)) {
-            foreach ($storage->allKeys() as $key) {
-                if ($result['checked'] >= self::ASSET_CHECK_PAGES) {
-                    break;
-                }
-                // Query string versions link to the same files as their page.
-                if (str_contains($key, '/' . Storage::QUERY_FOLDER . '/')) {
-                    continue;
-                }
-                $page = $storage->read($key, false);
-                if ($page === null) {
-                    continue;
-                }
-                $result['checked']++;
-                $host = (string)preg_replace('/:\d+$/', '', explode('/', $key, 2)[0]);
-                foreach (self::assetPaths($page['content'], $host) as $path) {
-                    if ($base !== '' && !str_starts_with($path, $base . '/')) {
-                        continue;
-                    }
-                    if ($this->assetGone($webroot, substr($path, strlen($base)))) {
-                        $result['pages']++;
-                        // Shown in the control panel: only plain characters, kept short.
-                        $result['example'] ??= mb_strimwidth((string)preg_replace('/[^\w\/.\-~%]/u', '', $path), 0, 120, '…');
-                        break;
-                    }
-                }
-            }
-        }
-        $cache->set(self::MISSING_ASSETS_CACHE, $result, 300);
-
-        return $result;
-    }
-
-    /**
-     * Whether a linked file is gone from the web root. Only in a folder that’s there, such as `/dist/` or
-     * `/cpresources/`, where built and published files live: a file at the top or in a folder that isn’t on disk may
-     * be sent by Craft or a plugin instead, such as `/sw.js`. Looked up on disk only, never requested.
-     *
-     * @param string $path Within the web root, such as `/dist/main-4f2a.css`.
-     */
-    private function assetGone(string $webroot, string $path): bool
-    {
-        $first = explode('/', ltrim($path, '/'), 2);
-        if (count($first) < 2 || !is_dir($webroot . '/' . $first[0])) {
-            return false;
-        }
-
-        return !is_file($webroot . $path);
-    }
-
-    /**
-     * The CSS and JavaScript files a page links to on its own host, as URL paths, such as `/dist/main-4f2a.css`.
-     *
-     * @return string[]
-     */
-    public static function assetPaths(string $html, string $host): array
-    {
-        $paths = [];
-        preg_match_all('#<(script|link)\b[^>]*>#i', $html, $tags, PREG_SET_ORDER);
-        foreach ($tags as [$tag, $name]) {
-            $attr = fn(string $a) => preg_match('#\s' . $a . '\s*=\s*(["\'])(.*?)\1#is', $tag, $m) ? html_entity_decode($m[2], ENT_QUOTES | ENT_HTML5) : null;
-            if (strtolower($name) === 'script') {
-                $url = $attr('src');
-            } else {
-                $rel = strtolower((string)$attr('rel'));
-                $url = preg_match('/\b(stylesheet|modulepreload|preload)\b/', $rel) ? $attr('href') : null;
-            }
-            $parts = $url !== null ? parse_url($url) : false;
-            if (!is_array($parts) || (isset($parts['scheme']) && !in_array(strtolower($parts['scheme']), ['http', 'https'], true))) {
-                continue;
-            }
-            // Only this site’s own files: a CDN or another domain isn’t on this disk.
-            if (isset($parts['host']) && strtolower($parts['host']) !== strtolower($host)) {
-                continue;
-            }
-            $path = rawurldecode($parts['path'] ?? '');
-            if (!str_starts_with($path, '/') || str_contains($path, '..') || !preg_match('/\.(css|js|mjs)$/i', $path)) {
-                continue;
-            }
-            $paths[$path] = true;
-        }
-
-        return array_keys($paths);
     }
 
     /**

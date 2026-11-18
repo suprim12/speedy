@@ -16,7 +16,7 @@
 
 Under the totals, Speedy lists anything that needs attention, most important first:
 
-- **Problems:** another page-cache plugin enabled at the same time, a folder Speedy can’t write to, failed Speedy queue jobs, a CDN clear that failed, cached pages that link to CSS or JavaScript that no longer exists, such as after a deploy replaced the built files. Up to 30 cached pages are checked, at most every five minutes, by looking for their files on disk, without any requests. Only files in a folder that’s there count, such as `/dist/` or `/cpresources/`, as Craft or a plugin may send others.
+- **Problems:** another page-cache plugin enabled at the same time, a folder Speedy can’t write to, failed Speedy queue jobs, a CDN clear that failed.
 - **Checks:** caching turned off, `devMode` on in production, CloudFront close to its free paths.
 - **Tips:** your site is behind a CDN Speedy could clear, pages that clear whenever any entry is saved (a query without `.section()`), image transforms generated on first view, and server rules not checked yet.
 

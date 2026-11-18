@@ -8,7 +8,6 @@ use GuzzleHttp\Cookie\CookieJar;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use suprim\speedy\Plugin;
-use suprim\speedy\services\Insights;
 
 /**
  * Real requests to pages with other plugins’ output: Formie forms work from a cached page, with their files and a
@@ -85,7 +84,9 @@ class PluginsTest extends TestCase
         $this->assertStringContainsString('__SPEEDY_CSRF__', $html, 'Its CSRF token is a placeholder, filled in for each visitor.');
 
         // Every CSS and JavaScript file the cached page links to loads, such as Formie’s in cpresources.
-        $paths = Insights::assetPaths($html, (string)parse_url(self::$base, PHP_URL_HOST));
+        preg_match_all('#<(?:script\b[^>]*\ssrc|link\b[^>]*\shref)="([^"]+\.(?:css|js)(?:\?[^"]*)?)"#i', $html, $m);
+        $host = (string)parse_url(self::$base, PHP_URL_HOST);
+        $paths = array_unique(array_filter(array_map(fn($url) => parse_url(html_entity_decode($url), PHP_URL_HOST) === $host || !str_starts_with($url, 'http') ? (string)parse_url(html_entity_decode($url), PHP_URL_PATH) : '', $m[1])));
         $this->assertNotEmpty(array_filter($paths, fn($p) => str_contains($p, 'formie')), 'Formie’s files are linked.');
         foreach ($paths as $path) {
             $this->assertSame(200, $this->client()->get($path)->getStatusCode(), "$path loads.");

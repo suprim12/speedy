@@ -396,7 +396,6 @@ class Storage extends Component
     {
         Craft::$app->getCache()->delete($this->statsCacheKey());
         Craft::$app->getCache()->delete(Insights::COVERAGE_CACHE);
-        Craft::$app->getCache()->delete(Insights::MISSING_ASSETS_CACHE);
         if ($this->usesCache()) {
             $this->cache()->clearAll();
             return true;

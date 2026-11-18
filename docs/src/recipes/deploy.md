@@ -17,7 +17,7 @@ Until a page is rebuilt, it still links to the old files. If the deploy removes 
 
 Plugins’ files work the same way. Form plugins, among others, add their CSS and JavaScript from `web/cpresources`, in folders named after their files, which change when Composer installs them again. Keep `web/cpresources` between deploys too, and don’t clear **Control panel resources** in a deploy: Craft adds the new folders next to the old ones.
 
-If cached pages do link to files that are gone, the utility page says so, with an example, and **Rebuild all pages** fixes them.
+If cached pages do link to files that are gone, **Rebuild all pages** fixes them.
 
 ## Clearing instead
 
