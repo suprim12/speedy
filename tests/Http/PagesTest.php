@@ -154,6 +154,26 @@ class PagesTest extends TestCase
         $this->assertStringContainsString('<!-- Cached by Speedy Cache on', (string)$second->getBody());
     }
 
+    public function testCachedFilesCantBeOpenedAtTheirOwnAddress(): void
+    {
+        $this->get('plain');
+        $page = $this->get('plain');
+        if ($this->speedy($page) !== 'STATIC') {
+            $this->markTestSkipped('The server rules aren’t on this site: the folder is closed by them.');
+        }
+        // So search engines never find a second copy of a page, under /speedy/.
+        $plugin = Plugin::getInstance();
+        $key = $plugin->storage->keyForUrl(self::$base . '/' . self::$prefix . '/plain');
+        $folder = $plugin->serverRules->webPath();
+        $this->assertNotNull($key);
+        $this->assertNotNull($folder);
+        foreach (['index.html', 'index.html.gz', 'index.html.br'] as $file) {
+            $direct = $this->client()->get("$folder/$key/$file");
+            $this->assertNotSame(200, $direct->getStatusCode(), "$file is refused.");
+            $this->assertStringNotContainsString('Cached by Speedy Cache', (string)$direct->getBody());
+        }
+    }
+
     public function testSkipsRequestsThatMayBePersonal(): void
     {
         $this->assertSame('SKIP query string', $this->speedy($this->get('plain?q=shoes')));

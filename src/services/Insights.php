@@ -437,7 +437,7 @@ class Insights extends Component
             $add('warning', Craft::t('speedy', 'devMode is on in production.'));
         }
         if (!$usesCache && ($plugin->storage->readData('state')['folderOpen'] ?? null) === true) {
-            $add('warning', Craft::t('speedy', 'Cached pages can be opened directly in the cache folder, such as {path}. They’re public pages, but add the [server rules](#setup) to close the folder, then click “Check server serving” again.', ['path' => '`' . $plugin->serverRules->webPath() . '/…/index.html`']));
+            $add('warning', Craft::t('speedy', 'Cached pages can be opened directly in the cache folder, such as {path}. They’re public pages, but search engines could list these copies too: add the [server rules](#setup) to close the folder, then click “Check server serving” again.', ['path' => '`' . $plugin->serverRules->webPath() . '/…/index.html`']));
         }
         if (!$usesCache && !($plugin->storage->readData('state')['serverChecked'] ?? false)) {
             $add('hint', Craft::t('speedy', 'Add the [server rules](#setup) so cached pages are sent without PHP, then click “Check server serving”.'));

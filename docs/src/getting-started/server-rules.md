@@ -96,7 +96,13 @@ Header set Content-Encoding "br" env=SPEEDY_BR
 
 `mod_rewrite` and `mod_headers` must be enabled. Like the nginx rules, they send the compressed copy to browsers that accept it, Brotli when there is one, and refuse direct requests to the cache folder. Tested on Apache 2.4.
 
-Speedy also keeps a small `.htaccess` in `web/speedy/` that refuses direct requests, so the folder is closed on Apache even before you add the rules. Leave it in place. On nginx, the folder is closed by the rules, which mark it `internal`. Until they’re added, cached pages can be opened at their own address, such as `/speedy/example.com/index.html`: they’re the same public pages, and **Check server serving** on the utility page warns about it.
+Speedy also keeps a small `.htaccess` in `web/speedy/` that refuses direct requests, so the folder is closed on Apache even before you add the rules. Leave it in place. On nginx, the folder is closed by the rules, which mark it `internal`. Until they’re added, cached pages can be opened at their own address, such as `/speedy/example.com/index.html`. They’re the same public pages, and nothing links to them, but a search engine that finds one could list a second copy of the page. **Check server serving** on the utility page warns about it. If you can’t add the rules yet, close the folder on its own:
+
+```nginx
+location ^~ /speedy/ { internal; }
+```
+
+On other web servers, refuse requests to the cache folder the same way. Speedy’s tests open each cached file at its own address before every release, to check it’s refused while the page itself is still sent.
 
 ## Git and deploys
 
