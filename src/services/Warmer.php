@@ -199,7 +199,10 @@ class Warmer extends Component
         ]);
         $pool->promise()->wait();
         $failed = array_merge($failed, $skipped);
-        $this->noteUnbuilt($built, $failed, $why);
+        // Copies kept from before a spelling of an address in other letter case stopped being cached: removed below,
+        // as they should be, rather than reported as rebuilds that failed.
+        $retired = array_keys(array_filter($why, fn($w) => $w === 'SKIP url case'));
+        $this->noteUnbuilt($built, array_values(array_diff($failed, $retired)), $why);
 
         if ($rebuild) {
             // A page that can’t be rebuilt (now a 404, now private…) mustn’t stay cached.
@@ -209,13 +212,13 @@ class Warmer extends Component
                     $plugin->storage->delete($key);
                 }
             }
-            if ($failed) {
-                $reasons = array_count_values(array_map('strval', $why));
+            if ($problems = array_values(array_diff($failed, $retired))) {
+                $reasons = array_count_values(array_map('strval', array_intersect_key($why, array_flip($problems))));
                 arsort($reasons);
                 $reason = (string)array_key_first($reasons);
-                $plugin->log->add(Craft::t('speedy', 'Couldn’t rebuild, so removed ({reason})', ['reason' => $reason]), count($failed), $failed);
+                $plugin->log->add(Craft::t('speedy', 'Couldn’t rebuild, so removed ({reason})', ['reason' => $reason]), count($problems), $problems);
             }
-            $this->noteResult(count($built), $failed, $why);
+            $this->noteResult(count($built), $problems, $why);
             $plugin->cdn->purgeUrls(array_merge($built, $failed));
             // The change made while it was being built couldn’t find it: its tags were let go when it was cleared.
             // Rebuild it again shortly, once, however many changes come meanwhile.

@@ -161,6 +161,10 @@ class PageCheck extends Component
                 Craft::t('speedy', 'Caching is turned off.'),
                 Craft::t('speedy', 'Turn on **Cache pages** in [Settings]({url}).', ['url' => \craft\helpers\UrlHelper::cpUrl($settingsUrl)]),
             ],
+            $reason === 'url case' => [
+                Craft::t('speedy', 'The address has capital letters where its page’s URI doesn’t, or the other way round. Only the URI’s own spelling is cached, so made-up spellings can’t fill the cache.'),
+                Craft::t('speedy', 'Link to the page with its URI’s spelling.'),
+            ],
             $reason === 'rewritten URL' => [
                 Craft::t('speedy', 'The site’s `index.php` changes this address before Craft opens it, other than taking part of it off, so the address alone might not decide what the page shows.'),
                 null,

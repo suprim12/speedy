@@ -460,7 +460,7 @@ class Cacher extends Component
         $reason = $this->uncacheableReason($response);
         // The page itself can’t be cached, rather than this copy: no visitor will save it either. Not for errors, which
         // may be gone in a moment.
-        $this->_neverSaved = $reason !== null && (in_array($reason, ['template', 'not html', 'too large', 'private', 'vary', 'sets a cookie'], true) || in_array($response->getStatusCode(), [301, 302, 303, 307, 308, 404, 410], true));
+        $this->_neverSaved = $reason !== null && (in_array($reason, ['template', 'url case', 'not html', 'too large', 'private', 'vary', 'sets a cookie'], true) || in_array($response->getStatusCode(), [301, 302, 303, 307, 308, 404, 410], true));
         if ($reason !== null) {
             $headers = $response->getHeaders();
             $headers->set(self::HEADER, 'SKIP ' . $reason);
@@ -569,6 +569,7 @@ class Cacher extends Component
         return match (true) {
             $this->_templateSkip => 'template',
             $response->getStatusCode() !== 200 => 'status ' . $response->getStatusCode(),
+            $request instanceof Request && $this->inOtherCase($request) => 'url case',
             !str_contains(strtolower((string)$headers->get('Content-Type', 'text/html')), 'text/html') && $response->format !== Response::FORMAT_HTML => 'not html',
             !is_string($response->content) || $response->content === '' => 'empty',
             strlen((string)$response->content) > 5 * 1024 * 1024 => 'too large',
@@ -581,6 +582,22 @@ class Cacher extends Component
             $request instanceof Request && Plugin::getInstance()->getSettings()->skipWhenCart && $this->hasCookie($request, '_commerce_cart') => 'cart',
             default => null,
         };
+    }
+
+    /**
+     * Whether the address is an element’s page with its letters in another case, such as `/News` for `/news`. MySQL
+     * finds the element either way, so each spelling, made up by anyone, would be one more copy of the same page.
+     */
+    private function inOtherCase(Request $request): bool
+    {
+        $element = Craft::$app->getUrlManager()->getMatchedElement();
+        if (!$element || $element->uri === null) {
+            return false;
+        }
+        $uri = $element->uri === \craft\base\Element::HOMEPAGE_URI ? '' : trim($element->uri, '/');
+        $path = trim($request->getPathInfo(), '/');
+
+        return $path !== $uri && mb_strtolower($path) === mb_strtolower($uri);
     }
 
     /**

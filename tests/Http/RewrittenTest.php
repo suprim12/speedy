@@ -42,8 +42,13 @@ class RewrittenTest extends TestCase
                 file_put_contents("$dir/$name.twig", $twig);
             }
         }
-        $probe = (new Client(['http_errors' => false, 'verify' => false]))->get(self::$base . '/speedy-rewrite-view/' . self::$prefix . '/view');
-        if (!str_contains((string)$probe->getBody(), 'Touchscreen')) {
+        try {
+            $probe = (string)(new Client(['http_errors' => false, 'verify' => false]))->get(self::$base . '/speedy-rewrite-view/' . self::$prefix . '/view')->getBody();
+        } catch (\Throwable) {
+            // PHPUnit doesn’t tear down a class whose setup failed: remove the templates here.
+            $probe = '';
+        }
+        if (!str_contains($probe, 'Touchscreen')) {
             self::tearDownAfterClass();
             self::markTestSkipped('The site doesn’t rewrite /speedy-rewrite-view/ addresses in its index.php.');
         }

@@ -27,6 +27,7 @@ The header says why, after `SKIP`:
 | `request cookies` | The page wasn’t cached yet and the visitor has cookies of their own, so the shared copy is built in the background instead | Expected. Add cookies that never change pages to `ignoredCookies` ([What isn’t cached](/guides/not-cached#made-up-cookies-can-t-reach-the-shared-copy)) |
 | `vary` | The page sends `Vary` with something other than `Accept-Encoding` | Remove the header if the page is the same for everyone |
 | `unknown host` | The host isn’t one of your sites’ domains, or a forwarding header such as `X-Forwarded-Host` names something other than a plain host | Check the site’s base URL, or `allowedHosts` when it’s `@web` |
+| `url case` | The address has capital letters where the entry’s URI doesn’t, or the other way round, such as `/News` for `/news` | Expected. Only the URI’s own spelling is cached, so made-up spellings can’t fill the cache. Link to the page with its URI’s spelling |
 | `rewritten URL` | The site’s `index.php` changes the address before Craft opens it, other than taking part of it off (such as `/` to `/en/`), so the address alone might not decide the page | Expected. An `index.php` that only takes part off, such as a `/kiosk` prefix that shows pages another way, is cached: each address keeps its own copy |
 | `never cache` | The URL matches **Never cache** | Check the patterns in the settings |
 | `sets a cookie` | The page sets a cookie, so it may be personal | Find what sets it, or move it to a page that isn’t cached |
