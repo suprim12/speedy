@@ -128,6 +128,27 @@ class BuildSavedTest extends TestCase
         }
     }
 
+    public function testALinkWithAQueryStringIsntAPage(): void
+    {
+        $entry = $this->save();
+        $before = $this->queued();
+        // Such as a URI format of `now-selling?type={slug}`: it opens another page, with a filter.
+        $uri = $this->slug . '?type=land';
+        Craft::$app->getDb()->createCommand()->update('{{%elements_sites}}', ['uri' => $uri], ['elementId' => $entry->id])->execute();
+        $coverage = $this->plugin()->insights->coverage(true);
+        foreach ($coverage['groups'] as $group) {
+            foreach ([...$group['missing'], ...array_keys($group['failed'])] as $url) {
+                $this->assertStringNotContainsString('?type=land', $url, 'Not counted as a page.');
+            }
+        }
+        Craft::$app->getCache()->delete(\suprim\speedy\services\Insights::COVERAGE_CACHE);
+
+        $saved = Craft::$app->getEntries()->getEntryById($entry->id);
+        $this->assertSame($uri, $saved->uri);
+        (fn() => $this->noteSaved($saved))->call($this->plugin()->clearer);
+        $this->assertSame($before, $this->queued(), 'Not built on save either.');
+    }
+
     public function testNotWhenAlreadyCached(): void
     {
         $entry = $this->save([], '-cached');

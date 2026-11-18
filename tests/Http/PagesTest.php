@@ -340,6 +340,16 @@ class PagesTest extends TestCase
         $this->assertNotSame('WARM', $this->speedy($this->get('plain?' . $pathParam . '=' . self::$prefix . '/form&speedy-warm=1', ['headers' => ['X-Speedy-Warm' => $token]])), 'Naming another page doesn’t rebuild it with this token.');
     }
 
+    public function testAPageThatRedirectsSaysWhere(): void
+    {
+        $warmer = Plugin::getInstance()->warmer;
+        $url = self::$base . '/' . self::$prefix . '/done';
+        $warmer->warm([$url], false);
+        $this->assertSame('redirects to /' . self::$prefix . '/step', $warmer->unbuilt()[$url]['why'] ?? null);
+        $note = fn(array $built) => $this->noteUnbuilt($built, [], []);
+        $note->call($warmer, [$url]);
+    }
+
     public function testThePathParameterCantPointAPageAtTheWrongAddress(): void
     {
         $pathParam = \Craft::$app->getConfig()->getGeneral()->pathParam;

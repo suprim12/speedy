@@ -59,6 +59,18 @@ class Warmer extends Component
         return $expires . '.' . hash_hmac('sha256', "speedy-warm|$address|$expires", Craft::$app->getConfig()->getGeneral()->securityKey);
     }
 
+    /**
+     * Where a redirect goes, as a path when it stays on the same host, such as `/now-selling/land`. Kept short.
+     */
+    public static function shortUrl(string $location, string $from): string
+    {
+        $to = parse_url($location);
+        $same = !isset($to['host']) || strtolower((string)$to['host']) === strtolower((string)parse_url($from, PHP_URL_HOST));
+        $short = $same ? ($to['path'] ?? '/') . (isset($to['query']) ? '?' . $to['query'] : '') : $location;
+
+        return mb_strimwidth($short, 0, 150, '…');
+    }
+
     /** Seconds before a page that changed while it was being rebuilt is rebuilt again. */
     public const REBUILD_AGAIN = 10;
 
@@ -151,8 +163,13 @@ class Warmer extends Component
                 } else {
                     $failed[] = $url;
                     $status = $response->getStatusCode();
+                    $location = $response->getHeaderLine('Location');
                     // Such as “SKIP private” for a page that answered, or “status 404”; Speedy’s own “SKIP status 404” adds nothing.
-                    $why[$url] = $state !== '' && $status === 200 ? $state : "status $status" . ($state !== '' && !str_contains($state, (string)$status) ? ", $state" : '');
+                    $why[$url] = match (true) {
+                        $status >= 300 && $status < 400 && $location !== '' => Craft::t('speedy', 'redirects to {url}', ['url' => self::shortUrl($location, $url)]),
+                        $state !== '' && $status === 200 => $state,
+                        default => "status $status" . ($state !== '' && !str_contains($state, (string)$status) ? ", $state" : ''),
+                    };
                     Craft::info("Couldn’t build $url: status {$response->getStatusCode()}" . ($state !== '' ? ", $state" : ''), 'speedy');
                 }
                 $done++;

@@ -13,6 +13,8 @@
 - **Show the code** on the Performance tab shows the template lines where each repeated query, or query without a section, ran, and **Show more** lists all of a page’s queries.
 
 ### Fixed
+- Coverage and **Build new pages** counted entries whose URI has a query string, such as `now-selling?type=land`, as pages that couldn’t be built.
+- Pages that redirect say where to, such as “redirects to /now-selling/land”, rather than “status 302”.
 - The Performance tab named strings rendered as templates, such as `__string_template__…`, instead of the template file that rendered them.
 - Pages couldn’t be built in the background (“SKIP rebuild token”) on servers that pass the path to `index.php` as a query parameter, such as Apache with `index.php?p=$1`.
 

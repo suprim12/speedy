@@ -74,6 +74,14 @@ class HostsAndKeysTest extends TestCase
         $this->assertSame($warmer->token('https://example.com/craft/de/news', $expires), $warmer->tokenFor('example.com', '/craft/de/news', [], $expires));
     }
 
+    public function testRedirectsAreShownShort(): void
+    {
+        $short = fn(string $to) => \suprim\speedy\services\Warmer::shortUrl($to, 'https://example.com/now-selling');
+        $this->assertSame('/now-selling/land', $short('https://Example.com/now-selling/land'));
+        $this->assertSame('/now-selling/land?a=1', $short('/now-selling/land?a=1'));
+        $this->assertSame('https://other.example/x', $short('https://other.example/x'), 'Another host is named in full.');
+    }
+
     public function testRebuildsOnlyGoToTheSitesHosts(): void
     {
         $result = $this->plugin()->warmer->warm(['https://attacker.example/news'], false);

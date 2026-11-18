@@ -121,6 +121,11 @@ class Insights extends Component
                     break 2;
                 }
                 $uri = $row['uri'] === Element::HOMEPAGE_URI ? '' : (string)$row['uri'];
+                // Such as `now-selling?type=land`: a link to another page with a query string, not a page of its own.
+                if (strpbrk($uri, '?#') !== false) {
+                    $count--;
+                    continue;
+                }
                 $url = $sites[$row['siteId']] . '/' . $uri;
                 if ($this->leftOut($url, $uri)) {
                     $never++;

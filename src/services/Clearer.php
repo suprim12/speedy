@@ -229,7 +229,8 @@ class Clearer extends Component
     }
 
     /**
-     * Notes an element’s page to build in buildNoted(), unless it has no URL or its section’s template doesn’t exist.
+     * Notes an element’s page to build in buildNoted(), unless it has no page of its own or its section’s template
+     * doesn’t exist.
      */
     private function noteBuild(ElementInterface $element): void
     {
@@ -239,7 +240,8 @@ class Clearer extends Component
             $element instanceof Category => (int)$element->groupId,
             default => 0,
         };
-        if ($url !== null && $element->uri !== null && !Plugin::getInstance()->insights->templateMissing($element::class, $groupId, (int)$element->siteId)) {
+        // A URI such as `now-selling?type=land` links to another page with a query string: it isn’t a page of its own.
+        if ($url !== null && $element->uri !== null && strpbrk($element->uri, '?#') === false && !Plugin::getInstance()->insights->templateMissing($element::class, $groupId, (int)$element->siteId)) {
             $this->_build[$url] = $element->uri;
         }
     }
