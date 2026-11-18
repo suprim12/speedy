@@ -82,6 +82,8 @@ Filled in as Speedy rebuilds pages in the background, so visitors’ requests ar
 - **Cleared by any change:** pages with a query that doesn’t choose a section or group, such as `craft.entries.relatedTo(entry)`, with the template and line. Saving any entry clears them, so an import can clear them again and again. Narrow the query, for example with `.section('news')`.
 - **Repeated queries:** pages that run the same query in a loop, below.
 
+Each query names the template and line that ran it. **Show the code** shows the lines around it, with that line highlighted, and **Show more** lists the rest when a page has more than five. A query run by a string rendered as a template, such as a plugin’s setting, names the template file that rendered it.
+
 ![The Performance tab: the slowest pages with their build times, a page cleared by any change with the template line of its query, and a page that runs the same query in a loop](/images/performance.jpg)
 
 Pages that run the same database query again and again, usually once for each item in a loop. This is called an N+1 query: a news listing of 30 entries that reads each entry’s categories runs 30 extra queries, where eager-loading runs one.

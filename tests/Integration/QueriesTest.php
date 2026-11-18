@@ -105,6 +105,14 @@ class QueriesTest extends TestCase
             $queries->start();
             $view->renderTemplate("$name/page");
             $queries->finish('https://example.com/embed');
+            $before = $view->getTemplateMode();
+            $page = $queries->withCode($queries->report(), 'repeated')[0];
+            $this->assertSame(["$name/page", 4], [$page['repeated'][0]['template'], $page['repeated'][0]['line']]);
+            $code = $page['repeated'][0]['code'];
+            $this->assertSame(4, $code['line']);
+            $this->assertSame([1, 2, 3, 4, 5, 6, 7], array_keys($code['lines']), 'Three lines either side, as far as the file goes.');
+            $this->assertStringContainsString('craft.users().id(i).one()', $code['lines'][4]);
+            $this->assertSame($before, $view->getTemplateMode(), 'The view is put back as it was.');
         } finally {
             $view->setTemplateMode($mode);
             foreach (glob("$dir/*") ?: [] as $file) {
@@ -116,6 +124,58 @@ class QueriesTest extends TestCase
         $report = $queries->report();
         $this->assertCount(1, $report[0]['repeated'] ?? [], 'Queries from the query cache aren’t counted as repeated.');
         $this->assertSame("$name/page, line 4", $report[0]['repeated'][0]['at'], 'The line inside the embed, in the page’s own template.');
+    }
+
+    public function testAStringRenderedAsATemplateNamesTheFileThatRenderedIt(): void
+    {
+        $dir = \Craft::getAlias('@templates/speedy-tests-' . bin2hex(random_bytes(3)));
+        $name = basename($dir);
+        mkdir($dir, 0775, true);
+        file_put_contents("$dir/page.twig", implode("\n", [
+            '<h1>Page</h1>',
+            '{% for i in 1..12 %}{{ craft.app.view.renderString("{{ craft.users().id(" ~ i ~ ").one() ? 1 }}") }}{% endfor %}',
+        ]));
+        $view = \Craft::$app->getView();
+        $mode = $view->getTemplateMode();
+        $view->setTemplateMode(\craft\web\View::TEMPLATE_MODE_SITE);
+        $queries = $this->plugin()->queries;
+        try {
+            $queries->start();
+            $view->renderTemplate("$name/page");
+            $queries->finish('https://example.com/string');
+        } finally {
+            $view->setTemplateMode($mode);
+            foreach (glob("$dir/*") ?: [] as $file) {
+                unlink($file);
+            }
+            rmdir($dir);
+        }
+        $page = array_values(array_filter($queries->report(), fn($p) => $p['url'] === 'https://example.com/string'))[0] ?? null;
+        $this->assertNotNull($page);
+        $this->assertSame("$name/page, line 2", $page['repeated'][0]['at']);
+    }
+
+    public function testUpToFifteenRepeatedQueriesAreKept(): void
+    {
+        $sql = [];
+        for ($table = 1; $table <= 20; $table++) {
+            for ($i = 0; $i < 10; $i++) {
+                $sql[] = "SELECT * FROM table$table WHERE id = $i";
+            }
+        }
+        $this->assertCount(\suprim\speedy\services\Queries::REPEATED_KEPT, $this->plugin()->queries->analyse($sql)['repeated']);
+    }
+
+    public function testCodeOfReportsSavedBeforeIsFoundFromTheirPlace(): void
+    {
+        $queries = $this->plugin()->queries;
+        $page = $queries->withCode([['url' => 'https://example.com', 'repeated' => [
+            ['count' => 12, 'at' => 'speedy-test-no-such-template, line 3'],
+            ['count' => 12, 'at' => null],
+        ]]], 'repeated')[0];
+        $this->assertNull($page['repeated'][0]['code'], 'A template that’s gone shows no code.');
+        $this->assertNull($page['repeated'][1]['code']);
+        $this->assertNull($queries->code('../../../etc/passwd', 1), 'Only templates.');
     }
 
     public function testOffMeansNothingIsCounted(): void

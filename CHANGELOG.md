@@ -10,8 +10,10 @@
 - **Clear URL** takes patterns such as `https://example.com/news/*` or `/news/*`, on the utility page, the command line and the API.
 - **Clear site** on the utility page, and `speedy/clear --site`, clear every page of one site.
 - **Clear its cached pages** on an entry’s, category’s or product’s details panel.
+- **Show the code** on the Performance tab shows the template lines where each repeated query, or query without a section, ran, and **Show more** lists all of a page’s queries.
 
 ### Fixed
+- The Performance tab named strings rendered as templates, such as `__string_template__…`, instead of the template file that rendered them.
 - Pages couldn’t be built in the background (“SKIP rebuild token”) on servers that pass the path to `index.php` as a query parameter, such as Apache with `index.php?p=$1`.
 
 ## 1.3.0 - 2026-11-17

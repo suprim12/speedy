@@ -1,3 +1,4 @@
+{% import _self as speedyMacros %}
 <div class="speedy">
 	<div class="speedy-grid">
 		<div class="speedy-card">
@@ -300,9 +301,16 @@
 								<div class="light smalltext">{{ 'Checked {time}'|t('speedy', { time: row.time|datetime('short') }) }}</div>
 							</td>
 							<td>
-								{% for query in row.broad %}
-									<div class="speedy-repeat">{{ 'Any of: {type}, at {place}'|t('speedy', { type: query.type, place: query.at }) }}</div>
+								{% for query in row.broad|slice(0, 5) %}
+									<div class="speedy-repeat">{{ 'Any of: {type}, at {place}'|t('speedy', { type: query.type, place: query.at }) }}<div>{{ speedyMacros.code(query.code ?? null) }}</div></div>
 								{% endfor %}
+								{% if row.broad|length > 5 %}
+									<details class="speedy-more"><summary class="light">{{ 'Show {count} more'|t('speedy', { count: row.broad|length - 5 }) }}</summary>
+										{% for query in row.broad|slice(5) %}
+											<div class="speedy-repeat">{{ 'Any of: {type}, at {place}'|t('speedy', { type: query.type, place: query.at }) }}<div>{{ speedyMacros.code(query.code ?? null) }}</div></div>
+										{% endfor %}
+									</details>
+								{% endif %}
 							</td>
 						</tr>
 					{% endfor %}
@@ -328,12 +336,16 @@
 							</td>
 							<td>{{ row.queries|number }}</td>
 							<td>
-								{% for repeat in row.repeated %}
-									<div class="speedy-repeat">
-										<strong>{{ '{count}×'|t('speedy', { count: repeat.count }) }}</strong> {{ repeat.tip }}
-										<details><summary class="light">{{ 'Show the query'|t('speedy') }}</summary><pre class="speedy-code">{{ repeat.sql }}</pre></details>
-									</div>
+								{% for repeat in row.repeated|slice(0, 5) %}
+									{{ speedyMacros.repeat(repeat) }}
 								{% endfor %}
+								{% if row.repeated|length > 5 %}
+									<details class="speedy-more"><summary class="light">{{ 'Show {count} more'|t('speedy', { count: row.repeated|length - 5 }) }}</summary>
+										{% for repeat in row.repeated|slice(5) %}
+											{{ speedyMacros.repeat(repeat) }}
+										{% endfor %}
+									</details>
+								{% endif %}
 							</td>
 						</tr>
 					{% endfor %}
@@ -427,6 +439,14 @@
 .speedy-report-actions { gap: 10px; margin-bottom: 8px; }
 .speedy-repeat + .speedy-repeat { margin-top: 8px; }
 .speedy-repeat .speedy-code { white-space: pre-wrap; margin-top: 4px; }
+.speedy-repeat details { display: inline-block; margin-right: 12px; vertical-align: top; }
+.speedy-repeat details[open] { display: block; }
+.speedy-more { margin-top: 8px; }
+.speedy-more > .speedy-repeat { margin-top: 8px; }
+.speedy-repeat .speedy-lines, .speedy-lines { display: grid; grid-template-columns: max-content max-content; column-gap: 12px; white-space: pre; overflow-x: auto; max-width: 100%; }
+.speedy-lines .ln { color: #8a96a3; text-align: right; user-select: none; }
+.speedy-lines .hit { background: #fff3c4; }
+.speedy-repeat details[open] { max-width: 100%; }
 .speedy-tabs { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 4px; border-bottom: 1px solid var(--hairline-color, #e3e5e8); margin: 8px 0 20px; }
 .speedy-tabs a { flex: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px; margin-bottom: -1px; border-bottom: 2px solid transparent; color: var(--light-text-color, #606d7b); text-decoration: none; font-weight: 500; }
 .speedy-tabs a:hover { color: var(--text-color, #3f4d5a); }
@@ -517,3 +537,21 @@ document.getElementById('speedy-copy-report')?.addEventListener('click', functio
 	});
 })();
 {% endjs %}
+
+{% macro code(code) %}
+	{%- if code -%}
+		<details><summary class="light">{{ 'Show the code'|t('speedy') }}</summary><pre class="speedy-code speedy-lines">
+			{%- for n, text in code.lines -%}
+				<span class="ln{{ n == code.line ? ' hit' }}">{{ n }}</span><span class="{{ n == code.line ? 'hit' }}">{{ text ?: ' ' }}</span>
+			{%- endfor -%}
+		</pre></details>
+	{%- endif -%}
+{% endmacro %}
+
+{% macro repeat(repeat) %}
+	{% import _self as speedyMacros %}
+	<div class="speedy-repeat">
+		<strong>{{ '{count}×'|t('speedy', { count: repeat.count }) }}</strong> {{ repeat.tip }}
+		<div>{{ speedyMacros.code(repeat.code ?? null) }}</div>
+	</div>
+{% endmacro %}

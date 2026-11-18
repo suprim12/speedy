@@ -400,7 +400,7 @@ class PagesTest extends TestCase
         try {
             $this->assertArrayHasKey($url, $pages);
             $this->assertArrayNotHasKey($fine, $pages, 'Queries by ID are narrow already.');
-            $this->assertSame([['type' => 'Entries', 'at' => self::$prefix . '/broad, line 2', 'count' => 1]], $pages[$url]['broad'], 'Only the query without a section, with its line.');
+            $this->assertSame([['type' => 'Entries', 'at' => self::$prefix . '/broad, line 2', 'count' => 1, 'template' => self::$prefix . '/broad', 'line' => 2]], $pages[$url]['broad'], 'Only the query without a section, with its line.');
         } finally {
             $storage = Plugin::getInstance()->storage;
             $storage->writeData('queries', array_diff_key($storage->readData('queries'), [$url => true, $fine => true]));

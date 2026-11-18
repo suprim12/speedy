@@ -29,11 +29,17 @@ class Queries extends Component
     /** A query run this many times on one page counts as repeated. */
     public const REPEATED = 10;
 
+    /** The start of the names Twig gives strings rendered as templates. */
+    private const STRING_TEMPLATE = '__string_template__';
+
+    /** How many repeated queries are kept for each page, the most repeated first. */
+    public const REPEATED_KEPT = 15;
+
     /** How many pages the report keeps, the worst first. */
     private const KEEP = 100;
 
     /**
-     * @var array<string, array{count: int, example: string, at: array<string, int>}>|null The queries run so far, grouped
+     * @var array<string, array{count: int, example: string, at: array<string, int>, places: array<string, array{0: string, 1: ?int}>}>|null The queries run so far, grouped
      * by their shape as they run, so a page with thousands of queries doesn’t keep each one. Null when not counting.
      */
     private ?array $_groups = null;
@@ -52,7 +58,7 @@ class Queries extends Component
     public const SLOW_MS = 500;
 
     /**
-     * @var array<string, array{type: string, at: ?string, count: int}> Element queries without a section or group,
+     * @var array<string, array{type: string, at: ?string, count: int, template: string, line: ?int}> Element queries without a section or group,
      * which make the page clear whenever any element of their type is saved, by type and where they ran.
      */
     private array $_broad = [];
@@ -128,7 +134,8 @@ class Queries extends Component
     {
         if ($this->_groups !== null) {
             $this->_count++;
-            $this->group($this->_groups, $sql, $traces ? $this->templateLine($traces) : null);
+            $place = $traces ? $this->place($traces) : null;
+            $this->group($this->_groups, $sql, $place ? $this->describePlace($place) : null, $place);
         }
     }
 
@@ -181,15 +188,16 @@ class Queries extends Component
             if (!preg_match('/^element::(.+)::\*$/', (string)$tag, $m)) {
                 continue;
             }
-            $at = $this->templateLine(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 40));
+            $place = $this->place(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 40));
             // Only queries a template runs: Craft’s and plugins’ own aren’t the site builder’s to change.
-            if ($at === null) {
+            if ($place === null) {
                 return;
             }
+            $at = $this->describePlace($place);
             $class = $m[1];
             $type = class_exists($class) && is_subclass_of($class, ElementInterface::class) ? $class::pluralDisplayName() : $class;
             $id = "$class|$at";
-            $this->_broad[$id] ??= ['type' => $type, 'at' => $at, 'count' => 0];
+            $this->_broad[$id] ??= ['type' => $type, 'at' => $at, 'count' => 0, 'template' => $place[0], 'line' => $place[1]];
             $this->_broad[$id]['count']++;
             return;
         }
@@ -244,9 +252,19 @@ class Queries extends Component
      */
     public function broad(): array
     {
-        $pages = Plugin::getInstance()->storage->readData('queries');
+        $pages = [];
+        foreach (Plugin::getInstance()->storage->readData('queries') as $page) {
+            if (!is_array($page) || empty($page['broad'])) {
+                continue;
+            }
+            // Noted before strings rendered as templates were looked past: they name no file to change.
+            $page['broad'] = array_values(array_filter((array)$page['broad'], fn($q) => !str_starts_with((string)($q['at'] ?? ''), self::STRING_TEMPLATE)));
+            if ($page['broad']) {
+                $pages[] = $page;
+            }
+        }
 
-        return array_values(array_filter($pages, fn($p) => is_array($p) && !empty($p['broad'])));
+        return $pages;
     }
 
     /**
@@ -269,22 +287,26 @@ class Queries extends Component
     /**
      * Adds a query to its group.
      *
-     * @param array<string, array{count: int, example: string, at: array<string, int>}> $groups
+     * @param array<string, array{count: int, example: string, at: array<string, int>, places?: array<string, array{0: string, 1: ?int}>}> $groups
+     * @param array{0: string, 1: ?int}|null $place The template and line that ran it.
      */
-    private function group(array &$groups, string $sql, ?string $at): void
+    private function group(array &$groups, string $sql, ?string $at, ?array $place = null): void
     {
         $shape = $this->shape($sql);
         // One example of each, kept short: only its tables are read.
-        $groups[$shape] ??= ['count' => 0, 'example' => substr($sql, 0, 4000), 'at' => []];
+        $groups[$shape] ??= ['count' => 0, 'example' => substr($sql, 0, 4000), 'at' => [], 'places' => []];
         $groups[$shape]['count']++;
         if ($at !== null) {
             $groups[$shape]['at'][$at] = ($groups[$shape]['at'][$at] ?? 0) + 1;
+            if ($place !== null) {
+                $groups[$shape]['places'][$at] = $place;
+            }
         }
     }
 
     /**
-     * @param array<string, array{count: int, example: string, at: array<string, int>}> $groups
-     * @return array{queries: int, repeated: array<int, array{count: int, sql: string, at: ?string, tip: string}>}
+     * @param array<string, array{count: int, example: string, at: array<string, int>, places?: array<string, array{0: string, 1: ?int}>}> $groups
+     * @return array{queries: int, repeated: array<int, array{count: int, sql: string, at: ?string, tip: string, template?: string, line?: ?int}>}
      */
     private function summarise(array $groups, int $count): array
     {
@@ -296,12 +318,14 @@ class Queries extends Component
                 // From FROM on, as the list of columns says little.
                 $from = stripos($shape, ' FROM ');
                 $sql = $from !== false ? substr($shape, $from + 1) : $shape;
-                $repeated[] = ['count' => $group['count'], 'sql' => mb_strimwidth($sql, 0, 300, '…'), 'at' => $at, 'tip' => $this->tip($group['example'], $at)];
+                $place = $at !== null ? ($group['places'][$at] ?? null) : null;
+                $repeated[] = ['count' => $group['count'], 'sql' => mb_strimwidth($sql, 0, 300, '…'), 'at' => $at, 'tip' => $this->tip($group['example'], $at)]
+                    + ($place ? ['template' => $place[0], 'line' => $place[1]] : []);
             }
         }
         usort($repeated, fn($a, $b) => $b['count'] <=> $a['count']);
 
-        return ['queries' => $count, 'repeated' => array_slice($repeated, 0, 5)];
+        return ['queries' => $count, 'repeated' => array_slice($repeated, 0, self::REPEATED_KEPT)];
     }
 
     /**
@@ -409,6 +433,27 @@ class Queries extends Component
      */
     public function templateLine(array $traces): ?string
     {
+        $place = $this->place($traces);
+
+        return $place ? $this->describePlace($place) : null;
+    }
+
+    /**
+     * @param array{0: string, 1: ?int} $place
+     */
+    private function describePlace(array $place): string
+    {
+        return $place[1] ? Craft::t('speedy', '{template}, line {line}', ['template' => $place[0], 'line' => $place[1]]) : $place[0];
+    }
+
+    /**
+     * The Twig template and line that ran a query, from the calls that led to it.
+     *
+     * @param array<int, array<string, mixed>> $traces
+     * @return array{0: string, 1: ?int}|null
+     */
+    private function place(array $traces): ?array
+    {
         $traces = array_values($traces);
         foreach ($traces as $i => $trace) {
             $file = (string)($trace['file'] ?? '');
@@ -426,6 +471,11 @@ class Queries extends Component
                 /** @var \Twig\Template $template */
                 $template = (new \ReflectionClass($class))->newInstanceWithoutConstructor();
                 $name = $template->getTemplateName();
+                // A string rendered as a template, such as a URI format or a plugin’s setting, has no file to change:
+                // look further up, for the template file that rendered it.
+                if (str_starts_with($name, self::STRING_TEMPLATE)) {
+                    continue;
+                }
                 $line = null;
                 // Twig’s map from the compiled PHP line to the template line.
                 foreach ($template->getDebugInfo() as $phpLine => $twigLine) {
@@ -438,10 +488,83 @@ class Queries extends Component
                 continue;
             }
 
-            return $line ? Craft::t('speedy', '{template}, line {line}', ['template' => $name, 'line' => $line]) : $name;
+            return [$name, $line ? (int)$line : null];
         }
 
         return null;
+    }
+
+    /** Lines shown before and after the line that ran a query. */
+    private const CODE_AROUND = 3;
+
+    /**
+     * Adds the template code around where each query ran to the report’s rows, for the utility page.
+     *
+     * @param array<int, array<string, mixed>> $pages Rows of report() or broad().
+     * @param string $list `repeated` or `broad`.
+     * @return array<int, array<string, mixed>>
+     */
+    public function withCode(array $pages, string $list): array
+    {
+        foreach ($pages as &$page) {
+            foreach ($page[$list] ?? [] as $i => $query) {
+                [$template, $line] = isset($query['template']) ? [(string)$query['template'], $query['line'] ?? null] : $this->parsePlace((string)($query['at'] ?? ''));
+                $page[$list][$i]['code'] = $template !== '' && $line ? $this->code($template, (int)$line) : null;
+            }
+        }
+
+        return $pages;
+    }
+
+    /**
+     * The template and line from a place saved before they were kept apart, such as `news/_index, line 12`.
+     *
+     * @return array{0: string, 1: ?int}
+     */
+    private function parsePlace(string $at): array
+    {
+        return preg_match('/^(.+), line (\d+)$/', $at, $m) ? [$m[1], (int)$m[2]] : ['', null];
+    }
+
+    /** @var array<string, string[]|null> */
+    private array $_sources = [];
+
+    /**
+     * The lines of a site template around one line, numbered from 1, or null when the template can’t be found.
+     *
+     * @return array{line: int, lines: array<int, string>}|null
+     */
+    public function code(string $template, int $line): ?array
+    {
+        if (!array_key_exists($template, $this->_sources)) {
+            $this->_sources[$template] = null;
+            $view = Craft::$app->getView();
+            $mode = $view->getTemplateMode();
+            try {
+                $view->setTemplateMode(\craft\web\View::TEMPLATE_MODE_SITE);
+                $file = $view->resolveTemplate($template);
+            } catch (\Throwable) {
+                $file = false;
+            } finally {
+                $view->setTemplateMode($mode);
+            }
+            // Only Twig and HTML templates, and not huge ones.
+            if ($file && preg_match('/\.(twig|html)$/i', $file) && is_file($file) && filesize($file) < 1024 * 1024) {
+                $this->_sources[$template] = preg_split('/\r\n|\r|\n/', (string)file_get_contents($file)) ?: null;
+            }
+        }
+        $source = $this->_sources[$template];
+        if ($source === null || $line < 1 || $line > count($source)) {
+            return null;
+        }
+        $from = max(1, $line - self::CODE_AROUND);
+        $to = min(count($source), $line + self::CODE_AROUND);
+        $lines = [];
+        for ($n = $from; $n <= $to; $n++) {
+            $lines[$n] = mb_strimwidth($source[$n - 1], 0, 300, '…');
+        }
+
+        return ['line' => $line, 'lines' => $lines];
     }
 
     /** @var array<string, ?string> */
