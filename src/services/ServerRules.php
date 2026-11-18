@@ -228,11 +228,12 @@ class ServerRules extends Component
     }
 
     /**
-     * Whether robots.txt rules for all search engines (`User-agent: *`) disallow a path, such as `/speedy/`.
+     * Whether robots.txt keeps every search engine out of a path, such as `/speedy/`. A search engine follows only
+     * the group naming it, or `User-agent: *` if none does, so there must be a `*` group and every group must disallow it.
      */
     public static function robotsDisallows(string $robots, string $path): bool
     {
-        $forAll = false;
+        $groups = [];
         $inAgents = false;
         foreach (preg_split('/\R/', $robots) ?: [] as $line) {
             $line = trim((string)preg_replace('/#.*/', '', $line));
@@ -242,20 +243,23 @@ class ServerRules extends Component
             [$field, $value] = array_map('trim', explode(':', $line, 2));
             $field = strtolower($field);
             if ($field === 'user-agent') {
-                // A run of User-agent lines starts a new group.
-                $forAll = ($inAgents && $forAll) || $value === '*';
+                // A run of User-agent lines starts one group.
+                if (!$inAgents) {
+                    $groups[] = ['all' => false, 'out' => false];
+                }
+                $groups[count($groups) - 1]['all'] = $groups[count($groups) - 1]['all'] || $value === '*';
                 $inAgents = true;
                 continue;
             }
             $inAgents = false;
-            if ($forAll && $field === 'disallow' && $value !== '') {
+            if ($groups && $field === 'disallow' && $value !== '') {
                 $prefix = rtrim(rtrim($value, '$'), '*');
                 if ($prefix === '' || str_starts_with($path, $prefix)) {
-                    return true;
+                    $groups[count($groups) - 1]['out'] = true;
                 }
             }
         }
 
-        return false;
+        return in_array(true, array_column($groups, 'all'), true) && !in_array(false, array_column($groups, 'out'), true);
     }
 }

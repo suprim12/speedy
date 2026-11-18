@@ -282,6 +282,9 @@ class FileStorageTest extends TestCase
         $this->assertFalse($disallows("User-agent: *\nDisallow: /admin/"));
         $this->assertFalse($disallows("User-agent: BadBot\nDisallow: /\n\nUser-agent: *\nDisallow: /admin/"), 'Only one search engine kept out.');
         $this->assertFalse($disallows("User-agent: *\nAllow: /speedy/"));
+        $this->assertFalse($disallows("User-agent: *\nDisallow: /speedy/\n\nUser-agent: Googlebot\nDisallow: /admin/"), 'A search engine with a group of its own follows only that group.');
+        $this->assertTrue($disallows("User-agent: *\nDisallow: /speedy/\n\nUser-agent: Googlebot\nDisallow: /speedy/\nDisallow: /admin/"), 'Every group keeps it out.');
+        $this->assertFalse($disallows("User-agent: Googlebot\nDisallow: /speedy/"), 'Other search engines aren’t kept out.');
 
         $client = fn(int $status, string $body) => new \GuzzleHttp\Client(['handler' => \GuzzleHttp\HandlerStack::create(new \GuzzleHttp\Handler\MockHandler([new \GuzzleHttp\Psr7\Response($status, [], $body)]))]);
         $rules = $this->plugin()->serverRules;
