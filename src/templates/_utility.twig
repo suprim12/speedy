@@ -184,6 +184,7 @@
 				<span class="light smalltext">
 					{{ 'Counted {time}.'|t('speedy', { time: coverage.time|datetime('short') }) }}
 					{% if coverage.never %}{{ '{count, plural, =1{# page is} other{# pages are}} left out by Never cache or Only cache.'|t('speedy', { count: coverage.never }) }}{% endif %}
+					{% if coverage.redirects ?? false %}{{ '{count, plural, =1{# page redirects} other{# pages redirect}} elsewhere, so there’s nothing to cache.'|t('speedy', { count: coverage.redirects }) }}{% endif %}
 					{% if coverage.noTemplate ?? false %}{{ '{count, plural, =1{# page is} other{# pages are}} left out because their template doesn’t exist: {sections}.'|t('speedy', { count: coverage.noTemplate|reduce((sum, n) => sum + n, 0), sections: coverage.noTemplate|keys|join(', ') }) }}{% endif %}
 					{% if coverage.capped %}{{ 'Only the first {count} pages are counted.'|t('speedy', { count: constant('suprim\\speedy\\services\\Insights::COVERAGE_MOST')|number }) }}{% endif %}
 				</span>

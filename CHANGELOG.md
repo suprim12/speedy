@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixed
+- **Coverage** on the utility page counted entries that redirect elsewhere, such as ones that only link to another page, as pages that couldn’t be built. They’re now left out of the count, with a note of how many redirect.
 - An entry’s address with its letters in another case, such as `/News` for `/news`, opens the same entry, but each spelling was cached as a copy of its own, so made-up spellings could fill the cache. Only the URI’s own spelling is cached now (`X-Speedy: SKIP url case`), and copies kept from before are removed when they’re next rebuilt.
 - On sites whose `index.php` changes the address before Craft starts, such as taking a prefix off to show the same page another way, both addresses shared one cached copy, so visitors to one could get the version built for the other. Each address now keeps its own copy, sent by the web server like any other page. Any other change to the address, such as adding a language, is no longer cached (`X-Speedy: SKIP rewritten URL`).
 

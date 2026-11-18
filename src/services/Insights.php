@@ -101,6 +101,7 @@ class Insights extends Component
 
         $groups = [];
         $never = 0;
+        $redirects = 0;
         $noTemplate = [];
         $count = 0;
         foreach ($sites ? Craft::$app->getElements()->getAllElementTypes() : [] as $class) {
@@ -137,6 +138,11 @@ class Insights extends Component
                     $noTemplate[$label] = ($noTemplate[$label] ?? 0) + 1;
                     continue;
                 }
+                // Such as an entry type that only links elsewhere: there’s no page to cache.
+                if ($unbuilt[$url]['redirect'] ?? false) {
+                    $redirects++;
+                    continue;
+                }
                 $id = "$class:$groupId";
                 $groups[$id] ??= ['label' => $labels($groupId), 'total' => 0, 'cached' => 0, 'missing' => [], 'failed' => []];
                 $groups[$id]['total']++;
@@ -157,6 +163,7 @@ class Insights extends Component
             'total' => array_sum(array_column($groups, 'total')),
             'cached' => array_sum(array_column($groups, 'cached')),
             'never' => $never,
+            'redirects' => $redirects,
             'noTemplate' => $noTemplate,
             'groups' => array_values($groups),
             'time' => time(),

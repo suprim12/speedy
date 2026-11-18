@@ -134,6 +134,7 @@ class Warmer extends Component
         $failed = [];
         // Why each page failed, such as “status 401”, so the log and the utility page can say.
         $why = [];
+        $redirects = [];
         $changed = [];
         $total = count($urls);
         $done = 0;
@@ -162,7 +163,7 @@ class Warmer extends Component
         };
         $pool = new Pool($client, $requests(), [
             'concurrency' => max(1, $plugin->getSettings()->warmConcurrency),
-            'fulfilled' => function(ResponseInterface $response, string $url) use (&$built, &$failed, &$why, &$changed, &$done, $total, $progress) {
+            'fulfilled' => function(ResponseInterface $response, string $url) use (&$built, &$failed, &$why, &$redirects, &$changed, &$done, $total, $progress) {
                 $state = $response->getHeaderLine(Cacher::HEADER);
                 if ($state === 'WARM' || $state === 'MISS') {
                     $built[] = $url;
@@ -173,6 +174,9 @@ class Warmer extends Component
                     $failed[] = $url;
                     $status = $response->getStatusCode();
                     $location = $response->getHeaderLine('Location');
+                    if ($status >= 300 && $status < 400 && $location !== '') {
+                        $redirects[$url] = true;
+                    }
                     // Such as “SKIP private” for a page that answered, or “status 404”; Speedy’s own “SKIP status 404” adds nothing.
                     $why[$url] = match (true) {
                         $status >= 300 && $status < 400 && $location !== '' => Craft::t('speedy', 'redirects to {url}', ['url' => self::shortUrl($location, $url)]),
@@ -202,7 +206,7 @@ class Warmer extends Component
         // Copies kept from before a spelling of an address in other letter case stopped being cached: removed below,
         // as they should be, rather than reported as rebuilds that failed.
         $retired = array_keys(array_filter($why, fn($w) => $w === 'SKIP url case'));
-        $this->noteUnbuilt($built, array_values(array_diff($failed, $retired)), $why);
+        $this->noteUnbuilt($built, array_values(array_diff($failed, $retired)), $why, $redirects);
 
         if ($rebuild) {
             // A page that can’t be rebuilt (now a 404, now private…) mustn’t stay cached.
@@ -260,7 +264,7 @@ class Warmer extends Component
     /**
      * Pages that couldn’t be built when last tried, and why, such as “status 404”.
      *
-     * @return array<string, array{why: string, time: int}>
+     * @return array<string, array{why: string, time: int, redirect?: bool}>
      */
     public function unbuilt(): array
     {
@@ -273,8 +277,9 @@ class Warmer extends Component
      * @param string[] $built
      * @param string[] $failed
      * @param array<string, string> $why
+     * @param array<string, bool> $redirects The pages that redirect elsewhere, which have nothing to cache.
      */
-    private function noteUnbuilt(array $built, array $failed, array $why): void
+    private function noteUnbuilt(array $built, array $failed, array $why, array $redirects = []): void
     {
         $storage = Plugin::getInstance()->storage;
         $unbuilt = $storage->readData('unbuilt');
@@ -284,7 +289,7 @@ class Warmer extends Component
         $unbuilt = array_diff_key($unbuilt, array_flip($built));
         foreach ($failed as $url) {
             unset($unbuilt[$url]);
-            $unbuilt[$url] = ['why' => (string)($why[$url] ?? ''), 'time' => time()];
+            $unbuilt[$url] = ['why' => (string)($why[$url] ?? ''), 'time' => time()] + (isset($redirects[$url]) ? ['redirect' => true] : []);
         }
         $since = time() - self::UNBUILT_DAYS * 86400;
         $unbuilt = array_slice(array_filter($unbuilt, fn($u) => $u['time'] >= $since), -self::UNBUILT_MOST, null, true);

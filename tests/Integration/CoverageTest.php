@@ -69,6 +69,27 @@ class CoverageTest extends TestCase
         $this->assertArrayNotHasKey($entry->getUrl(), $warmer->unbuilt(), 'Forgotten once it’s built.');
     }
 
+    public function testPagesThatRedirectAreLeftOut(): void
+    {
+        $entry = $this->anEntry();
+        $warmer = $this->plugin()->warmer;
+        $note = fn(array $built, array $failed, array $why, array $redirects = []) => $this->noteUnbuilt($built, $failed, $why, $redirects);
+        $before = $this->plugin()->insights->coverage(true);
+
+        $note->call($warmer, [], [$entry->getUrl()], [$entry->getUrl() => 'redirects to /elsewhere'], [$entry->getUrl() => true]);
+        $after = $this->plugin()->insights->coverage(true);
+        $this->assertSame($before['redirects'] + 1, $after['redirects']);
+        $this->assertSame($before['total'] - 1, $after['total'], 'Not counted as a page to cache.');
+        foreach ($after['groups'] as $group) {
+            $this->assertArrayNotHasKey($entry->getUrl(), $group['failed'], 'Nor as one that couldn’t be built.');
+            $this->assertNotContains($entry->getUrl(), $group['missing']);
+        }
+
+        // Once it's a page again and built, it counts again.
+        $note->call($warmer, [$entry->getUrl()], [], []);
+        $this->assertSame($before['total'], $this->plugin()->insights->coverage(true)['total']);
+    }
+
     public function testNeverCacheIsLeftOut(): void
     {
         $entry = $this->anEntry();
