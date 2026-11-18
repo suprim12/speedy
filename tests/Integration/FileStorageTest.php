@@ -45,6 +45,10 @@ class FileStorageTest extends TestCase
     public function testTheFolderHtaccessIsUpdatedForBrotli(): void
     {
         $storage = $this->plugin()->storage;
+        // A folder that isn’t there isn’t made: a console command run as root would make it root’s.
+        $storage->protectFolder();
+        $this->assertDirectoryDoesNotExist("$this->tmp/web");
+
         mkdir("$this->tmp/web", 0775, true);
         // As written by Speedy before 1.4.1.
         file_put_contents("$this->tmp/web/.htaccess", "# Speedy Cache: pages here are only sent through the site’s rewrite rules.\nRewriteRule \\.html\\.gz$ - [L]\n");

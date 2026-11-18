@@ -135,6 +135,14 @@ class PagesTest extends TestCase
         $this->assertSame(200, $this->get($page, ['headers' => ['If-Modified-Since' => gmdate('D, d M Y H:i:s', time() - 3600) . ' GMT']])->getStatusCode(), 'A copy from before it was built gets the page.');
     }
 
+    public function testThePageWithAVisitorsOwnTokenHasNoETag(): void
+    {
+        // The visitor who builds a page with a form gets their own CSRF token in it, unlike the saved copy.
+        $first = $this->get('form');
+        $this->assertSame('MISS', $this->speedy($first));
+        $this->assertSame('', $first->getHeaderLine('ETag'), 'So their browser can’t keep using it with an old token.');
+    }
+
     public function testCachesThenServesTheSameCopy(): void
     {
         $first = $this->get('plain');

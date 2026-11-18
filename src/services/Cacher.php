@@ -340,8 +340,8 @@ class Cacher extends Component
                 Craft::$app->end(0, $response);
             }
         }
-        $encodings = $request instanceof Request ? strtolower((string)$request->getHeaders()->get('Accept-Encoding')) : '';
-        $page = $storage->read($key, str_contains($encodings, 'gzip'), (bool)preg_match('/\bbr\b/', $encodings));
+        $encodings = self::acceptedEncodings($request instanceof Request ? (string)$request->getHeaders()->get('Accept-Encoding') : '');
+        $page = $storage->read($key, isset($encodings['gzip']), isset($encodings['br']));
         if ($page === null) {
             return false;
         }
@@ -351,6 +351,32 @@ class Cacher extends Component
             $headers->set('Content-Encoding', $encoding);
         }
         Craft::$app->end(0, $response);
+    }
+
+    /**
+     * The compressions a browser accepts, from its Accept-Encoding header, such as `gzip, br`. One it marks `q=0`,
+     * such as `br;q=0`, is refused, so it isn’t one of them.
+     *
+     * @return array<string, true>
+     */
+    public static function acceptedEncodings(string $header): array
+    {
+        $accepted = [];
+        foreach (explode(',', strtolower($header)) as $part) {
+            $bits = array_map('trim', explode(';', $part));
+            $name = array_shift($bits);
+            $q = 1.0;
+            foreach ($bits as $bit) {
+                if (preg_match('/^q\s*=\s*([0-9.]+)$/', $bit, $m)) {
+                    $q = (float)$m[1];
+                }
+            }
+            if ($name !== '' && $q > 0) {
+                $accepted[$name] = true;
+            }
+        }
+
+        return $accepted;
     }
 
     /**
@@ -513,8 +539,10 @@ class Cacher extends Component
 
         $response->getHeaders()->set(self::HEADER, $this->_warming ? 'WARM' : 'MISS');
         // The same ETag the cached copy is sent with, so this visitor’s next visit can be answered with 304.
+        // Not when this copy has the visitor’s own CSRF token, where the saved one has a fresh one each time: their
+        // browser mustn’t keep using it once the token has expired.
         $created = (int)(Plugin::getInstance()->storage->meta((string)$this->_key)['created'] ?? 0);
-        if (!$this->_warming && $created > 0) {
+        if (!$this->_warming && $created > 0 && !str_contains($html, self::CSRF_PLACEHOLDER)) {
             $response->getHeaders()->set('ETag', self::etag((string)$this->_key, $created));
             $response->getHeaders()->set('Last-Modified', gmdate('D, d M Y H:i:s', $created) . ' GMT');
         }

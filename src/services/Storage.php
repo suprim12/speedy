@@ -948,11 +948,13 @@ APACHE);
     }
 
     /**
-     * Makes sure the cache folder has its .gitignore and .htaccess, such as before the server rules are copied.
+     * Makes sure the cache folder has an up-to-date .gitignore and .htaccess, such as before the server rules are
+     * copied. Only a folder that’s there already: one made now, such as by a console command run as root, could be
+     * owned by a user the web server can’t write as.
      */
     public function protectFolder(): void
     {
-        if (!$this->usesCache() && $this->unsafeFolder() === null) {
+        if (!$this->usesCache() && $this->unsafeFolder() === null && is_dir($this->cacheRoot())) {
             $this->protectCacheFolder();
         }
     }

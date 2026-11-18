@@ -74,6 +74,16 @@ class HostsAndKeysTest extends TestCase
         $this->assertSame($warmer->token('https://example.com/craft/de/news', $expires), $warmer->tokenFor('example.com', '/craft/de/news', [], $expires));
     }
 
+    public function testCompressionsTheBrowserRefusesArentSent(): void
+    {
+        $accepted = fn(string $header) => array_keys(\suprim\speedy\services\Cacher::acceptedEncodings($header));
+        $this->assertSame(['gzip', 'deflate', 'br'], $accepted('gzip, deflate, br'));
+        $this->assertSame(['gzip'], $accepted('br;q=0, gzip'), 'q=0 means never.');
+        $this->assertSame(['gzip', 'br'], $accepted('GZIP;q=0.5, br; q=1.0'));
+        $this->assertSame([], $accepted(''));
+        $this->assertNotContains('br', $accepted('gzip, brotli'), 'Only the exact name.');
+    }
+
     public function testRedirectsAreShownShort(): void
     {
         $short = fn(string $to) => \suprim\speedy\services\Warmer::shortUrl($to, 'https://example.com/now-selling');
