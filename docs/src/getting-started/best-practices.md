@@ -22,7 +22,7 @@ What to set up so pages stay fast and correct, and the surprises that catch site
 
 - **Rebuild, don’t clear.** After a deploy that changes templates, run `php craft speedy/clear --rebuild`: visitors keep getting the old pages until the new ones are ready. Clearing everything makes every visitor wait for pages to be built again, and clears your CDN.
 - **Rebuild when templates or the front-end build changed.** Cached pages link to the CSS and JavaScript they were built with, whose names change with their contents. PHP and config changes don’t change cached pages ([Clear on deploy](/recipes/deploy)).
-- **Keep the previous build’s CSS and JavaScript** until pages are rebuilt, so cached pages never link to files that are gone ([Keep the old CSS and JavaScript](/recipes/deploy#keep-the-old-css-and-javascript)).
+- **Keep the previous build’s CSS and JavaScript, and `web/cpresources`,** until pages are rebuilt, so cached pages never link to files that are gone, such as a form plugin’s scripts. Don’t clear **Control panel resources** in a deploy ([Keep the old CSS and JavaScript](/recipes/deploy#keep-the-old-css-and-javascript)).
 - **Leave Speedy out of `clear-caches/all`** in deploy scripts. It includes **Speedy Cache pages**, so it empties the cache. Clear only the Craft caches you need, such as `clear-caches/compiled-templates` and `clear-caches/data`.
 
 ### Templates
@@ -59,7 +59,7 @@ What to set up so pages stay fast and correct, and the surprises that catch site
 
 ### Other surprises
 
-- **A deploy that removes the old CSS and JavaScript** leaves cached pages without their styles and scripts until they’re rebuilt, as they link to the old files by name. Keep the previous build’s files ([Keep the old CSS and JavaScript](/recipes/deploy#keep-the-old-css-and-javascript)).
+- **A deploy that removes the old CSS and JavaScript** leaves cached pages without their styles and scripts until they’re rebuilt, as they link to the old files by name. Plugins’ files in `web/cpresources` too: a new release with an empty `cpresources` breaks forms on cached pages. Keep both ([Keep the old CSS and JavaScript](/recipes/deploy#keep-the-old-css-and-javascript)). The utility page warns when it happens.
 - **Links that change something when opened,** such as “add to cart” or “unsubscribe” links, are fetched ahead with [instant links](/guides/instant-links) when a visitor points at them. Mark them `data-no-prefetch`, or better, make them forms.
 - **Cached pages committed to git, or copied with rsync,** overwrite another server’s pages. Run `git rm -r --cached web/speedy` once, and leave `web/speedy/` out of copies.
 - **Big pages make a big cache.** Each page is saved with a compressed copy, and each cached parameter value adds another copy of the page, up to `maxQueryPages`. Cap the total with `maxCacheSize`.

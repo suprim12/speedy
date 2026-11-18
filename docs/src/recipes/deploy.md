@@ -15,6 +15,10 @@ Rebuild after a new front-end build too. Cached pages link to the CSS and JavaSc
 
 Until a page is rebuilt, it still links to the old files. If the deploy removes them, such as by replacing `web/dist` with the new build, those pages show without their styles and scripts until they’re rebuilt. Keep the previous build’s files next to the new ones: the names never clash, so old pages keep working and new pages use the new files. Remove files more than a few days old now and then.
 
+Plugins’ files work the same way. Form plugins, among others, add their CSS and JavaScript from `web/cpresources`, in folders named after their files, which change when Composer installs them again. Keep `web/cpresources` between deploys too, and don’t clear **Control panel resources** in a deploy: Craft adds the new folders next to the old ones.
+
+If cached pages do link to files that are gone, the utility page says so, with an example, and **Rebuild all pages** fixes them.
+
 ## Clearing instead
 
 `speedy/clear` without `--rebuild` removes every page and clears your CDN, so each page is built again by its next visitor. Use it when the old pages mustn’t be shown at all, such as after removing content for legal reasons:
@@ -62,8 +66,10 @@ rm -rf release/web/speedy
 When activating it, before switching `current`:
 
 ```bash
-mkdir -p "$SHARED/web/speedy"
+mkdir -p "$SHARED/web/speedy" "$SHARED/web/cpresources"
 ln -s "$SHARED/web/speedy" "$RELEASE/web/speedy"
+# Plugins’ CSS and JavaScript, for pages built before this deploy
+ln -s "$SHARED/web/cpresources" "$RELEASE/web/cpresources"
 
 # Keep the previous build’s CSS and JavaScript, for pages built with it
 cp -rnp "$PREVIOUS/web/dist/assets/." "$RELEASE/web/dist/assets/"
