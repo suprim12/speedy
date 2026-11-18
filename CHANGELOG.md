@@ -1,17 +1,13 @@
 # Release Notes for Speedy Cache
 
-## Unreleased
-
-### Added
-- **Check CSS and JavaScript** on the utility page’s Setup tab says whether cached pages link to CSS or JavaScript that no longer exists, such as after a deploy replaced the built files, with an example. It only runs when clicked.
-
-### Changed
-- The utility page’s actions are grouped into three cards: every page, some pages, and checking a page. **Rebuild all pages** comes first, as it keeps the old copies until the new ones are ready.
-
 ## 1.4.1 - 2026-11-18
 
 ### Added
 - Pages sent by PHP answer “304 Not Modified” when the browser already has them, with `ETag` and `Last-Modified`, as the web server does for its own files, so returning visitors don’t download them again.
+- **Check CSS and JavaScript** on the utility page’s Setup tab says whether cached pages link to CSS or JavaScript that no longer exists, such as after a deploy replaced the built files, with an example. It only runs when clicked.
+
+### Changed
+- The utility page’s actions are grouped into three cards: every page, some pages, and checking a page. **Rebuild all pages** comes first, as it keeps the old copies until the new ones are ready.
 
 ### Fixed
 - Clearing everything left the Performance report and Speedy’s failed queue jobs about the pages it removed, so the utility page kept showing them. Both are now cleared with the pages.
