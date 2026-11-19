@@ -79,12 +79,28 @@ class UtilityController extends Controller
 
     public function actionClearSite(): ?Response
     {
-        $count = Plugin::getInstance()->clearer->clearSite((int)$this->request->getRequiredBodyParam('siteId'));
+        $ids = $this->idsParam('siteIds', 'siteId');
+        if (!$ids) {
+            return $this->asFailure(Craft::t('speedy', 'Choose a site to clear.'));
+        }
+        $count = Plugin::getInstance()->clearer->clearSites($ids);
         if ($count === null) {
             return $this->asFailure(Craft::t('speedy', 'That site doesn’t exist.'));
         }
 
-        return $count ? $this->asSuccess(Craft::t('speedy', '{count, plural, =1{# page} other{# pages}} cleared.', ['count' => $count])) : $this->asFailure(Craft::t('speedy', 'No pages of that site are cached.'));
+        return $count ? $this->asSuccess(Craft::t('speedy', '{count, plural, =1{# page} other{# pages}} cleared.', ['count' => $count])) : $this->asFailure(Craft::t('speedy', 'No pages of {n, plural, =1{that site} other{those sites}} are cached.', ['n' => count($ids)]));
+    }
+
+    /**
+     * The IDs chosen in a list, such as `sectionIds[]`, or the one in the field it replaced, such as `sectionId`.
+     *
+     * @return int[]
+     */
+    private function idsParam(string $list, string $one): array
+    {
+        $ids = $this->request->getBodyParam($list) ?: $this->request->getBodyParam($one);
+
+        return array_values(array_filter(array_map('intval', (array)$ids)));
     }
 
     /**
@@ -100,16 +116,20 @@ class UtilityController extends Controller
 
     public function actionClearSection(): ?Response
     {
-        $count = Plugin::getInstance()->clearer->clearSection((int)$this->request->getRequiredBodyParam('sectionId'));
+        $ids = $this->idsParam('sectionIds', 'sectionId');
+        if (!$ids) {
+            return $this->asFailure(Craft::t('speedy', 'Choose a section to clear.'));
+        }
+        $count = Plugin::getInstance()->clearer->clearSections($ids);
         if ($count === null) {
             return $this->asFailure(Craft::t('speedy', 'That section doesn’t exist.'));
         }
 
         if ($count === \suprim\speedy\services\Clearer::QUEUED) {
-            return $this->asSuccess(Craft::t('speedy', 'Clearing the section’s pages in the background. See Recent clears for how many.'));
+            return $this->asSuccess(Craft::t('speedy', 'Clearing the {n, plural, =1{section’s} other{sections’}} pages in the background. See Recent clears for how many.', ['n' => count($ids)]));
         }
 
-        return $count ? $this->asSuccess(Craft::t('speedy', '{count, plural, =1{# page} other{# pages}} cleared.', ['count' => $count])) : $this->asFailure(Craft::t('speedy', 'No cached pages show that section.'));
+        return $count ? $this->asSuccess(Craft::t('speedy', '{count, plural, =1{# page} other{# pages}} cleared.', ['count' => $count])) : $this->asFailure(Craft::t('speedy', 'No cached pages show {n, plural, =1{that section} other{those sections}}.', ['n' => count($ids)]));
     }
 
     public function actionWarm(): ?Response

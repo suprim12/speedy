@@ -108,4 +108,33 @@ class ClearPatternsTest extends TestCase
         $this->assertTrue($storage->exists('other.example/a'), 'Pages of other domains are kept.');
         $this->assertNull($this->plugin()->clearer->clearSite(999999));
     }
+
+    public function testClearsSeveralSitesAsOneClear(): void
+    {
+        $sites = array_values(array_filter(Craft::$app->getSites()->getAllSites(), fn($site) => $site->hasUrls));
+        $storage = $this->plugin()->storage;
+        $keys = [];
+        foreach ($sites as $site) {
+            $key = (string)$storage->keyForUrl(rtrim((string)$site->getBaseUrl(), '/') . '/speedy-sites-test');
+            $storage->write($key, '<html></html>', 'https://' . $key, [], null);
+            $keys[] = $key;
+        }
+        $storage->write('other.example/a', '<html></html>', 'https://other.example/a', [], null);
+        try {
+            $count = $this->plugin()->clearer->clearSites([...array_map(fn($site) => (int)$site->id, $sites), 999999]);
+            $this->assertSame(count(array_unique($keys)), $count, 'Unknown sites are skipped.');
+            foreach ($keys as $key) {
+                $this->assertFalse($storage->exists($key));
+            }
+            $this->assertTrue($storage->exists('other.example/a'));
+            if (count($sites) > 1) {
+                $this->assertStringContainsString($sites[0]->getName() . ', ' . $sites[1]->getName(), $this->plugin()->log->recent(1)[0]['reason']);
+            }
+            $this->assertNull($this->plugin()->clearer->clearSites([999999]));
+        } finally {
+            foreach ([...$keys, 'other.example/a'] as $key) {
+                $storage->delete($key);
+            }
+        }
+    }
 }

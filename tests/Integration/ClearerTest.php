@@ -181,4 +181,57 @@ class ClearerTest extends TestCase
             }
         }
     }
+
+    public function testClearingSeveralSectionsIsOneClear(): void
+    {
+        $sections = [];
+        foreach (\Craft::$app->getEntries()->getAllSections() as $section) {
+            $sections[] = $section;
+        }
+        if (count($sections) < 2) {
+            $this->markTestSkipped('Needs two sections.');
+        }
+        [$a, $b] = $sections;
+        $class = \craft\elements\Entry::class;
+        $storage = $this->plugin()->storage;
+        $pages = [
+            'example.com/speedy-test-listing-a' => ["element::$class::section:$a->id"],
+            'example.com/speedy-test-listing-b' => ["element::$class::section:$b->id"],
+            'example.com/speedy-test-other' => ['element::987654321'],
+        ];
+        $clearer = $this->plugin()->clearer;
+        $was = $clearer->sectionInRequest;
+        $clearer->sectionInRequest = PHP_INT_MAX;
+        try {
+            foreach ($pages as $key => $tags) {
+                $storage->write($key, '<html>Old</html>', 'https://' . $key, $tags, null);
+            }
+            $this->assertSame(2, $clearer->clearSections([$a->id, $b->id, $a->id, 987654321]), 'Unknown and repeated sections are skipped.');
+            $this->assertFalse($storage->exists('example.com/speedy-test-listing-a'));
+            $this->assertFalse($storage->exists('example.com/speedy-test-listing-b'));
+            $this->assertTrue($storage->exists('example.com/speedy-test-other'));
+            $this->assertStringStartsWith("Cleared the $a->name, $b->name sections", $this->plugin()->log->recent(1)[0]['reason'], 'One entry in Recent clears.');
+            $this->assertNull($clearer->clearSections([987654321]));
+            $this->assertNull($clearer->clearSections([]));
+        } finally {
+            $clearer->sectionInRequest = $was;
+            foreach (array_keys($pages) as $key) {
+                $storage->delete($key);
+            }
+        }
+    }
+
+    public function testTheClearFormsTakeSeveralIdsOrTheOldOne(): void
+    {
+        $controller = new \suprim\speedy\controllers\UtilityController('utility', $this->plugin());
+        $controller->request = new \craft\web\Request();
+        $ids = fn(array $body, string $list, string $one) => (function() use ($body, $list, $one) {
+            $this->request->setBodyParams($body);
+            return $this->idsParam($list, $one);
+        })->call($controller);
+        $this->assertSame([3, 5], $ids(['sectionIds' => ['3', '5']], 'sectionIds', 'sectionId'));
+        $this->assertSame([4], $ids(['sectionId' => '4'], 'sectionIds', 'sectionId'), 'The single select of 1.5 and before.');
+        $this->assertSame([], $ids(['sectionIds' => ''], 'sectionIds', 'sectionId'), 'Nothing chosen.');
+        $this->assertSame([2], $ids(['siteIds' => ['', '2']], 'siteIds', 'siteId'));
+    }
 }

@@ -123,6 +123,8 @@ class TemplatesTest extends TestCase
         $this->assertStringContainsString('Test Cloudflare', $html);
         $this->assertStringContainsString('Update Cloudflare’s cache rules', $html, 'Set up already.');
         $this->assertStringContainsString('<option value="2">Deutsch &lt;b&gt;z&lt;/b&gt;</option>', $html, 'Clear site, with the name escaped.');
+        $this->assertStringContainsString('name="siteIds[]"', $html, 'Several sites at once.');
+        $this->assertStringContainsString('name="sectionIds[]"', $html, 'Several sections at once.');
         $this->assertStringContainsString('/news/*', $html, 'Clear URL takes a pattern.');
         $this->assertStringContainsString('Set up for example.com, www.example.com', $html);
         $this->assertStringContainsString('77%', $html, 'Coverage, rounded down.');

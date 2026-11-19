@@ -592,23 +592,47 @@ class Clearer extends Component
      */
     public function clearSection(int $sectionId): ?int
     {
-        $section = Craft::$app->getEntries()->getSectionById($sectionId);
-        if ($section === null) {
+        return $this->clearSections([$sectionId]);
+    }
+
+    /**
+     * Clears every page that shows any of several sections, as one clear.
+     *
+     * @param int[] $sectionIds
+     * @return int|null How many pages were cleared, Clearer::QUEUED when it’s cleared in the background, or null when
+     * none of the sections exist.
+     */
+    public function clearSections(array $sectionIds): ?int
+    {
+        $sections = array_values(array_filter(array_map(
+            fn($id) => Craft::$app->getEntries()->getSectionById((int)$id),
+            array_unique($sectionIds),
+        )));
+        if (!$sections) {
             return null;
         }
         $class = \craft\elements\Entry::class;
-        $tags = ["element::$class::section:$section->id"];
-        foreach ($section->getEntryTypes() as $type) {
-            $tags[] = "element::$class::entryType:$type->id";
+        $tags = [];
+        foreach ($sections as $section) {
+            $tags[] = "element::$class::section:$section->id";
+            foreach ($section->getEntryTypes() as $type) {
+                $tags[] = "element::$class::entryType:$type->id";
+            }
+            foreach (\craft\elements\Entry::find()->sectionId($section->id)->status(null)->site('*')->unique()->ids() as $id) {
+                $tags[] = "element::$id";
+            }
         }
-        foreach (\craft\elements\Entry::find()->sectionId($section->id)->status(null)->site('*')->unique()->ids() as $id) {
-            $tags[] = "element::$id";
-        }
+        $tags = array_values(array_unique($tags));
         $user = Craft::$app->getUser()->getIdentity();
-        $reason = Craft::t('speedy', 'Cleared the {section} section{by, select, none{} other{ by {by}}}', [
-            'section' => $section->name,
-            'by' => $user ? (string)$user : 'none',
-        ]);
+        $reason = count($sections) === 1
+            ? Craft::t('speedy', 'Cleared the {section} section{by, select, none{} other{ by {by}}}', [
+                'section' => $sections[0]->name,
+                'by' => $user ? (string)$user : 'none',
+            ])
+            : Craft::t('speedy', 'Cleared the {sections} sections{by, select, none{} other{ by {by}}}', [
+                'sections' => implode(', ', array_map(fn($section) => $section->name, $sections)),
+                'by' => $user ? (string)$user : 'none',
+            ]);
         // Thousands of entries mean thousands of tags to look up: too many to wait for.
         if (count($tags) > $this->sectionInRequest) {
             Queue::push(new ClearJob(['tags' => $tags, 'reason' => $reason, 'byHand' => true]), 1024);
@@ -700,22 +724,42 @@ class Clearer extends Component
      */
     public function clearSite(int $siteId): ?int
     {
-        $site = Craft::$app->getSites()->getSiteById($siteId);
-        if ($site === null || !$site->hasUrls) {
+        return $this->clearSites([$siteId]);
+    }
+
+    /**
+     * Clears every page of several sites, as one clear.
+     *
+     * @param int[] $siteIds
+     * @return int|null How many pages were cleared, or null when none of the sites exist with pages.
+     */
+    public function clearSites(array $siteIds): ?int
+    {
+        $sites = [];
+        foreach (array_unique(array_map('intval', $siteIds)) as $id) {
+            $site = Craft::$app->getSites()->getSiteById($id);
+            if ($site !== null && $site->hasUrls) {
+                $sites[$id] = $site;
+            }
+        }
+        if (!$sites) {
             return null;
         }
         $keys = [];
         foreach (Plugin::getInstance()->storage->allKeys() as $key) {
-            if (($this->siteForKey($key)['id'] ?? null) === $siteId) {
+            if (isset($sites[$this->siteForKey($key)['id'] ?? 0])) {
                 $keys[] = $key;
             }
         }
         $user = Craft::$app->getUser()->getIdentity();
+        $by = $user ? (string)$user : 'none';
 
-        return $this->clearKeys($keys, Craft::t('speedy', 'Cleared the {site} site{by, select, none{} other{ by {by}}}', [
-            'site' => $site->getName(),
-            'by' => $user ? (string)$user : 'none',
-        ]));
+        return $this->clearKeys($keys, count($sites) === 1
+            ? Craft::t('speedy', 'Cleared the {site} site{by, select, none{} other{ by {by}}}', ['site' => reset($sites)->getName(), 'by' => $by])
+            : Craft::t('speedy', 'Cleared the {sites} sites{by, select, none{} other{ by {by}}}', [
+                'sites' => implode(', ', array_map(fn($site) => $site->getName(), $sites)),
+                'by' => $by,
+            ]));
     }
 
     /** @var array<int, array{id: int, host: ?string, path: string}>|null */
