@@ -123,8 +123,14 @@
 	{ label: '1 day'|t('speedy'), value: 86400 },
 	{ label: '1 week'|t('speedy'), value: 604800 },
 ] %}
+{% set sectionOptions = craft.app.entries.getAllSections()|filter(s => s.getSiteSettings()|filter(ss => ss.hasUrls)|length)|map(s => { label: s.name, value: s.handle }) %}
 {% set lifetimeRows = [] %}
 {% for handle, seconds in settings.sectionLifetimes %}
+	{# A section that was renamed, deleted or has no pages any more: listed as it is, so saving never moves its lifetime to another section. #}
+	{% if handle not in sectionOptions|column('value') %}
+		{% set section = craft.app.entries.getSectionByHandle(handle) %}
+		{% set sectionOptions = sectionOptions|merge([{ label: section ? '{name} (no pages)'|t('speedy', { name: section.name }) : '{handle} (not found)'|t('speedy', { handle: handle }), value: handle }]) %}
+	{% endif %}
 	{% set lifetimeRows = lifetimeRows|merge([{ section: handle, lifetime: seconds }]) %}
 	{# A lifetime set in config/speedy.php that isn’t one of the choices, so the table still shows it. #}
 	{% if seconds not in lifetimeOptions|column('value') %}
@@ -139,7 +145,7 @@
 		id: 'sectionLifetimes',
 		name: 'sectionLifetimes',
 		cols: {
-			section: { type: 'select', heading: 'Section'|t('speedy'), options: craft.app.entries.getAllSections()|filter(s => s.getSiteSettings()|filter(ss => ss.hasUrls)|length)|map(s => { label: s.name, value: s.handle }) },
+			section: { type: 'select', heading: 'Section'|t('speedy'), options: sectionOptions },
 			lifetime: { type: 'select', heading: 'Lifetime'|t('speedy'), options: lifetimeOptions },
 		},
 		rows: lifetimeRows,

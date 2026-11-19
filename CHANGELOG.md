@@ -1,5 +1,10 @@
 # Release Notes for Speedy Cache
 
+## Unreleased
+
+### Fixed
+- **Lifetimes by section** on the settings page showed a section that was renamed, deleted or no longer has pages as another section, so saving the settings moved its lifetime to that section. It’s now listed as it was saved, such as “news (not found)”.
+
 ## 1.5.0 - 2026-11-19
 
 ### Added
