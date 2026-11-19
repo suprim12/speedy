@@ -66,7 +66,7 @@ class SpeedyUtility extends Utility
             'cloudflareRules' => $plugin->cdn->cloudflareRules(),
             'coverage' => $plugin->insights->coverage(),
             'sites' => Craft::$app->getIsMultiSite() ? array_map(fn($s) => ['value' => $s->id, 'label' => $s->getName()], array_filter(Craft::$app->getSites()->getAllSites(), fn($s) => $s->hasUrls)) : [],
-            'sections' => array_map(fn($s) => ['value' => $s->id, 'label' => $s->name], Craft::$app->getEntries()->getAllSections()),
+            'sections' => self::groupOptions(),
             'log' => $plugin->log->recent(30),
             'queries' => $plugin->queries->withCode($plugin->queries->report(), 'repeated'),
             'slowest' => $plugin->queries->slowest(),
@@ -76,5 +76,32 @@ class SpeedyUtility extends Utility
             'nginx' => $plugin->serverRules->nginx(),
             'apache' => $plugin->serverRules->apache(),
         ]);
+    }
+
+    /**
+     * The sections to choose from for Clear section, with the category groups and Commerce product types under
+     * headings of their own when there are any.
+     *
+     * @return array<int, array{value?: int|string, label?: string, optgroup?: string}>
+     */
+    public static function groupOptions(): array
+    {
+        $sections = array_map(fn($s) => ['value' => $s->id, 'label' => $s->name], Craft::$app->getEntries()->getAllSections());
+        $others = [
+            Craft::t('speedy', 'Category groups') => array_map(fn($g) => ['value' => "categoryGroup:$g->id", 'label' => $g->name], Craft::$app->getCategories()->getAllGroups()),
+        ];
+        if (class_exists(\craft\commerce\Plugin::class) && \craft\commerce\Plugin::getInstance()) {
+            $others[Craft::t('speedy', 'Product types')] = array_map(fn($t) => ['value' => "productType:$t->id", 'label' => $t->name], \craft\commerce\Plugin::getInstance()->getProductTypes()->getAllProductTypes());
+        }
+        $others = array_filter($others);
+        if (!$others) {
+            return $sections;
+        }
+        $options = $sections ? [['optgroup' => Craft::t('speedy', 'Sections')], ...$sections] : [];
+        foreach ($others as $heading => $list) {
+            $options = [...$options, ['optgroup' => $heading], ...$list];
+        }
+
+        return $options;
     }
 }

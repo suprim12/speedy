@@ -68,6 +68,15 @@ class Settings extends Model
     /** Bunny pull zone ID. */
     public string $bunnyPullZoneId = '';
 
+    /** KeyCDN API key. */
+    public string $keycdnApiKey = '';
+
+    /** KeyCDN pull zone ID. */
+    public string $keycdnZoneId = '';
+
+    /** KeyCDN zone URL, such as `example-1a2b.kxcdn.com`; blank for a zone with Cache Key Host on, which keeps pages by their own domain. */
+    public string $keycdnZoneUrl = '';
+
     /** @var string[]|string Varnish servers to send PURGE and BAN requests to, such as `http://127.0.0.1:6081`. */
     public array|string $varnishUrls = [];
 
@@ -124,8 +133,20 @@ class Settings extends Model
     /** Count the database queries of pages Speedy rebuilds, and list the ones that run the same query again and again (N+1 queries). Visitors’ requests aren’t counted. */
     public bool $queryReport = true;
 
+    /**
+     * Seconds to keep the “not found” page of an address that doesn’t exist, sent by PHP with status 404, so bots asking
+     * for missing addresses don’t load the server. 0 doesn’t keep them. Forgotten whenever content changes.
+     */
+    public int $cacheNotFound = 0;
+
     /** How many pages are rebuilt at once. */
     public int $warmConcurrency = 2;
+
+    /**
+     * Rebuilding waits while the server’s load average, for each CPU core, is at least this, such as 2 for a load of 8
+     * on four cores. 0 never waits. Rebuilds wait at most about five minutes, then carry on.
+     */
+    public float $warmBusyLoad = 2.0;
 
     public const STORAGE_FILES = 'files';
     public const STORAGE_CRAFT_CACHE = 'craftCache';
@@ -341,6 +362,21 @@ class Settings extends Model
         return (string)App::parseEnv($this->bunnyPullZoneId);
     }
 
+    public function getKeycdnApiKey(): string
+    {
+        return (string)App::parseEnv($this->keycdnApiKey);
+    }
+
+    public function getKeycdnZoneId(): string
+    {
+        return (string)App::parseEnv($this->keycdnZoneId);
+    }
+
+    public function getKeycdnZoneUrl(): string
+    {
+        return trim((string)App::parseEnv($this->keycdnZoneUrl));
+    }
+
     /**
      * @return string[]
      */
@@ -475,6 +511,8 @@ class Settings extends Model
             [['queryStrings'], 'in', 'range' => ['skip', 'ignore']],
             [['storage'], 'in', 'range' => [self::STORAGE_FILES, self::STORAGE_CRAFT_CACHE]],
             [['warmConcurrency'], 'integer', 'min' => 1, 'max' => 10],
+            [['warmBusyLoad'], 'number', 'min' => 0],
+            [['cacheNotFound'], 'integer', 'min' => 0],
             [['maxQueryPages'], 'integer', 'min' => 1],
             [['maxCacheSize'], 'integer', 'min' => 1],
             [['broadRebuildDelay'], 'integer', 'min' => 0],

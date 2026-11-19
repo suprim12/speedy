@@ -209,6 +209,10 @@ class Clearer extends Component
     public function afterSave(ElementInterface $element): void
     {
         unset($this->_saving[spl_object_id($element)]);
+        if (Plugin::getInstance()->getSettings()->cacheNotFound > 0 && !ElementHelper::isDraftOrRevision($element)) {
+            // An address that had no page may have one now.
+            Cacher::forgetNotFound();
+        }
         $this->noteSaved($element);
     }
 
@@ -604,35 +608,39 @@ class Clearer extends Component
      */
     public function clearSections(array $sectionIds): ?int
     {
-        $sections = array_values(array_filter(array_map(
-            fn($id) => Craft::$app->getEntries()->getSectionById((int)$id),
-            array_unique($sectionIds),
-        )));
-        if (!$sections) {
+        return $this->clearGroups(array_map(fn($id) => 'section:' . (int)$id, $sectionIds));
+    }
+
+    /**
+     * Clears every page that shows any of several sections, category groups or Commerce product types, as one clear:
+     * their listings and the pages that show their elements.
+     *
+     * @param string[] $groups Such as `section:1`, `categoryGroup:2` or `productType:3`.
+     * @return int|null How many pages were cleared, Clearer::QUEUED when it’s cleared in the background, or null when
+     * none of them exist.
+     */
+    public function clearGroups(array $groups): ?int
+    {
+        $found = [];
+        foreach (array_unique($groups) as $group) {
+            $found[] = $this->group($group);
+        }
+        $found = array_values(array_filter($found));
+        if (!$found) {
             return null;
         }
-        $class = \craft\elements\Entry::class;
-        $tags = [];
-        foreach ($sections as $section) {
-            $tags[] = "element::$class::section:$section->id";
-            foreach ($section->getEntryTypes() as $type) {
-                $tags[] = "element::$class::entryType:$type->id";
-            }
-            foreach (\craft\elements\Entry::find()->sectionId($section->id)->status(null)->site('*')->unique()->ids() as $id) {
-                $tags[] = "element::$id";
-            }
-        }
-        $tags = array_values(array_unique($tags));
+        $tags = array_values(array_unique(array_merge(...array_column($found, 'tags'))));
         $user = Craft::$app->getUser()->getIdentity();
-        $reason = count($sections) === 1
-            ? Craft::t('speedy', 'Cleared the {section} section{by, select, none{} other{ by {by}}}', [
-                'section' => $sections[0]->name,
-                'by' => $user ? (string)$user : 'none',
-            ])
-            : Craft::t('speedy', 'Cleared the {sections} sections{by, select, none{} other{ by {by}}}', [
-                'sections' => implode(', ', array_map(fn($section) => $section->name, $sections)),
-                'by' => $user ? (string)$user : 'none',
-            ]);
+        $by = $user ? (string)$user : 'none';
+        $names = implode(', ', array_column($found, 'name'));
+        $kinds = array_unique(array_column($found, 'kind'));
+        $reason = match (true) {
+            count($found) === 1 && $kinds === ['section'] => Craft::t('speedy', 'Cleared the {section} section{by, select, none{} other{ by {by}}}', ['section' => $names, 'by' => $by]),
+            count($found) === 1 && $kinds === ['categoryGroup'] => Craft::t('speedy', 'Cleared the {group} category group{by, select, none{} other{ by {by}}}', ['group' => $names, 'by' => $by]),
+            count($found) === 1 => Craft::t('speedy', 'Cleared the {type} product type{by, select, none{} other{ by {by}}}', ['type' => $names, 'by' => $by]),
+            $kinds === ['section'] => Craft::t('speedy', 'Cleared the {sections} sections{by, select, none{} other{ by {by}}}', ['sections' => $names, 'by' => $by]),
+            default => Craft::t('speedy', 'Cleared {names}{by, select, none{} other{ by {by}}}', ['names' => $names, 'by' => $by]),
+        };
         // Thousands of entries mean thousands of tags to look up: too many to wait for.
         if (count($tags) > $this->sectionInRequest) {
             Queue::push(new ClearJob(['tags' => $tags, 'reason' => $reason, 'byHand' => true]), 1024);
@@ -641,6 +649,62 @@ class Clearer extends Component
         $this->markCleared($tags);
 
         return $this->clearKeys(Plugin::getInstance()->storage->takePagesForTags($tags), $reason);
+    }
+
+    /**
+     * A section, category group or product type by its reference, such as `section:1`, with its name and the tags of
+     * its listings and its elements’ pages. Null when there’s no such one.
+     *
+     * @return array{kind: string, name: string, tags: string[]}|null
+     */
+    private function group(string $group): ?array
+    {
+        if (!preg_match('/^(section|categoryGroup|productType):(\d+)$/', $group, $m)) {
+            return null;
+        }
+        [, $kind, $id] = $m;
+        $id = (int)$id;
+        $tags = [];
+        switch ($kind) {
+            case 'section':
+                $model = Craft::$app->getEntries()->getSectionById($id);
+                if ($model === null) {
+                    return null;
+                }
+                $class = \craft\elements\Entry::class;
+                $tags[] = "element::$class::section:$id";
+                foreach ($model->getEntryTypes() as $type) {
+                    $tags[] = "element::$class::entryType:$type->id";
+                }
+                $query = \craft\elements\Entry::find()->sectionId($id);
+                break;
+            case 'categoryGroup':
+                $model = Craft::$app->getCategories()->getGroupById($id);
+                if ($model === null) {
+                    return null;
+                }
+                $class = \craft\elements\Category::class;
+                $tags[] = "element::$class::group:$id";
+                $query = \craft\elements\Category::find()->groupId($id);
+                break;
+            default:
+                if (!class_exists(\craft\commerce\Plugin::class) || !\craft\commerce\Plugin::getInstance()) {
+                    return null;
+                }
+                $model = \craft\commerce\Plugin::getInstance()->getProductTypes()->getProductTypeById($id);
+                if ($model === null) {
+                    return null;
+                }
+                // By name, as Commerce may not be installed.
+                $class = 'craft\commerce\elements\Product';
+                $tags[] = "element::$class::productType:$id";
+                $query = $class::find()->typeId($id);
+        }
+        foreach ($query->status(null)->site('*')->unique()->ids() as $elementId) {
+            $tags[] = "element::$elementId";
+        }
+
+        return ['kind' => $kind, 'name' => (string)$model->name, 'tags' => $tags];
     }
 
     /**
@@ -937,6 +1001,7 @@ class Clearer extends Component
         }
         $count = $plugin->storage->stats()['pages'];
         Craft::$app->getCache()->set('speedy:cleared:all', microtime(true), 3600);
+        Cacher::forgetNotFound();
         if (!$plugin->storage->clearAll()) {
             $plugin->log->add(Craft::t('speedy', 'Couldn’t clear: the cache folder isn’t Speedy’s own'), 0, []);
             return false;

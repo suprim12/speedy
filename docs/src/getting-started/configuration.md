@@ -71,6 +71,8 @@ return [
 | `warm` | `false` | Pages to build after a full clear: `'sitemap'` or a list of URLs |
 | `sitemap` | `'sitemap.xml'` | The sitemap to read for `warm`, relative to each site |
 | `warmConcurrency` | `2` | How many pages are built at once |
+| `warmBusyLoad` | `2` | Rebuilding waits while the server’s load average for each CPU core is at least this, such as a load of 8 on four cores, so it doesn’t slow a busy server further. The rest of a rebuild waits 30 seconds at a time, ten times at most, then carries on. One page is still built each time. `0` never waits. Read on Linux servers; elsewhere rebuilding never waits |
+| `cacheNotFound` | `0` | Seconds to keep the “not found” page of an address that doesn’t exist, so bots asking for missing addresses don’t load the server. It’s kept in Craft’s cache, not the cache folder, and sent by PHP with status 404 (`X-Speedy: HIT 404`). Forgotten whenever content is saved and on **Clear all pages**; at most 1,000 at once. `0` doesn’t keep them. Also on the General tab |
 | `defaultTtl` | `null` | A maximum age for every page, in seconds ([Live data](/recipes/live-data)) |
 | `sectionLifetimes` | `[]` | A maximum age for the pages of a section’s entries, in seconds, by section handle, such as `['news' => 3600]` ([Scheduled content](/guides/scheduled#lifetimes-by-section)). Also on the General tab |
 | `apiKey` | `''` | A key of 16 characters or more for clearing over HTTP ([API](/guides/api)). Also on the Advanced tab. Empty turns the API off |
@@ -81,7 +83,7 @@ return [
 | `cloudflareToken`, `cloudflareZoneId` | | [Cloudflare](/guides/cloudflare) |
 | `cloudflareZones` | `[]` | A Cloudflare zone ID for each domain, such as `['example.com' => '$CF_ZONE_COM']` ([Several zones](/guides/cloudflare#several-domains)) |
 | `cloudfrontDistributionId`, `awsAccessKeyId`, `awsSecretAccessKey` | | [CloudFront](/guides/cloudfront). The keys fall back to `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` |
-| `fastlyToken`, `fastlyServiceId`, `bunnyApiKey`, `bunnyPullZoneId`, `varnishUrls` | | [Fastly, Bunny and Varnish](/guides/other-cdns) |
+| `fastlyToken`, `fastlyServiceId`, `bunnyApiKey`, `bunnyPullZoneId`, `keycdnApiKey`, `keycdnZoneId`, `keycdnZoneUrl`, `varnishUrls` | | [Fastly, Bunny, KeyCDN and Varnish](/guides/other-cdns) |
 | `warmUsername`, `warmPassword` | | For rebuilding pages on a site behind basic authentication, such as staging. Use environment variables |
 | `cdnMaxAge` | `31536000` | How long the CDN keeps pages, when Speedy can clear it. After it, the CDN sends the old copy while it fetches a new one, for up to a day; and while your site is down, it keeps sending pages for a day |
 | `wildcardThreshold` | `30` | CloudFront: more paths than this are grouped into wildcards |

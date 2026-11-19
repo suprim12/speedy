@@ -61,7 +61,7 @@ The most important promise of a page cache: a page built for one visitor never r
 
 - **Cloudflare:** the cache rules are set up without touching your other rules, and running it again only updates Speedy’s own. A token without the right permission says which one to add.
 - **CloudFront:** requests are signed exactly as AWS’s own reference example, and changed pages are grouped into wildcards to stay within the free paths.
-- **Fastly, Bunny and Varnish:** pages are purged by URL, and failures show the service’s own message.
+- **Fastly, Bunny, KeyCDN and Varnish:** pages are purged by URL, and failures show the service’s own message.
 
 CDN tests check each request against the service’s documented API, rather than sending it to a live account.
 

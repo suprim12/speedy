@@ -18,6 +18,7 @@ use suprim\speedy\events\PurgeEvent;
 use suprim\speedy\Plugin;
 use suprim\speedy\purgers\Bunny;
 use suprim\speedy\purgers\Fastly;
+use suprim\speedy\purgers\KeyCdn;
 use suprim\speedy\purgers\PurgerInterface;
 use suprim\speedy\purgers\Varnish;
 use suprim\speedy\services\cdn\CloudflareRules;
@@ -58,7 +59,7 @@ class Cdn extends Component
     public function purgers(): array
     {
         if ($this->_purgers === null) {
-            $event = new RegisterComponentTypesEvent(['types' => [Fastly::class, Bunny::class, Varnish::class]]);
+            $event = new RegisterComponentTypesEvent(['types' => [Fastly::class, Bunny::class, KeyCdn::class, Varnish::class]]);
             $this->trigger(self::EVENT_REGISTER_PURGERS, $event);
             $this->_purgers = [];
             foreach ($event->types as $class) {

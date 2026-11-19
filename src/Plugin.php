@@ -238,6 +238,7 @@ class Plugin extends BasePlugin
             ['rebuildAfterDeploy', $s->rebuildAfterDeploy, Craft::t('speedy', 'Rebuild every cached page when a deploy applies project config changes.')],
             ['queryReport', $s->queryReport, Craft::t('speedy', 'Count the queries of rebuilt pages and list repeated ones (N+1 queries).')],
             ['warmConcurrency', $s->warmConcurrency, Craft::t('speedy', 'How many pages are rebuilt at once.')],
+            ['warmBusyLoad', $s->warmBusyLoad, Craft::t('speedy', 'Rebuilding waits while the load for each CPU core is at least this. 0 never waits.')],
             ['sitemap', $s->sitemap, Craft::t('speedy', 'The sitemap read when rebuilding everything.')],
             ['cacheComment', $s->cacheComment, Craft::t('speedy', 'Add a “Cached by Speedy Cache” comment to cached pages.')],
             ['cloudflareZones', $s->getCloudflareZoneDomains(), Craft::t('speedy', 'Cloudflare zone IDs by domain, for sites on several domains.')],

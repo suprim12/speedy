@@ -61,6 +61,9 @@ class PageCheck extends Component
         } elseif ($last['speedy'] === '') {
             $result['answer'] = Craft::t('speedy', 'Speedy didn’t handle this address.');
             $result['why'] = Craft::t('speedy', 'The response has no `X-Speedy` header, so the request didn’t reach Craft with Speedy turned on: it may be a file, a redirect made by the web server, or another site.');
+        } elseif (in_array($last['speedy'], ['MISS 404', 'HIT 404'], true)) {
+            $result['answer'] = Craft::t('speedy', 'The page doesn’t exist (404).');
+            $result['why'] = Craft::t('speedy', 'Its “not found” page is kept for a while, as **Pages that don’t exist** asks, so missing addresses don’t load the server. It’s forgotten whenever content changes.');
         } elseif (str_starts_with($last['speedy'], 'SKIP ')) {
             $this->skipped($result, substr($last['speedy'], 5), $last, $url);
         } else {

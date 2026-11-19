@@ -229,9 +229,87 @@ class ClearerTest extends TestCase
             $this->request->setBodyParams($body);
             return $this->idsParam($list, $one);
         })->call($controller);
-        $this->assertSame([3, 5], $ids(['sectionIds' => ['3', '5']], 'sectionIds', 'sectionId'));
-        $this->assertSame([4], $ids(['sectionId' => '4'], 'sectionIds', 'sectionId'), 'The single select of 1.5 and before.');
-        $this->assertSame([], $ids(['sectionIds' => ''], 'sectionIds', 'sectionId'), 'Nothing chosen.');
+        $groups = fn(array $body) => (function() use ($body) {
+            $this->request->setBodyParams($body);
+            return $this->groupsParam();
+        })->call($controller);
+        $this->assertSame(['section:3', 'categoryGroup:5', 'productType:7'], $groups(['sectionIds' => ['', '3', 'categoryGroup:5', 'productType:7', 'user:1', 'section:9']]), 'Only the kinds it clears, by their own value.');
+        $this->assertSame(['section:4'], $groups(['sectionId' => '4']), 'The single select of 1.5 and before.');
+        $this->assertSame([], $groups(['sectionIds' => '']), 'Nothing chosen.');
         $this->assertSame([2], $ids(['siteIds' => ['', '2']], 'siteIds', 'siteId'));
+        $this->assertSame([4], $ids(['siteId' => '4'], 'siteIds', 'siteId'));
+    }
+
+    public function testClearingACategoryGroupClearsItsListingsAndCategories(): void
+    {
+        $category = \craft\elements\Category::find()->status(null)->site('*')->one();
+        if (!$category) {
+            $this->markTestSkipped('Needs a category.');
+        }
+        $group = $category->getGroup();
+        $class = \craft\elements\Category::class;
+        $storage = $this->plugin()->storage;
+        $pages = [
+            'example.com/speedy-test-topics' => ["element::$class::group:$group->id"],
+            'example.com/speedy-test-topic' => ["element::$category->id"],
+            'example.com/speedy-test-other' => ['element::987654321'],
+        ];
+        $clearer = $this->plugin()->clearer;
+        $was = $clearer->sectionInRequest;
+        $clearer->sectionInRequest = PHP_INT_MAX;
+        try {
+            foreach ($pages as $key => $tags) {
+                $storage->write($key, '<html>Old</html>', 'https://' . $key, $tags, null);
+            }
+            $this->assertSame(2, $clearer->clearGroups(["categoryGroup:$group->id"]));
+            $this->assertFalse($storage->exists('example.com/speedy-test-topics'));
+            $this->assertFalse($storage->exists('example.com/speedy-test-topic'));
+            $this->assertTrue($storage->exists('example.com/speedy-test-other'));
+            $this->assertStringStartsWith("Cleared the $group->name category group", $this->plugin()->log->recent(1)[0]['reason']);
+            $this->assertNull($clearer->clearGroups(['categoryGroup:987654321', 'nonsense', 'user:1']));
+        } finally {
+            $clearer->sectionInRequest = $was;
+            foreach (array_keys($pages) as $key) {
+                $storage->delete($key);
+            }
+        }
+    }
+
+    public function testClearingAProductTypeAndASectionTogether(): void
+    {
+        if (!class_exists(\craft\commerce\Plugin::class) || !\craft\commerce\Plugin::getInstance()) {
+            $this->markTestSkipped('Needs Commerce.');
+        }
+        $product = \craft\commerce\elements\Product::find()->status(null)->one();
+        $entry = \craft\elements\Entry::find()->status(null)->one();
+        if (!$product || !$entry) {
+            $this->markTestSkipped('Needs a product and an entry.');
+        }
+        $type = $product->getType();
+        $section = $entry->getSection();
+        $class = \craft\commerce\elements\Product::class;
+        $storage = $this->plugin()->storage;
+        $pages = [
+            'example.com/speedy-test-shop' => ["element::$class::productType:$type->id"],
+            'example.com/speedy-test-product' => ["element::$product->id"],
+            'example.com/speedy-test-entry' => ["element::$entry->id"],
+            'example.com/speedy-test-other' => ['element::987654321'],
+        ];
+        $clearer = $this->plugin()->clearer;
+        $was = $clearer->sectionInRequest;
+        $clearer->sectionInRequest = PHP_INT_MAX;
+        try {
+            foreach ($pages as $key => $tags) {
+                $storage->write($key, '<html>Old</html>', 'https://' . $key, $tags, null);
+            }
+            $this->assertSame(3, $clearer->clearGroups(["productType:$type->id", "section:$section->id"]));
+            $this->assertTrue($storage->exists('example.com/speedy-test-other'));
+            $this->assertStringStartsWith("Cleared $type->name, $section->name", $this->plugin()->log->recent(1)[0]['reason']);
+        } finally {
+            $clearer->sectionInRequest = $was;
+            foreach (array_keys($pages) as $key) {
+                $storage->delete($key);
+            }
+        }
     }
 }

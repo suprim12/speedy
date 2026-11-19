@@ -10,6 +10,7 @@ use GuzzleHttp\Psr7\Response;
 use suprim\speedy\purgers\BasePurger;
 use suprim\speedy\purgers\Bunny;
 use suprim\speedy\purgers\Fastly;
+use suprim\speedy\purgers\KeyCdn;
 use suprim\speedy\purgers\Varnish;
 use suprim\speedy\tests\TestCase;
 
@@ -60,6 +61,32 @@ class PurgersTest extends TestCase
 
         $bunny->purgeAll();
         $this->assertSame('https://api.bunny.net/pullzone/42/purgeCache', (string)$this->sent[1]['request']->getUri());
+    }
+
+    public function testKeyCdn(): void
+    {
+        $this->settings()->keycdnApiKey = 'sk_test';
+        $this->settings()->keycdnZoneId = '1000';
+        $this->settings()->keycdnZoneUrl = '';
+        $keycdn = $this->fake(new KeyCdn());
+
+        $this->assertTrue($keycdn->isConfigured());
+        $keycdn->purgeUrls(['https://www.example.com/news?page=2', 'https://www.example.com/']);
+        $request = $this->sent[0]['request'];
+        $this->assertSame('DELETE', $request->getMethod());
+        $this->assertSame('https://api.keycdn.com/zones/purgeurl/1000.json', (string)$request->getUri());
+        $this->assertSame('Basic ' . base64_encode('sk_test:'), $request->getHeaderLine('Authorization'), 'The key as the user name.');
+        $this->assertSame(['urls' => ['www.example.com/news?page=2', 'www.example.com/']], json_decode((string)$request->getBody(), true), 'Without the scheme.');
+
+        $this->settings()->keycdnZoneUrl = 'https://example-1a2b.kxcdn.com/';
+        $this->assertSame('example-1a2b.kxcdn.com/news', $keycdn->zoneUrl('https://www.example.com/news'), 'On the zone URL when one is set.');
+
+        $keycdn->purgeAll();
+        $this->assertSame('GET', $this->sent[1]['request']->getMethod());
+        $this->assertSame('https://api.keycdn.com/zones/purge/1000.json', (string)$this->sent[1]['request']->getUri());
+
+        $keycdn->test();
+        $this->assertSame('https://api.keycdn.com/zones/1000.json', (string)$this->sent[2]['request']->getUri());
     }
 
     public function testVarnish(): void

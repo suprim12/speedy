@@ -26,8 +26,15 @@ class WarmJob extends BaseJob
     /** @var array<string, string> The pages’ keys by URL, when known. */
     public array $keys = [];
 
+    /** How many times these pages have waited for a busy server. */
+    public int $waits = 0;
+
     /** Seconds kept free at the end of the queue’s time for a job, for the pages being built to finish (each may take 30). */
     private const TIME_LEFT = 60;
+
+    /** Seconds the rest of the pages wait while the server is busy, and how many times, so they’re never held up for long. */
+    public const WAIT = 30;
+    public const MOST_WAITS = 10;
 
     public function execute($queue): void
     {
@@ -35,15 +42,17 @@ class WarmJob extends BaseJob
         // slow pages, the pages not started in time are built by a job of their own instead.
         $until = $this->until($queue);
         $left = [];
+        $paused = false;
         Plugin::getInstance()->warmer->warm($this->urls, $this->rebuild, function(int $done, int $total) use ($queue) {
             $this->setProgress($queue, $done / max(1, $total), Craft::t('speedy', '{done} of {total}', ['done' => $done, 'total' => $total]));
-        }, $this->keys, $until, $left);
+        }, $this->keys, $until, $left, $this->waits < self::MOST_WAITS, $paused);
         if ($left) {
             Queue::push(new self([
                 'urls' => $left,
                 'rebuild' => $this->rebuild,
                 'keys' => array_intersect_key($this->keys, array_flip($left)),
-            ]), 1025);
+                'waits' => $this->waits + ($paused ? 1 : 0),
+            ]), 1025, $paused ? self::WAIT : null);
         }
     }
 

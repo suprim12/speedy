@@ -1,8 +1,8 @@
-# Fastly, Bunny and Varnish
+# Fastly, Bunny, KeyCDN and Varnish
 
-Besides [Cloudflare](/guides/cloudflare) and [CloudFront](/guides/cloudfront), Speedy clears Fastly, Bunny and Varnish. Add their details in **Settings → Plugins → Speedy Cache → CDN**, ideally as environment variables. Once they’re set, cached pages are sent with `Cache-Control: public, s-maxage=…`, so the CDN keeps them, and Speedy clears changed pages from it. **Test** buttons appear on the utility page.
+Besides [Cloudflare](/guides/cloudflare) and [CloudFront](/guides/cloudfront), Speedy clears Fastly, Bunny, KeyCDN and Varnish. Add their details in **Settings → Plugins → Speedy Cache → CDN**, ideally as environment variables. Once they’re set, cached pages are sent with `Cache-Control: public, s-maxage=…`, so the CDN keeps them, and Speedy clears changed pages from it. **Test** buttons appear on the utility page.
 
-![The CDN tab: a card each for Cloudflare, CloudFront, Fastly, Bunny and Varnish](/images/settings-cdn.jpg)
+![The CDN tab: a card each for Cloudflare, CloudFront, Fastly, Bunny, KeyCDN and Varnish](/images/settings-cdn.jpg)
 
 ## Fastly
 
@@ -23,6 +23,15 @@ Changed pages are purged by URL; **Clear all pages** purges the whole service. S
 3. Add them to `.env` and enter `$BUNNY_API_KEY` and `$BUNNY_PULL_ZONE_ID` in the settings.
 
 Changed pages are purged by URL; **Clear all pages** purges the pull zone.
+
+## KeyCDN
+
+1. In the KeyCDN dashboard, copy your API key from **Account Settings → Authentication**.
+2. Copy the zone’s ID from **Zones**.
+3. Add them to `.env` and enter `$KEYCDN_API_KEY` and `$KEYCDN_ZONE_ID` in the settings.
+4. Enter the zone URL, such as `example-1a2b.kxcdn.com`. Leave it blank if the zone has **Cache Key Host** turned on, so KeyCDN keeps pages by your own domain.
+
+Changed pages are purged by URL, in batches, as KeyCDN takes one purge a second; **Clear all pages** purges the zone. Speedy notices KeyCDN from the `X-Pull` header it sends with each request.
 
 ## Varnish
 

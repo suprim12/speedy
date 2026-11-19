@@ -152,7 +152,7 @@ class Cacher extends Component
 
         Plugin::getInstance()->cdn->detect($request);
 
-        if (!$this->_warming && $this->serve($this->_key)) {
+        if (!$this->_warming && ($this->serve($this->_key) || $this->serveNotFound($this->_key))) {
             return;
         }
 
@@ -161,7 +161,7 @@ class Cacher extends Component
         // A page is only saved from a request without cookies of its own, so nobody can put something into the
         // copy everyone gets by sending a made-up cookie. This visitor gets a page built for them.
         $this->_ownCookies = !$this->_warming && $this->hasOwnCookies();
-        if (!$this->_warming && !$this->_ownCookies && !$this->lockOrWait($this->_key) && $this->serve($this->_key)) {
+        if (!$this->_warming && !$this->_ownCookies && !$this->lockOrWait($this->_key) && ($this->serve($this->_key) || $this->serveNotFound($this->_key))) {
             return;
         }
 
@@ -362,6 +362,87 @@ class Cacher extends Component
         Craft::$app->end(0, $response);
     }
 
+    /** Craft cache key of the current set of kept “not found” pages: a new one forgets them all. */
+    private const NOT_FOUND_SET = 'speedy:notFoundSet';
+
+    /** The most “not found” pages kept at once, so made-up addresses can’t fill the cache. */
+    public const NOT_FOUND_MOST = 1000;
+
+    /**
+     * Whether a response is a “not found” page to keep for a while, as `cacheNotFound` asks. Never while rebuilding,
+     * where a 404 means the page has gone.
+     */
+    private function mayKeepNotFound(Response $response): bool
+    {
+        return $response->getStatusCode() === 404 && !$this->_warming && Plugin::getInstance()->getSettings()->cacheNotFound > 0;
+    }
+
+    /**
+     * Keeps a “not found” page for `cacheNotFound` seconds.
+     *
+     * @param array<string, string> $headers
+     * @return bool Whether it was kept: not once the most are kept already.
+     */
+    private function keepNotFound(string $key, string $html, array $headers): bool
+    {
+        $seconds = Plugin::getInstance()->getSettings()->cacheNotFound;
+        $cache = Craft::$app->getCache();
+        $set = self::notFoundSet();
+        $count = (int)$cache->get("speedy:notFoundCount:$set");
+        if ($count >= self::NOT_FOUND_MOST) {
+            return false;
+        }
+        $cache->set("speedy:notFoundCount:$set", $count + 1, $seconds);
+
+        return $cache->set("speedy:notFound:$set:" . md5($key), ['html' => $html, 'headers' => $headers], $seconds);
+    }
+
+    /**
+     * Sends a kept “not found” page, if there is one.
+     */
+    private function serveNotFound(string $key): bool
+    {
+        if (Plugin::getInstance()->getSettings()->cacheNotFound <= 0) {
+            return false;
+        }
+        $page = Craft::$app->getCache()->get('speedy:notFound:' . self::notFoundSet() . ':' . md5($key));
+        if (!is_array($page) || !isset($page['html'])) {
+            return false;
+        }
+        $response = Craft::$app->getResponse();
+        $response->format = Response::FORMAT_RAW;
+        $response->setStatusCode(404);
+        $headers = $response->getHeaders();
+        $headers->set('Content-Type', 'text/html; charset=UTF-8');
+        foreach ($page['headers'] ?? [] as $name => $value) {
+            $headers->set($name, $value);
+        }
+        $headers->set(self::HEADER, 'HIT 404');
+        $headers->set('Cache-Control', 'private, no-cache');
+        $response->content = (string)$page['html'];
+        Craft::$app->end(0, $response);
+    }
+
+    /**
+     * Forgets every kept “not found” page, such as when content changes: an address may have a page now.
+     */
+    public static function forgetNotFound(): void
+    {
+        Craft::$app->getCache()->set(self::NOT_FOUND_SET, bin2hex(random_bytes(6)));
+    }
+
+    private static function notFoundSet(): string
+    {
+        $set = Craft::$app->getCache()->get(self::NOT_FOUND_SET);
+        if (!is_string($set) || $set === '') {
+            // Never an old set again, should the cache have let this go: its pages are forgotten with it.
+            $set = bin2hex(random_bytes(6));
+            Craft::$app->getCache()->set(self::NOT_FOUND_SET, $set);
+        }
+
+        return $set;
+    }
+
     /**
      * The compressions a browser accepts, from its Accept-Encoding header, such as `gzip, br`. One it marks `q=0`,
      * such as `br;q=0`, is refused, so it isn’t one of them.
@@ -470,6 +551,19 @@ class Cacher extends Component
             return;
         }
 
+        if ($response->getStatusCode() === 404) {
+            // Kept apart from the pages, in Craft’s cache, so the web server never sends it as a page that loads.
+            $this->_neverSaved = true;
+            $headers = $response->getHeaders();
+            $headers->set('Cache-Control', 'private, no-cache');
+            if ($this->_ownCookies) {
+                $headers->set(self::HEADER, 'SKIP request cookies');
+                return;
+            }
+            $headers->set(self::HEADER, $this->keepNotFound((string)$this->_key, $this->prepareHtml((string)$response->content), $this->keptHeaders($response)) ? 'MISS 404' : 'SKIP status 404');
+            return;
+        }
+
         if ($this->_ownCookies) {
             // Build the copy for everyone in the background, from a request without cookies. Only for hosts known
             // for certain, so a made-up host can’t make the server request it.
@@ -568,7 +662,7 @@ class Cacher extends Component
 
         return match (true) {
             $this->_templateSkip => 'template',
-            $response->getStatusCode() !== 200 => 'status ' . $response->getStatusCode(),
+            $response->getStatusCode() !== 200 && !$this->mayKeepNotFound($response) => 'status ' . $response->getStatusCode(),
             $request instanceof Request && $this->inOtherCase($request) => 'url case',
             !str_contains(strtolower((string)$headers->get('Content-Type', 'text/html')), 'text/html') && $response->format !== Response::FORMAT_HTML => 'not html',
             !is_string($response->content) || $response->content === '' => 'empty',

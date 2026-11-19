@@ -74,4 +74,49 @@ class WarmTimeTest extends TestCase
         $this->assertTrue($job->rebuild, 'Still a rebuild, so pages that can’t be rebuilt are removed.');
         $this->assertSame(['https://example.com/speedy-test-b' => 'example.com/speedy-test-b'], $job->keys);
     }
+
+    public function testBusyByTheLoadForEachCore(): void
+    {
+        $warmer = $this->plugin()->warmer;
+        $limit = $this->settings()->warmBusyLoad;
+        try {
+            $this->settings()->warmBusyLoad = 2.0;
+            $warmer->load = 2.5;
+            $this->assertTrue($warmer->busy());
+            $warmer->load = 1.0;
+            $this->assertFalse($warmer->busy());
+            $warmer->load = 9.0;
+            $this->settings()->warmBusyLoad = 0;
+            $this->assertFalse($warmer->busy(), '0 never waits.');
+        } finally {
+            $this->settings()->warmBusyLoad = $limit;
+            $warmer->load = null;
+        }
+    }
+
+    public function testABusyServerMakesTheRestWait(): void
+    {
+        $urls = ['https://example.com/speedy-test-a', 'https://example.com/speedy-test-b', 'https://example.com/speedy-test-c'];
+        $warmer = $this->plugin()->warmer;
+        $limit = $this->settings()->warmBusyLoad;
+        $this->settings()->warmBusyLoad = 2.0;
+        $warmer->load = 5.0;
+        try {
+            (new WarmJob(['urls' => $urls, 'rebuild' => true]))->execute(Craft::$app->getQueue());
+            $rows = (new Query())->select(['job', 'delay'])->from('{{%queue}}')->where(['>', 'id', $this->lastJob])->all();
+            $this->assertCount(1, $rows);
+            $job = unserialize(is_resource($rows[0]['job']) ? stream_get_contents($rows[0]['job']) : $rows[0]['job']);
+            $this->assertSame(array_slice($urls, 1), $job->urls, 'One page is built anyway, so it always gets somewhere.');
+            $this->assertSame(1, $job->waits);
+            $this->assertSame(WarmJob::WAIT, (int)$rows[0]['delay'], 'The rest wait a while.');
+
+            // Having waited enough, they're built however busy the server is.
+            Craft::$app->getDb()->createCommand()->delete('{{%queue}}', ['>', 'id', $this->lastJob])->execute();
+            (new WarmJob(['urls' => $urls, 'rebuild' => false, 'waits' => WarmJob::MOST_WAITS]))->execute(Craft::$app->getQueue());
+            $this->assertSame(0, (int)(new Query())->from('{{%queue}}')->where(['>', 'id', $this->lastJob])->count());
+        } finally {
+            $this->settings()->warmBusyLoad = $limit;
+            $warmer->load = null;
+        }
+    }
 }

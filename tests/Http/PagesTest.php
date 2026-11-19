@@ -66,6 +66,12 @@ class PagesTest extends TestCase
 
     public static function tearDownAfterClass(): void
     {
+        // Only its own made-up parameter, out of the ones the utility lists as seen this week.
+        $seen = \Craft::$app->getCache()->get(\suprim\speedy\services\Cacher::SKIPPED_PARAMS);
+        if (is_array($seen) && isset($seen['speedytestparam'])) {
+            unset($seen['speedytestparam']);
+            \Craft::$app->getCache()->set(\suprim\speedy\services\Cacher::SKIPPED_PARAMS, $seen, 7 * 86400);
+        }
         if (isset(self::$dir) && is_dir(self::$dir)) {
             foreach (glob(self::$dir . '/*') ?: [] as $file) {
                 unlink($file);
@@ -529,7 +535,9 @@ class PagesTest extends TestCase
                 yield new \GuzzleHttp\Psr7\Request('GET', '/' . self::$prefix . "/plain?$param=$i");
             }
         };
-        (new \GuzzleHttp\Pool($this->client(), $requests(), ['concurrency' => 10]))->promise()->wait();
+        // A few at a time: visits saving the counts at the same moment can lose one, which a rough count allows, but
+        // too many at once could leave it short of a suggestion.
+        (new \GuzzleHttp\Pool($this->client(), $requests(), ['concurrency' => 3]))->promise()->wait();
 
         try {
             $seen = Plugin::getInstance()->insights->skippedParams();

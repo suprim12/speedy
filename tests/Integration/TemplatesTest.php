@@ -47,7 +47,7 @@ class TemplatesTest extends TestCase
         $row = ['url' => 'https://example.com/news', 'time' => time(), 'queries' => 82, 'ms' => 316, 'repeated' => [['count' => 42, 'sql' => 'FROM `entries` WHERE `id` = ?', 'at' => 'news/_index, line 9', 'tip' => 'Entries are fetched one item at a time <b>inside</b> a loop.']]];
 
         return [
-            'sections' => $full ? [['value' => 1, 'label' => 'News <b>x</b>']] : [],
+            'sections' => $full ? [['optgroup' => 'Sections'], ['value' => 1, 'label' => 'News <b>x</b>'], ['optgroup' => 'Category groups'], ['value' => 'categoryGroup:2', 'label' => 'Topics']] : [],
             'sites' => $full ? [['value' => 1, 'label' => 'English'], ['value' => 2, 'label' => 'Deutsch <b>z</b>']] : [],
             'pageCheck' => $full ? ['url' => 'https://example.com/homes?view=map', 'cached' => false, 'answer' => 'Not cached: query string.', 'why' => 'The address has a query string with `view` <b>x</b>.', 'fix' => 'Add it to **Cached parameters**.', 'notes' => ['You’re logged in.'], 'visits' => ['First visit: X-Speedy: SKIP query string, status 200, 40 ms']] : null,
             'checks' => $full ? [['level' => 'error', 'message' => 'Problem **here**'], ['level' => 'hint', 'message' => 'See [Repeated queries](#queries).']] : [],
@@ -141,6 +141,8 @@ class TemplatesTest extends TestCase
         $this->assertStringContainsString('Why isn’t this page cached?', $html);
         $this->assertStringContainsString('speedy/utility/check-assets', $html, 'Check CSS and JavaScript, on the Setup tab.');
         $this->assertStringContainsString('<option value="1">News &lt;b&gt;x&lt;/b&gt;</option>', $html, 'Clear section, with the name escaped.');
+        $this->assertStringContainsString('<optgroup label="Category groups">', $html, 'Category groups under their own heading.');
+        $this->assertStringContainsString('<option value="categoryGroup:2">Topics</option>', $html);
         $this->assertStringContainsString('speedy-check--warning speedy-pagecheck__result', $html);
         $this->assertStringContainsString('<strong>Cached parameters</strong>', $html, 'The answer’s Markdown.');
         $this->assertStringContainsString('value="https://example.com/homes?view=map"', $html, 'The address stays in the field.');

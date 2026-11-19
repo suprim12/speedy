@@ -158,7 +158,7 @@
 	}) }}
 </div>
 
-<div class="flex-fields">
+<div class="flex-fields speedy-paths">
 	{{ forms.selectField({
 		label: 'When content changes'|t('speedy'),
 		instructions: 'Rebuilding keeps the old copy until the new one is ready, so nobody waits.'|t('speedy'),
@@ -184,6 +184,28 @@
 		value: warmIsList ? 'list' : (settings.warm == 'sitemap' ? 'sitemap' : ''),
 		disabled: 'warm' in overrides,
 		warning: 'warm' in overrides ? configWarning('warm'),
+	}) }}
+</div>
+
+{% set notFoundOptions = [
+	{ label: 'Don’t keep them'|t('speedy'), value: 0 },
+	{ label: '1 minute'|t('speedy'), value: 60 },
+	{ label: '5 minutes'|t('speedy'), value: 300 },
+	{ label: '1 hour'|t('speedy'), value: 3600 },
+] %}
+{% if settings.cacheNotFound not in notFoundOptions|column('value') %}
+	{% set notFoundOptions = notFoundOptions|merge([{ label: '{count, plural, =1{# second} other{# seconds}}'|t('speedy', { count: settings.cacheNotFound }), value: settings.cacheNotFound }]) %}
+{% endif %}
+<div class="flex-fields">
+	{{ forms.selectField({
+		label: 'Pages that don’t exist (404)'|t('speedy'),
+		instructions: 'Keep the “not found” page for a while, so bots asking for missing addresses don’t load the server. It’s forgotten whenever content changes.'|t('speedy'),
+		fieldClass: 'width-50',
+		name: 'cacheNotFound',
+		options: notFoundOptions,
+		value: settings.cacheNotFound,
+		disabled: 'cacheNotFound' in overrides,
+		warning: 'cacheNotFound' in overrides ? configWarning('cacheNotFound'),
 	}) }}
 </div>
 
@@ -263,7 +285,7 @@
 <p class="speedy-intro">{{ 'Optional. Set the details for the CDN or proxy in front of your site: it then keeps pages too, and Speedy clears them when content changes. Without them, it’s told not to keep pages, so it never shows old ones. Use environment variables, such as $CLOUDFLARE_TOKEN.'|t('speedy') }}</p>
 
 <div class="speedy-cdns">
-	{% for cdn in ['cloudflare', 'cloudfront', 'fastly', 'bunny', 'varnish'] %}
+	{% for cdn in ['cloudflare', 'cloudfront', 'fastly', 'bunny', 'keycdn', 'varnish'] %}
 		<div class="speedy-cdn {{ detected == cdn ? 'speedy-cdn--seen' }}">
 			<div class="speedy-cdn__about">
 				<h3>{{ cdnNames[cdn] }}</h3>
@@ -340,6 +362,23 @@
 					disabled: 'bunnyPullZoneId' in overrides,
 					warning: 'bunnyPullZoneId' in overrides ? configWarning('bunnyPullZoneId'),
 				}) }}
+			{% elseif cdn == 'keycdn' %}
+				{% for field in [
+					{ name: 'keycdnApiKey', label: 'API key'|t('speedy'), instructions: 'Account Settings → Authentication in the KeyCDN dashboard.'|t('speedy') },
+					{ name: 'keycdnZoneId', label: 'Zone ID'|t('speedy') },
+					{ name: 'keycdnZoneUrl', label: 'Zone URL'|t('speedy'), instructions: 'Such as example-1a2b.kxcdn.com. Leave blank when the zone has Cache Key Host on.'|t('speedy') },
+				] %}
+					{{ forms.autosuggestField({
+						label: field.label,
+						instructions: field.instructions ?? null,
+						name: field.name,
+						value: attribute(settings, field.name),
+						suggestEnvVars: true,
+						tip: '',
+						disabled: field.name in overrides,
+						warning: field.name in overrides ? configWarning(field.name),
+					}) }}
+				{% endfor %}
 			{% elseif cdn == 'varnish' %}
 				{{ forms.textareaField({
 					label: 'Varnish servers'|t('speedy'),

@@ -115,7 +115,7 @@ const rulesCmd = 'php craft speedy/server-rules'
     <section class="sh-hero">
       <div class="sh-wrap sh-hero__head" data-reveal>
         <h1>Fast pages, cleared just right</h1>
-        <p class="sh-lead">Speedy Cache saves your Craft pages as static files and clears only the ones that change. No database tables, no template changes, and Cloudflare, CloudFront, Fastly, Bunny and Varnish built in. Save something below and see what clears.</p>
+        <p class="sh-lead">Speedy Cache saves your Craft pages as static files and clears only the ones that change. No database tables, no template changes, and Cloudflare, CloudFront, Fastly, Bunny, KeyCDN and Varnish built in. Save something below and see what clears.</p>
         <p class="sh-actions">
           <a class="sh-btn" :href="withBase('/getting-started/installation')">Get started</a>
           <a class="sh-link sh-link--light" :href="withBase('/guides/clearing')">How clearing works →</a>
@@ -337,7 +337,7 @@ php craft plugin/install speedy</code></pre>
           </div>
           <div class="sh-step" data-step="2">
             <p class="sh-step__say">Add your CDN, if you have one.</p>
-            <p class="sh-step__note">Cloudflare, CloudFront, Fastly, Bunny or Varnish, on the CDN tab in Settings → Plugins → Speedy Cache.</p>
+            <p class="sh-step__note">Cloudflare, CloudFront, Fastly, Bunny, KeyCDN or Varnish, on the CDN tab in Settings → Plugins → Speedy Cache.</p>
           </div>
         </div>
         <div class="sh-frame" aria-hidden="true">

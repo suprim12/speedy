@@ -78,6 +78,7 @@
 				<button type="submit" class="btn">{{ 'Clear URL'|t('speedy') }}</button>
 			</form>
 			{% if sections ?? false %}
+				{% set groupsToo = sections|filter(o => o.optgroup is defined)|length > 0 %}
 				<form method="post" class="speedy-tool__row">
 					{{ csrfInput() }}{{ actionInput('speedy/utility/clear-section') }}
 					{{ forms.selectize({
@@ -85,9 +86,9 @@
 						multi: true,
 						options: sections,
 						inputAttributes: { aria: { label: 'Sections to clear'|t('speedy') } },
-						selectizeOptions: { placeholder: 'Choose sections'|t('speedy') },
+						selectizeOptions: { placeholder: (groupsToo ? 'Choose sections or groups' : 'Choose sections')|t('speedy') },
 					}) }}
-					<button type="submit" class="btn" title="{{ 'Its listings and the pages that show its entries.'|t('speedy') }}">{{ 'Clear section'|t('speedy') }}</button>
+					<button type="submit" class="btn" title="{{ 'Their listings and the pages that show their entries.'|t('speedy') }}">{{ 'Clear section'|t('speedy') }}</button>
 				</form>
 			{% endif %}
 			{% if sites ?? false %}

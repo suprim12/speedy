@@ -92,6 +92,27 @@ class UtilityController extends Controller
     }
 
     /**
+     * The sections, category groups and product types chosen, such as `section:1` and `categoryGroup:2`. A plain ID is a
+     * section’s, as sent by the single select of 1.5 and before, in `sectionId`.
+     *
+     * @return string[]
+     */
+    private function groupsParam(): array
+    {
+        $groups = [];
+        foreach ((array)($this->request->getBodyParam('sectionIds') ?: $this->request->getBodyParam('sectionId')) as $value) {
+            $value = trim((string)$value);
+            if ($value !== '' && ctype_digit($value)) {
+                $groups[] = "section:$value";
+            } elseif (preg_match('/^(categoryGroup|productType):\d+$/', $value)) {
+                $groups[] = $value;
+            }
+        }
+
+        return $groups;
+    }
+
+    /**
      * The IDs chosen in a list, such as `sectionIds[]`, or the one in the field it replaced, such as `sectionId`.
      *
      * @return int[]
@@ -114,22 +135,26 @@ class UtilityController extends Controller
         return $this->redirectToPostedUrl();
     }
 
+    /**
+     * Clears the sections, category groups and product types chosen, such as `sectionIds[]=1` and
+     * `sectionIds[]=categoryGroup:2`.
+     */
     public function actionClearSection(): ?Response
     {
-        $ids = $this->idsParam('sectionIds', 'sectionId');
-        if (!$ids) {
+        $groups = $this->groupsParam();
+        if (!$groups) {
             return $this->asFailure(Craft::t('speedy', 'Choose a section to clear.'));
         }
-        $count = Plugin::getInstance()->clearer->clearSections($ids);
+        $count = Plugin::getInstance()->clearer->clearGroups($groups);
         if ($count === null) {
             return $this->asFailure(Craft::t('speedy', 'That section doesn’t exist.'));
         }
 
         if ($count === \suprim\speedy\services\Clearer::QUEUED) {
-            return $this->asSuccess(Craft::t('speedy', 'Clearing the {n, plural, =1{section’s} other{sections’}} pages in the background. See Recent clears for how many.', ['n' => count($ids)]));
+            return $this->asSuccess(Craft::t('speedy', 'Clearing their pages in the background. See Recent clears for how many.'));
         }
 
-        return $count ? $this->asSuccess(Craft::t('speedy', '{count, plural, =1{# page} other{# pages}} cleared.', ['count' => $count])) : $this->asFailure(Craft::t('speedy', 'No cached pages show {n, plural, =1{that section} other{those sections}}.', ['n' => count($ids)]));
+        return $count ? $this->asSuccess(Craft::t('speedy', '{count, plural, =1{# page} other{# pages}} cleared.', ['count' => $count])) : $this->asFailure(Craft::t('speedy', 'No cached pages show {n, plural, =1{that section} other{those sections}}.', ['n' => count($groups)]));
     }
 
     public function actionWarm(): ?Response

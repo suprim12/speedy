@@ -109,10 +109,13 @@ class Warmer extends Component
      * @param array<string, string> $keys The pages’ keys by URL, when known.
      * @param float|null $until No page but the first is started after this time (a Unix time), such as near the end of a queue job’s time.
      * @param string[]|null $left Set to the pages not started by then, to build later.
+     * @param bool $pauseWhenBusy Whether to stop starting pages while the server is busy, leaving them in `$left`.
+     * @param bool $paused Set to whether it stopped because the server was busy.
      * @return array{built: int, failed: int}
      */
-    public function warm(array $urls, bool $rebuild, ?callable $progress = null, array $keys = [], ?float $until = null, ?array &$left = null): array
+    public function warm(array $urls, bool $rebuild, ?callable $progress = null, array $keys = [], ?float $until = null, ?array &$left = null, bool $pauseWhenBusy = false, bool &$paused = false): array
     {
+        $paused = false;
         $plugin = Plugin::getInstance();
         if ($rebuild) {
             // Changes from now on need another rebuild, as this one may have started before them.
@@ -142,11 +145,17 @@ class Warmer extends Component
         $skipped = [];
         $left = [];
         $urls = array_values($urls);
-        $requests = function() use ($urls, $plugin, $until, &$skipped, &$why, &$left) {
+        $requests = function() use ($urls, $plugin, $until, $pauseWhenBusy, &$skipped, &$why, &$left, &$paused) {
             foreach ($urls as $i => $url) {
                 // At least one page each time, so a job that started late still makes progress.
                 if ($until !== null && $i > 0 && microtime(true) >= $until) {
                     $left = array_slice($urls, $i);
+                    return;
+                }
+                // The server is busy, such as with a rush of visitors: the rest wait, so they don’t slow it further.
+                if ($pauseWhenBusy && $i > 0 && $this->busy()) {
+                    $left = array_slice($urls, $i);
+                    $paused = true;
                     return;
                 }
                 $parts = parse_url($url);
@@ -255,6 +264,40 @@ class Warmer extends Component
         }
 
         return ['built' => count($built), 'failed' => count($failed)];
+    }
+
+    /** The server’s load average for each CPU core, replaceable in tests; read from the server when null. */
+    public ?float $load = null;
+
+    private ?int $_cpus = null;
+
+    /**
+     * Whether the server is too busy to rebuild pages now, by its load average for each CPU core and `warmBusyLoad`.
+     * Never where the load or the number of cores can’t be read, such as on Windows.
+     */
+    public function busy(): bool
+    {
+        $limit = Plugin::getInstance()->getSettings()->warmBusyLoad;
+        if ($limit <= 0) {
+            return false;
+        }
+        $load = $this->load ?? $this->loadPerCpu();
+
+        return $load !== null && $load >= $limit;
+    }
+
+    private function loadPerCpu(): ?float
+    {
+        $load = function_exists('sys_getloadavg') ? @sys_getloadavg() : false;
+        if (!is_array($load)) {
+            return null;
+        }
+        if ($this->_cpus === null) {
+            $info = @is_readable('/proc/cpuinfo') ? (string)@file_get_contents('/proc/cpuinfo') : '';
+            $this->_cpus = (int)preg_match_all('/^processor\s*:/m', $info);
+        }
+
+        return $this->_cpus > 0 ? $load[0] / $this->_cpus : null;
     }
 
     /** How many pages that couldn’t be built are remembered, for coverage, and for how long. */

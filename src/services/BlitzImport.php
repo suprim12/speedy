@@ -219,7 +219,7 @@ class BlitzImport extends Component
                 }
             }
         } elseif ($purger !== '' && !str_contains($purger, 'DummyPurger')) {
-            $notes[] = "Purger $purger has no direct match. Speedy clears Cloudflare, CloudFront, Fastly, Bunny and Varnish; see the CDN tab.";
+            $notes[] = "Purger $purger has no direct match. Speedy clears Cloudflare, CloudFront, Fastly, Bunny, KeyCDN and Varnish; see the CDN tab.";
         }
 
         if (!empty($blitz['ssiEnabled']) || !empty($blitz['esiEnabled'])) {

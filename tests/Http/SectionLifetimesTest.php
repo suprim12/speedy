@@ -56,6 +56,12 @@ class SectionLifetimesTest extends TestCase
 
     public static function tearDownAfterClass(): void
     {
+        // Only its own made-up parameter, out of the ones the utility lists as seen this week.
+        $seen = \Craft::$app->getCache()->get(\suprim\speedy\services\Cacher::SKIPPED_PARAMS);
+        if (is_array($seen) && isset($seen['speedy-test-probe'])) {
+            unset($seen['speedy-test-probe']);
+            \Craft::$app->getCache()->set(\suprim\speedy\services\Cacher::SKIPPED_PARAMS, $seen, 7 * 86400);
+        }
         $storage = Plugin::getInstance()->storage;
         if (self::$key !== '' && $storage->exists(self::$key)) {
             $storage->delete(self::$key);

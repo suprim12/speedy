@@ -6,6 +6,10 @@
 - A **Page cache** column for the entries, categories and products tables, chosen from the table's columns menu: whether each page is cached and when, or why it isn't.
 - A status endpoint for uptime monitors, `actions/speedy/api/status`: 200 while caching works, and 503 with the problems when something needs fixing, such as a stopped queue or a failed CDN clear. The **Advanced** tab of the settings shows its URL, with a token that can only read the status.
 - **Clear section** and **Clear site** in the utility take several sections or sites at once, cleared together as one clear.
+- **Clear section** also clears category groups and Commerce product types: their listings and the pages of their categories and products.
+- KeyCDN: changed pages are cleared from it, set up on the **CDN** tab.
+- **Pages that don’t exist (404)** on the General tab keeps the “not found” page for a while, so bots asking for missing addresses don’t load the server. It’s sent with status 404 and forgotten whenever content changes. Off by default.
+- Rebuilding waits while the server is busy, by its load for each CPU core (`warmBusyLoad`, 2 by default), for up to about five minutes.
 
 ### Fixed
 - **Lifetimes by section** on the settings page showed a section that was renamed, deleted or no longer has pages as another section, so saving the settings moved its lifetime to that section. It’s now listed as it was saved, such as “news (not found)”.

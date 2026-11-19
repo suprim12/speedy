@@ -8,7 +8,7 @@ const base = process.env.DOCS_BASE ?? '/'
 // The public address, for the sitemap, canonical links, link previews and llms.txt.
 const site = (process.env.DOCS_URL ?? 'https://plugins.speedy.suprim.com.au').replace(/\/$/, '')
 const srcDir = fileURLToPath(new URL('..', import.meta.url))
-const tagline = 'Full-page caching for Craft CMS, with no database tables and Cloudflare, CloudFront, Fastly, Bunny and Varnish built in'
+const tagline = 'Full-page caching for Craft CMS, with no database tables and Cloudflare, CloudFront, Fastly, Bunny, KeyCDN and Varnish built in'
 
 // A page’s address, from its file: guides/forms.md → /guides/forms, examples/index.md → /examples/.
 const pageUrl = (relativePath: string) => '/' + relativePath.replace(/\.md$/, '').replace(/(^|\/)index$/, '$1')
@@ -50,7 +50,7 @@ const sidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Switching from Another Cache', link: '/guides/switching' },
       { text: 'Cloudflare', link: '/guides/cloudflare' },
       { text: 'CloudFront', link: '/guides/cloudfront' },
-      { text: 'Fastly, Bunny and Varnish', link: '/guides/other-cdns' },
+      { text: 'Fastly, Bunny, KeyCDN and Varnish', link: '/guides/other-cdns' },
       { text: 'Warming and Rebuilding', link: '/guides/warming' },
       { text: 'Instant Links', link: '/guides/instant-links' },
       { text: 'Scheduled Content', link: '/guides/scheduled' },
