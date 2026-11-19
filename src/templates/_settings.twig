@@ -427,6 +427,11 @@
 		<pre class="speedy-code"><code>curl -X POST {{ siteUrl(craft.app.config.general.actionTrigger ~ '/speedy/api/clear') }} \
   -H "Authorization: Bearer $SPEEDY_API_KEY"</code></pre>
 	</div>
+	<div class="field">
+		<div class="heading"><label>{{ 'Status for uptime monitors'|t('speedy') }}</label></div>
+		<div class="instructions"><p>{{ 'Add this URL to a monitor such as Oh Dear or UptimeRobot. It answers 200 while caching works, and 503 with the problems when something needs fixing, such as a stopped queue or a failed CDN clear. Its token can only read the status; it changes when the API key does.'|t('speedy') }}</p></div>
+		<pre class="speedy-code"><code>{{ siteUrl(craft.app.config.general.actionTrigger ~ '/speedy/api/status', { statusToken: settings.getStatusToken() }) }}</code></pre>
+	</div>
 {% endif %}
 
 <hr>

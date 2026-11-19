@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+- A **Page cache** column for the entries, categories and products tables, chosen from the table's columns menu: whether each page is cached and when, or why it isn't.
+- A status endpoint for uptime monitors, `actions/speedy/api/status`: 200 while caching works, and 503 with the problems when something needs fixing, such as a stopped queue or a failed CDN clear. The **Advanced** tab of the settings shows its URL, with a token that can only read the status.
+
 ### Fixed
 - **Lifetimes by section** on the settings page showed a section that was renamed, deleted or no longer has pages as another section, so saving the settings moved its lifetime to that section. It’s now listed as it was saved, such as “news (not found)”.
 

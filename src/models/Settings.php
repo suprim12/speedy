@@ -368,6 +368,17 @@ class Settings extends Model
         return (string)App::parseEnv($this->apiKey);
     }
 
+    /**
+     * A token for the status endpoint only, made from the API key, so a monitor's URL can carry it: it can't clear or
+     * rebuild anything. Empty when the API is off. Changing the API key changes it.
+     */
+    public function getStatusToken(): string
+    {
+        $key = $this->getApiKey();
+
+        return strlen($key) < 16 ? '' : substr(hash_hmac('sha256', 'speedy-status', $key), 0, 32);
+    }
+
     public function isEnabled(): bool
     {
         // On hosts with a temporary disk, such as Craft Cloud, saved pages would vanish or differ between servers.

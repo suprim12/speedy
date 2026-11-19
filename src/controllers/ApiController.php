@@ -23,12 +23,15 @@ use yii\web\Response;
  *   POST actions/speedy/api/clear  urls[]=…     those pages
  *   POST actions/speedy/api/clear  tags[]=…     pages tagged with craft.speedy.tag()
  *   POST actions/speedy/api/rebuild             every page, keeping old copies until the new ones are ready
+ *   GET  actions/speedy/api/status              for uptime monitors: 200 while all is well, 503 with the problems
  *
- * Send the key in an `Authorization: Bearer …` header, or as a `key` field in the POST body. Never in the URL.
+ * Send the key in an `Authorization: Bearer …` header, or as a `key` field in the POST body. Never in the URL. The
+ * status can also be read with `?statusToken=…`, a token made from the key that can't do anything else. (Craft keeps
+ * `token` for its own share links.)
  */
 class ApiController extends Controller
 {
-    protected array|int|bool $allowAnonymous = ['clear', 'rebuild'];
+    protected array|int|bool $allowAnonymous = ['clear', 'rebuild', 'status'];
 
     // Requests come from other systems, authenticated by the key rather than a session.
     public $enableCsrfValidation = false;
@@ -38,11 +41,25 @@ class ApiController extends Controller
         if (!parent::beforeAction($action)) {
             return false;
         }
-        $this->requirePostRequest();
-        $key = Plugin::getInstance()->getSettings()->getApiKey();
+        $settings = Plugin::getInstance()->getSettings();
+        $key = $settings->getApiKey();
         if (strlen($key) < 16) {
             throw new NotFoundHttpException();
         }
+        if ($action->id === 'status') {
+            if (!in_array($this->request->getMethod(), ['GET', 'HEAD'], true)) {
+                throw new \yii\web\BadRequestHttpException('Use GET.');
+            }
+            $given = (string)preg_replace('/^Bearer\s+/i', '', (string)$this->request->getHeaders()->get('Authorization'));
+            $token = (string)$this->request->getQueryParam('statusToken', '');
+            if (!($given !== '' && hash_equals($key, $given)) && !($token !== '' && hash_equals($settings->getStatusToken(), $token))) {
+                throw new ForbiddenHttpException('Invalid API key or status token.');
+            }
+            $this->response->getHeaders()->set('Cache-Control', 'private, no-store');
+
+            return true;
+        }
+        $this->requirePostRequest();
         $given = (string)preg_replace('/^Bearer\s+/i', '', (string)$this->request->getHeaders()->get('Authorization'));
         if ($given === '') {
             // For senders that can't set headers, such as some webhooks. Never from the query string, which ends up in logs.
@@ -54,6 +71,17 @@ class ApiController extends Controller
         $this->response->getHeaders()->set('Cache-Control', 'private, no-store');
 
         return true;
+    }
+
+    /**
+     * Whether caching works, for uptime monitors: 200 while all is well, 503 with the problems that need fixing.
+     */
+    public function actionStatus(): Response
+    {
+        $status = Plugin::getInstance()->insights->status();
+        $this->response->setStatusCode($status['ok'] ? 200 : 503);
+
+        return $this->asJson($status);
     }
 
     /** The most URLs with `*` in one call. */

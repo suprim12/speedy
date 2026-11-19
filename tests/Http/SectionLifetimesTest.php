@@ -14,6 +14,8 @@ use suprim\speedy\Plugin;
  */
 class SectionLifetimesTest extends TestCase
 {
+    use KeepsSettings;
+
     private static string $base;
 
     private static ?Entry $entry = null;
@@ -67,9 +69,8 @@ class SectionLifetimesTest extends TestCase
         $plugin = Plugin::getInstance();
         $before = $plugin->getSettings()->sectionLifetimes;
         $handle = (string)self::$entry->getSection()->handle;
-        $this->assertTrue(Craft::$app->getPlugins()->savePluginSettings($plugin, ['sectionLifetimes' => [$handle => 300]]));
-        // Craft saves project config changes at the end of a request: now, so the site sees it.
-        Craft::$app->getProjectConfig()->saveModifiedConfigData();
+        self::keepSettings();
+        self::changeSettings(['sectionLifetimes' => [$handle => 300]]);
         try {
             $client = new Client(['http_errors' => false, 'verify' => false, 'cookies' => false, 'allow_redirects' => false]);
             $start = time();
@@ -79,8 +80,7 @@ class SectionLifetimesTest extends TestCase
             $this->assertGreaterThanOrEqual($start + 300 - 2, $expires);
             $this->assertLessThanOrEqual(time() + 300, $expires, 'No later than the lifetime.');
         } finally {
-            Craft::$app->getPlugins()->savePluginSettings($plugin, ['sectionLifetimes' => $before]);
-            Craft::$app->getProjectConfig()->saveModifiedConfigData();
+            self::putSettingsBack();
         }
         $this->assertSame($before, $plugin->getSettings()->sectionLifetimes, 'Put back as it was.');
     }

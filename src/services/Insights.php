@@ -304,7 +304,7 @@ class Insights extends Component
      *
      * @return array{state: string, label: string, detail: ?string, pages: int}|null
      */
-    public function forElement(ElementInterface $element): ?array
+    public function forElement(ElementInterface $element, bool $countPages = true): ?array
     {
         if (!$element->id || ElementHelper::isDraftOrRevision($element)) {
             return null;
@@ -315,7 +315,8 @@ class Insights extends Component
         }
         $plugin = Plugin::getInstance();
         $settings = $plugin->getSettings();
-        $pages = $plugin->storage->countPagesForTag("element::$element->id");
+        // Reading the tag's list for each row of an element index would be slow, and the column doesn't show it.
+        $pages = $countPages ? $plugin->storage->countPagesForTag("element::$element->id") : 0;
         $parts = parse_url($url);
         $path = trim($parts['path'] ?? '', '/');
 
@@ -342,6 +343,34 @@ class Insights extends Component
             'label' => Craft::t('speedy', 'Cached'),
             'detail' => $formatter->asRelativeTime($meta['created']) . (($meta['expires'] ?? null) ? ' · ' . Craft::t('speedy', 'rebuilt {time}', ['time' => $formatter->asRelativeTime($meta['expires'])]) : ''),
             'pages' => $pages,
+        ];
+    }
+
+    /**
+     * For uptime monitors: whether caching works, with the problems that need fixing, such as a stalled queue. The
+     * errors of the utility page's checks, as plain text, and caching being off.
+     *
+     * @return array{ok: bool, problems: string[], pages: int, enabled: bool, checked: string}
+     */
+    public function status(): array
+    {
+        $plugin = Plugin::getInstance();
+        // Off on purpose or not (such as on a temporary disk), a site that should be cached isn't.
+        $messages = $plugin->getSettings()->isEnabled() ? [] : [Craft::t('speedy', 'Caching is off, so pages are built for every visit.')];
+        foreach ($this->checks() as $check) {
+            if ($check['level'] === 'error') {
+                $messages[] = $check['message'];
+            }
+        }
+        // Plain text: links to the utility page's tabs and code marks mean nothing in a monitor's alert.
+        $problems = array_map(fn($m) => trim((string)preg_replace(['/\[([^\]]+)\]\([^)]*\)/', '/`/'], ['$1', ''], strip_tags($m))), $messages);
+
+        return [
+            'ok' => !$problems,
+            'problems' => $problems,
+            'pages' => $plugin->storage->cachedStats()['pages'],
+            'enabled' => $plugin->getSettings()->isEnabled(),
+            'checked' => gmdate('c'),
         ];
     }
 

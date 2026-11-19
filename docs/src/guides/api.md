@@ -47,3 +47,21 @@ curl -X POST https://example.com/actions/speedy/api/rebuild \
 | A wrong or missing key | 403 |
 
 Each request shows in **Recent clears** on the utility page. Keep the key out of URLs, where it can end up in access logs.
+
+## Status for uptime monitors
+
+`GET actions/speedy/api/status` says whether caching works, for a monitor such as Oh Dear, UptimeRobot or Better Stack. It answers **200** while all is well, and **503** with the problems when something needs fixing, so a monitor can go by the status code alone.
+
+```json
+{"ok":false,"problems":["Speedy’s queue jobs have waited 25 minutes, so the queue isn’t running. …"],"pages":1840,"enabled":true,"checked":"2026-11-19T10:00:00+00:00"}
+```
+
+The problems are the errors the utility page shows, such as a stopped queue, rebuilds that keep failing, a failed CDN clear, a full disk or another page cache that's enabled, and caching being off.
+
+Most monitors can't send headers, so the URL can carry a `statusToken` instead of the key: the **Advanced** tab of the settings shows the URL to copy. The token is made from the API key, can only read the status, and changes when the key does. Monitors that can send headers can use the key in an `Authorization: Bearer` header instead.
+
+```bash
+curl https://example.com/actions/speedy/api/status?statusToken=…
+```
+
+A wrong token gives 403, and with no API key set, the endpoint isn't there (404).

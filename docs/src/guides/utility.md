@@ -139,6 +139,8 @@ The details panel of entries, categories, products and other elements with pages
 
 When its page is cached, or other cached pages show it, **Clear its cached pages** clears them all, such as after fixing a typo in a template. It needs the same permissions as clearing from an element index, below, and works in slideouts too.
 
+The entries, categories and products tables can show it too: choose **Page cache** from the table's columns menu to see at a glance which pages are cached and when.
+
 ## Clear from an element index
 
 ![The actions menu of the entries index, with Clear cached pages](/images/element-action.jpg)

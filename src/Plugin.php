@@ -453,6 +453,37 @@ class Plugin extends BasePlugin
             };
         });
 
+        // A “Page cache” column that element indexes can show, such as the entries table: cached or not, and when.
+        $indexed = [\craft\elements\Entry::class, \craft\elements\Category::class];
+        if (class_exists(\craft\commerce\elements\Product::class)) {
+            $indexed[] = \craft\commerce\elements\Product::class;
+        }
+        foreach ($indexed as $class) {
+            Event::on($class, Element::EVENT_REGISTER_TABLE_ATTRIBUTES, function(\craft\events\RegisterElementTableAttributesEvent $event) {
+                $event->tableAttributes['speedyCache'] = ['label' => Craft::t('speedy', 'Page cache')];
+            });
+            Event::on($class, Element::EVENT_DEFINE_ATTRIBUTE_HTML, function(\craft\events\DefineAttributeHtmlEvent $event) {
+                if ($event->attribute !== 'speedyCache') {
+                    return;
+                }
+                /** @var ElementInterface $element */
+                $element = $event->sender;
+                $status = $this->insights->forElement($element, false);
+                if ($status === null) {
+                    $event->html = '';
+                    return;
+                }
+                $colour = match ($status['state']) {
+                    'cached' => 'green',
+                    'uncached' => 'orange',
+                    default => 'disabled',
+                };
+                $event->html = Html::tag('span', '', ['class' => ['status', $colour], 'role' => 'img', 'aria-hidden' => 'true'])
+                    . Html::encode($status['label'])
+                    . ($status['detail'] ? Html::tag('span', ' · ' . Html::encode($status['detail']), ['class' => 'light']) : '');
+            });
+        }
+
         // The Clear button in element details, which can open in a slideout, so the script listens on the page.
         Event::on(\craft\web\View::class, \craft\web\View::EVENT_BEFORE_RENDER_PAGE_TEMPLATE, function(\craft\events\TemplateEvent $event) {
             if ($event->templateMode !== \craft\web\View::TEMPLATE_MODE_CP || Craft::$app->getRequest()->getIsConsoleRequest() || Craft::$app->getUser()->getIsGuest() || !ClearPages::allowed()) {
