@@ -110,6 +110,32 @@ class SettingsTest extends TestCase
         $this->assertSame(['page'], $settings->cachedParams);
     }
 
+    public function testSectionLifetimesFromTheSettingsPageAndConfig(): void
+    {
+        $settings = new Settings();
+        $this->assertSame([], $settings->sectionLifetimes, 'None by default.');
+        $this->assertNull($settings->getSectionLifetime('news'));
+
+        // Rows from the settings page’s table, with one left without a section and one without a lifetime.
+        $settings->setAttributes(['sectionLifetimes' => [
+            'new1' => ['section' => 'news', 'lifetime' => '3600'],
+            'new2' => ['section' => '', 'lifetime' => '300'],
+            'new3' => ['section' => 'events', 'lifetime' => ''],
+            'new4' => ['section' => 'weather', 'lifetime' => '300'],
+        ]], false);
+        $this->assertSame(['news' => 3600, 'weather' => 300], $settings->sectionLifetimes);
+        $this->assertSame(3600, $settings->getSectionLifetime('news'));
+        $this->assertNull($settings->getSectionLifetime('events'));
+
+        // A map from config/speedy.php, with any number of seconds.
+        $settings->setAttributes(['sectionLifetimes' => ['news' => 120, 'blog' => 0]], false);
+        $this->assertSame(['news' => 120], $settings->sectionLifetimes);
+
+        // As project config keeps it.
+        $settings->setAttributes(['sectionLifetimes' => ['__assoc__' => [['news', 600], ['blog', 60]]]], false);
+        $this->assertSame(['news' => 600, 'blog' => 60], $settings->sectionLifetimes);
+    }
+
     public function testUrlPatternsFromEveryVersionStillWork(): void
     {
         // Saved by 1.0 and 1.1 from a textarea, one per line.

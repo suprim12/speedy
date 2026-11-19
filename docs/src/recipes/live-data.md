@@ -14,6 +14,8 @@ In the templates that show it:
 
 The page is rebuilt every 5 minutes, and still cleared straight away when its content changes.
 
+For the entries of one section, such as products priced by another system, choose a lifetime for the section under **Lifetimes by section** on the settings page ([Scheduled content](/guides/scheduled#lifetimes-by-section)).
+
 For a site where many pages show outside data, give every page a maximum age:
 
 ```php

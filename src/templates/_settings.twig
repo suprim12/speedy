@@ -115,6 +115,43 @@
 	}) }}
 </div>
 
+{% set lifetimeOptions = [
+	{ label: '5 minutes'|t('speedy'), value: 300 },
+	{ label: '15 minutes'|t('speedy'), value: 900 },
+	{ label: '1 hour'|t('speedy'), value: 3600 },
+	{ label: '6 hours'|t('speedy'), value: 21600 },
+	{ label: '1 day'|t('speedy'), value: 86400 },
+	{ label: '1 week'|t('speedy'), value: 604800 },
+] %}
+{% set lifetimeRows = [] %}
+{% for handle, seconds in settings.sectionLifetimes %}
+	{% set lifetimeRows = lifetimeRows|merge([{ section: handle, lifetime: seconds }]) %}
+	{# A lifetime set in config/speedy.php that isn’t one of the choices, so the table still shows it. #}
+	{% if seconds not in lifetimeOptions|column('value') %}
+		{% set lifetimeOptions = lifetimeOptions|merge([{ label: '{count, plural, =1{# second} other{# seconds}}'|t('speedy', { count: seconds }), value: seconds }]) %}
+	{% endif %}
+{% endfor %}
+<div class="flex-fields speedy-paths">
+	{{ forms.editableTableField({
+		label: 'Lifetimes by section'|t('speedy'),
+		instructions: 'Rebuild the pages of a section’s entries after a while, such as ones that show data from outside Craft. They’re still cleared straight away when they change.'|t('speedy'),
+		fieldClass: 'width-50',
+		id: 'sectionLifetimes',
+		name: 'sectionLifetimes',
+		cols: {
+			section: { type: 'select', heading: 'Section'|t('speedy'), options: craft.app.entries.getAllSections()|filter(s => s.getSiteSettings()|filter(ss => ss.hasUrls)|length)|map(s => { label: s.name, value: s.handle }) },
+			lifetime: { type: 'select', heading: 'Lifetime'|t('speedy'), options: lifetimeOptions },
+		},
+		rows: lifetimeRows,
+		allowAdd: true,
+		allowDelete: true,
+		allowReorder: false,
+		addRowLabel: 'Add a section'|t('speedy'),
+		static: 'sectionLifetimes' in overrides,
+		warning: 'sectionLifetimes' in overrides ? configWarning('sectionLifetimes'),
+	}) }}
+</div>
+
 <div class="flex-fields">
 	{{ forms.selectField({
 		label: 'When content changes'|t('speedy'),

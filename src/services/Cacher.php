@@ -500,7 +500,7 @@ class Cacher extends Component
 
         $tags = $dependency->tags ?? [];
         $settings = Plugin::getInstance()->getSettings();
-        $ttls = array_filter([$duration, $this->_templateTtl, $settings->defaultTtl], fn($t) => $t !== null && $t > 0);
+        $ttls = array_filter([$duration, $this->_templateTtl, $settings->defaultTtl, $this->sectionLifetime()], fn($t) => $t !== null && $t > 0);
         $expires = $ttls ? time() + min($ttls) : null;
 
         try {
@@ -582,6 +582,21 @@ class Cacher extends Component
             $request instanceof Request && Plugin::getInstance()->getSettings()->skipWhenCart && $this->hasCookie($request, '_commerce_cart') => 'cart',
             default => null,
         };
+    }
+
+    /**
+     * The lifetime set for the section of the entry whose page this is, in seconds, or null.
+     */
+    private function sectionLifetime(): ?int
+    {
+        $settings = Plugin::getInstance()->getSettings();
+        if (!$settings->sectionLifetimes) {
+            return null;
+        }
+        $element = Craft::$app->getUrlManager()->getMatchedElement();
+        $section = $element instanceof \craft\elements\Entry ? $element->getSection() : null;
+
+        return $section ? $settings->getSectionLifetime((string)$section->handle) : null;
     }
 
     /**

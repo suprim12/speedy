@@ -34,6 +34,17 @@ Paths match like **Never cache**: `events*` matches `/events`, `/events/today` a
 
 It runs with the scheduled job above, so the queue needs to run. If it was stopped at that time, the pages are rebuilt as soon as it runs again, once. When you first set it up, the first rebuild is at the next time, not straight away.
 
+## Lifetimes by section
+
+For the entries of a section that show something Craft doesn’t know has changed, such as prices from another system, choose a lifetime under **Lifetimes by section** on the settings page. Their pages are rebuilt after that long, and still cleared straight away when they change.
+
+```php
+// config/speedy.php, in seconds
+'sectionLifetimes' => ['news' => 3600, 'weather' => 300],
+```
+
+It’s for each entry’s own page. A listing that shows the section, such as a news index, keeps its own lifetime: set one in its template with `craft.speedy.ttl()`. The shortest of a page’s lifetimes wins, with `defaultTtl` for every page.
+
 ## Time-limited pages
 
 For pages that should be rebuilt on a timer, such as one showing the weather, see [Pages with live data](/recipes/live-data).

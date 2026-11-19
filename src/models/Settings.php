@@ -194,6 +194,12 @@ class Settings extends Model
     /** A maximum age for every page, in seconds, for sites showing data from outside Craft. Null for none. */
     public ?int $defaultTtl = null;
 
+    /**
+     * @var array<string, int> A maximum age for the pages of a section’s entries, in seconds, by section handle, such
+     * as `['news' => 3600]`. Shorter than `defaultTtl` wins.
+     */
+    public array $sectionLifetimes = [];
+
     /** A key, at least 16 characters, for clearing and rebuilding over HTTP. Use an environment variable. Empty turns the API off. */
     public string $apiKey = '';
 
@@ -206,6 +212,16 @@ class Settings extends Model
     public function getNeverCache(): array
     {
         return $this->patterns($this->neverCache);
+    }
+
+    /**
+     * The maximum age in seconds for the pages of a section’s entries, or null when it has none.
+     */
+    public function getSectionLifetime(string $handle): ?int
+    {
+        $seconds = (int)($this->sectionLifetimes[$handle] ?? 0);
+
+        return $seconds > 0 ? $seconds : null;
     }
 
     /**
@@ -282,6 +298,20 @@ class Settings extends Model
             if (isset($values[$name]) && is_array($values[$name])) {
                 $values[$name] = $this->patterns(array_map(fn($row) => is_array($row) ? (string)($row['pattern'] ?? '') : (string)$row, $values[$name]));
             }
+        }
+        // Rows from the settings page’s table, such as [['section' => 'news', 'lifetime' => '3600']], or a map from
+        // config/speedy.php, such as ['news' => 3600]. Rows without a section or a lifetime are left out.
+        if (isset($values['sectionLifetimes']) && is_array($values['sectionLifetimes'])) {
+            $lifetimes = [];
+            // Project config keeps a map as `__assoc__` pairs.
+            $saved = \craft\helpers\ProjectConfig::unpackAssociativeArray($values['sectionLifetimes']);
+            foreach ($saved as $handle => $row) {
+                [$handle, $seconds] = is_array($row) ? [(string)($row['section'] ?? ''), (int)($row['lifetime'] ?? 0)] : [(string)$handle, (int)$row];
+                if ($handle !== '' && $seconds > 0) {
+                    $lifetimes[$handle] = $seconds;
+                }
+            }
+            $values['sectionLifetimes'] = $lifetimes;
         }
         foreach (['rebuildCleared', 'instantLinks', 'buildSavedPages'] as $name) {
             if (isset($values[$name]) && is_string($values[$name])) {

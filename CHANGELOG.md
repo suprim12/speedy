@@ -1,6 +1,9 @@
 # Release Notes for Speedy Cache
 
-## Unreleased
+## 1.5.0 - 2026-11-19
+
+### Added
+- **Lifetimes by section** on the settings page’s General tab: the pages of a section’s entries are rebuilt after the time you choose, such as an hour for ones that show data from outside Craft, and still cleared straight away when they change. Also `sectionLifetimes` in `config/speedy.php`, in seconds.
 
 ### Fixed
 - **Coverage** on the utility page counted entries that redirect elsewhere, such as ones that only link to another page, as pages that couldn’t be built. They’re now left out of the count, with a note of how many redirect.

@@ -72,6 +72,7 @@ return [
 | `sitemap` | `'sitemap.xml'` | The sitemap to read for `warm`, relative to each site |
 | `warmConcurrency` | `2` | How many pages are built at once |
 | `defaultTtl` | `null` | A maximum age for every page, in seconds ([Live data](/recipes/live-data)) |
+| `sectionLifetimes` | `[]` | A maximum age for the pages of a section’s entries, in seconds, by section handle, such as `['news' => 3600]` ([Scheduled content](/guides/scheduled#lifetimes-by-section)). Also on the General tab |
 | `apiKey` | `''` | A key of 16 characters or more for clearing over HTTP ([API](/guides/api)). Also on the Advanced tab. Empty turns the API off |
 | `cacheComment` | `true` | Add `<!-- Cached by Speedy Cache on … -->` to the end of cached pages |
 | `storage` | `'files'` | Where pages are kept: `'files'`, or `'craftCache'` for Craft’s cache such as Redis, shared by several servers ([Multi-site and multiple servers](/recipes/multi-site#keep-pages-in-redis)). Also on the Advanced tab |
