@@ -18,7 +18,7 @@ Speedy Cache saves each page as a static file that your web server sends without
 | **Cleared precisely** | Saving an entry clears the pages that show it and the listings of its section, and nothing else. Drafts, autosaves and saves that change nothing never clear a live page. |
 | **No slow first visit** | Cleared pages are rebuilt in the background while visitors keep getting the old copy. A new entry’s page is built as soon as it’s saved. |
 | **Safe by default** | Logged-in visitors, carts, form steps, flash messages and pages that set cookies are never cached, and a made-up cookie can’t reach the copy everyone gets. |
-| **CDNs built in** | Cloudflare, CloudFront, Fastly, Bunny and Varnish are cleared for you, with Cloudflare’s cache rules set up in one click. |
+| **CDNs built in** | Cloudflare, CloudFront, Fastly, Bunny, KeyCDN and Varnish are cleared for you, with Cloudflare’s cache rules set up in one click. |
 | **Clean install** | No database tables and no template changes. Uninstalling removes its cached pages and data. |
 
 ## It tells you what to fix
@@ -30,19 +30,31 @@ Speedy Cache saves each page as a static file that your web server sends without
 - **Performance.** The slowest pages, queries that run once for each item in a loop, and queries that clear a page whenever anything is saved, each with the template and line that ran it.
 - **A log in plain English.** “Saved entry ‘Summer Sale’ → 12 pages cleared”, with the pages.
 - **Checks after a deploy.** Whether the web server rules work, whether the cache folder is closed to direct requests and search engines, and whether cached pages link to CSS or JavaScript a deploy removed.
-- **For editors.** A dashboard widget, a button on each entry to clear its pages, and a permission to clear pages without the rest of the utility.
+- **For editors.** A dashboard widget, a **Page cache** column in entry lists, a button on each entry to clear its pages, clearing several sections or sites at once, and a permission to clear pages without the rest of the utility.
+- **For uptime monitors.** A status URL that answers 200 while caching works and 503 with the problem when something needs fixing, such as a stopped queue.
 
 ## Works with your site
 
 - **Forms.** Cached pages get a fresh CSRF token as they load, and forms with steps keep each visitor on their own step.
 - **Personal content.** Put a cart count or a greeting in `craft.speedy.dynamic()` and the rest of the page stays cached.
-- **Commerce.** Orders, stock, pricing rules and sales that start or end on a date clear the product’s pages.
-- **Scheduled content.** Pages clear when a post goes live or expires, including the listings it appears on.
+- **Scheduled content.** Pages clear when a post goes live or expires, including the listings it appears on. Sections that show data from outside Craft can have a lifetime of their own.
 - **Imports.** Thousands of saves make one clear, and listings are rebuilt once at the end.
 - **Query strings.** Only the parameters you list, such as `page`, are cached, with a cap so the disk can’t fill. Tracking codes are ignored.
 - **Instant links.** Optionally fetch a page as soon as a visitor points at its link, so it’s there before they click.
-- **Plugins and scripts.** Form plugins send from cached pages, SEO tags are kept, and Alpine.js, React and Vue components start, inside dynamic parts too.
+- **Scripts.** Alpine.js, React and Vue components start on cached pages, inside dynamic parts too.
+- **Bots and busy servers.** The “not found” page can be kept for a while, so bots asking for missing addresses don’t load the server, and rebuilding waits while the server is busy.
 - **Multi-site and several servers.** Pages can be cleared per site, and kept in Craft’s cache, such as Redis, when several servers share the site.
+
+## Works with popular plugins
+
+| | |
+|---|---|
+| **Craft Commerce** | Orders, stock changes, pricing rules and sales that start or end on a date clear the product’s pages. Visitors with a cart get pages built for them. |
+| **Formie** | Forms send from cached pages: their tokens are refreshed as the page loads, and forms with several pages keep each visitor on their own page. |
+| **SEOmatic** | Meta tags, JSON-LD and tracking scripts stay in the cached page, and saving SEOmatic’s settings rebuilds every page in the background. |
+| **Feed Me** | An import clears each page once, however many entries it saves, and the clean-up run before each feed doesn’t clear the cache. |
+
+Each is covered by the test suite, such as sending a Formie form from a cached page. [Compatibility](https://plugins.speedy.suprim.com.au/guides/compatibility)
 
 ## Moving from another page cache
 

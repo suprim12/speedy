@@ -20,22 +20,26 @@ Scripts inside a dynamic part run in order once it’s added.
 
 Requests with `HX-Request`, `X-Up-Target` or `X-Requested-With` aren’t cached or served from the cache, as they often ask for part of a page at the same URL. Add `X-Requested-With: XMLHttpRequest` to your own `fetch()` calls if they do the same.
 
-## SEO plugins
+## SEOmatic and other SEO plugins
 
 Meta tags, JSON-LD and tracking scripts are part of the cached page, and the `Link` and `X-Robots-Tag` headers are kept.
 
 - Saving an entry clears its pages as usual, including its SEO fields.
-- When an SEO plugin’s site-wide settings are saved, such as a new tracking script or new default meta tags, Speedy rebuilds every cached page in the background, where the plugin says its settings changed. Visitors keep getting the old copies until the new ones are ready. Otherwise, rebuild them yourself with `php craft speedy/clear --rebuild`.
+- When SEOmatic’s site-wide settings are saved, such as a new tracking script or new default meta tags, Speedy rebuilds every cached page in the background. It does the same for other SEO plugins that say when their settings change. Visitors keep getting the old copies until the new ones are ready. Otherwise, rebuild them yourself with `php craft speedy/clear --rebuild`.
 - Warming from the sitemap follows redirects and sitemap indexes, as SEO plugins usually serve them at `/sitemap.xml`.
 - Analytics cookies (`_ga` and others) don’t stop pages being cached.
 
-## Commerce
+## Craft Commerce
 
 Product pages are cleared when stock changes, from orders, control panel edits and transfers ([How clearing works](/guides/clearing#commerce-stock)), and when prices change, from pricing rules and from prices that start or end on a date ([Commerce prices](/guides/clearing#commerce-prices)). Visitors with a cart get pages built for them, so their cart is always their own.
 
-## Form plugins
+## Formie and other form plugins
 
-See [Forms and CSRF](/guides/forms).
+Formie forms send from cached pages with nothing to set up: their tokens are refreshed as the page loads, and forms with several pages keep each visitor on their own page. See [Forms and CSRF](/guides/forms).
+
+## Feed Me and other imports
+
+An import clears each page once, however many entries it saves, and listings are rebuilt once at the end. Feed Me runs Craft’s clean-up before each feed, which says every element changed; Speedy knows it only removes elements already in the trash, so the cache isn’t cleared.
 
 ## Uploads and private files
 
