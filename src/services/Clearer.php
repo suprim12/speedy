@@ -708,6 +708,58 @@ class Clearer extends Component
     }
 
     /**
+     * Removes the cached pages of the elements that are never cached by entry type or category, such as just after one
+     * was added to Never cache: their own pages and their query string versions.
+     *
+     * @return int How many pages were removed.
+     */
+    public function clearNeverCached(\suprim\speedy\models\Settings $settings): int
+    {
+        $plugin = Plugin::getInstance();
+        $ids = array_keys($plugin->insights->neverCachedIds($settings));
+        if (!$ids) {
+            return 0;
+        }
+        $sites = [];
+        foreach (Craft::$app->getSites()->getAllSites() as $site) {
+            if ($site->hasUrls && $site->getBaseUrl()) {
+                $sites[$site->id] = rtrim((string)$site->getBaseUrl(), '/');
+            }
+        }
+        $storage = $plugin->storage;
+        $keys = [];
+        foreach (array_chunk($ids, 1000) as $chunk) {
+            $rows = (new \craft\db\Query())->select(['uri', 'siteId'])->from(\craft\db\Table::ELEMENTS_SITES)
+                ->where(['elementId' => $chunk])->andWhere(['not', ['uri' => null]])->all();
+            foreach ($rows as $row) {
+                if (!isset($sites[$row['siteId']])) {
+                    continue;
+                }
+                $uri = $row['uri'] === \craft\base\Element::HOMEPAGE_URI ? '' : (string)$row['uri'];
+                $key = $storage->keyForUrl($sites[$row['siteId']] . '/' . $uri);
+                if ($key !== null && $storage->exists($key)) {
+                    $keys[] = $key;
+                }
+                if ($key !== null) {
+                    array_push($keys, ...$storage->queryPageKeys($key));
+                }
+            }
+        }
+
+        if (!$keys) {
+            return 0;
+        }
+        // Removed, not rebuilt: they aren’t cached any more.
+        $rebuild = $this->_rebuild;
+        $this->_rebuild = false;
+        try {
+            return $this->clearKeys(array_values(array_unique($keys)), Craft::t('speedy', 'Removed pages that are never cached now'));
+        } finally {
+            $this->_rebuild = $rebuild;
+        }
+    }
+
+    /**
      * Clears one URL, such as from the control panel, or every page matching a pattern with `*`, such as
      * `https://example.com/news/*` or `/news/*` on every domain.
      */

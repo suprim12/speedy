@@ -14,10 +14,12 @@ Speedy only caches pages it can be sure are the same for everyone.
 | URLs with a query string | `?q=`, `?page=` and filters usually change the page. Tracking parameters (`utm_*`, `gclid`, `fbclid`…) are ignored, and the ones you list in `cachedParams` are cached ([Pagination and filters](#pagination-and-filters)) |
 | URLs matching **Never cache** | Such as `checkout/*` or `account*` |
 | URLs not matching **Only cache** | When **Only cache** lists any pages |
+| Entries of an entry type in **Never cache entry types** | Such as articles only for members |
+| Categories in **Never cache categories** | Their pages, and the pages of entries and products that have them |
 | Any page while the disk is nearly full | Under 256 MB free on the cache folder’s disk. Cached pages are still sent ([Troubleshooting](/getting-started/troubleshooting#the-disk-is-nearly-full)) |
 | Pages that set a cookie | A cookie usually means something personal. Craft’s CSRF and session cookies are fine |
 | Pages marked private | `Cache-Control: private` or `no-store`, from your template or a plugin |
-| Responses that aren’t a 200 HTML page | 404s, redirects, JSON and feeds |
+| Responses that aren’t a 200 HTML page | Redirects, JSON and feeds, and 404s unless **Pages that don’t exist** keeps them for a while |
 | POST requests and actions | Form submissions and `actions/…` URLs |
 | Live preview and share links | They show drafts |
 | Pages that call `craft.speedy.skip()` | See [Templates](/guides/templates) |
@@ -36,6 +38,21 @@ Add URL paths on the settings page, one per line, or in `config/speedy.php`. `*`
     'members/*',
 ],
 ```
+
+### By entry type or category
+
+When the pages to leave out don’t share a path, choose them by what they are, on the General tab or in `config/speedy.php`:
+
+```php
+// The pages of these entry types’ entries, by handle.
+'neverCacheEntryTypes' => ['memberArticle'],
+// These categories’ pages, and the pages of entries, products and other elements that have them, by group and slug.
+'neverCacheCategories' => ['topics/members'],
+```
+
+Categories are kept by group handle and slug, so the setting works on every environment. Listings that show such entries are still cached, so keep anything private off them.
+
+Pages already cached are removed when an entry type or category is added, after the settings are saved or a deploy applies them, so the web server stops sending them. `X-Speedy` says `SKIP never cache entry type` or `SKIP never cache category`, and the entry’s **Page cache** status says why.
 
 ## Caching only some pages
 

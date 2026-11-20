@@ -30,6 +30,8 @@ The header says why, after `SKIP`:
 | `url case` | The address has capital letters where the entry’s URI doesn’t, or the other way round, such as `/News` for `/news` | Expected. Only the URI’s own spelling is cached, so made-up spellings can’t fill the cache. Link to the page with its URI’s spelling |
 | `rewritten URL` | The site’s `index.php` changes the address before Craft opens it, other than taking part of it off (such as `/` to `/en/`), so the address alone might not decide the page | Expected. An `index.php` that only takes part off, such as a `/kiosk` prefix that shows pages another way, is cached: each address keeps its own copy |
 | `never cache` | The URL matches **Never cache** | Check the patterns in the settings |
+| `never cache entry type` | The entry’s type is in **Never cache entry types** | Untick it in the settings if its pages are the same for everyone |
+| `never cache category` | The page is a category in **Never cache categories**, or has one | Remove it in the settings if its pages are the same for everyone |
 | `sets a cookie` | The page sets a cookie, so it may be personal | Find what sets it, or move it to a page that isn’t cached |
 | `private` | The template or a plugin sent `Cache-Control: private` or `no-store` | Remove it if the page isn’t personal |
 | `template` | The template called `craft.speedy.skip()` | Expected |

@@ -11,7 +11,7 @@ The settings page (**Settings → Plugins → Speedy Cache**) has four tabs:
 - **CDN:** your Cloudflare and CloudFront details, and whether Speedy has seen your site behind either.
 - **Advanced:** the [API](/guides/api) key, with a button to generate one, and the options below that are only set in `config/speedy.php`, with the values in use now.
 
-![Speedy Cache settings, General tab: a status strip, Cache pages, the Never cache and Only cache tables, When content changes and After clearing everything](/images/settings.jpg)
+![Speedy Cache settings, General tab: a status strip, Cache pages, Instant links, the Never cache and Only cache tables, Never cache entry types and categories, Build new pages, Rebuild every day, Lifetimes by section, When content changes, After clearing everything and Pages that don’t exist](/images/settings.jpg)
 
 ![The Query strings tab: parameters seen keeping pages out of the cache with Cache and Ignore buttons, then the cached and ignored parameters](/images/query-strings.jpg)
 
@@ -47,6 +47,8 @@ return [
 | `enabled` | `true` | Whether pages are cached |
 | `neverCache` | `[]` | URL paths never cached, such as `checkout/*`. Also on the General tab |
 | `allowedHosts` | `[]` | Host names to cache when a site’s base URL is `@web`, such as `['example.com', 'www.example.com']`. Set it on such sites: left empty, any host the request was sent to is cached, visitors with cookies don’t get pages built in the background, the warming login (`warmUsername`, `warmPassword`) isn’t sent, and **Why isn’t this page cached?** can’t check pages. The utility page warns ([Multi-site](/recipes/multi-site)) |
+| `neverCacheEntryTypes` | `[]` | Entry type handles whose entries’ pages are never cached, such as `['memberArticle']` ([Never cache](/guides/not-cached#by-entry-type-or-category)). Also on the General tab |
+| `neverCacheCategories` | `[]` | Categories, by group handle and slug, such as `['topics/members']`, whose pages and the pages of elements that have them are never cached. Also on the General tab |
 | `onlyCache` | `[]` | URL paths to cache, when only some pages should be, such as `['/', 'news*']`. `/` is the homepage. Empty caches every page ([What isn’t cached](/guides/not-cached#caching-only-some-pages)) |
 | `queryStrings` | `'skip'` | `'skip'`: pages with a query string are cached only for the parameters in `cachedParams`. `'ignore'`: they’re cached without it, for sites that never use query strings for content: with `'ignore'`, `?page=2`, filters and tabs show the page without them. To leave out only some parameters, use `ignoredParams`. Also on the Query strings tab |
 | `cachedParams` | `[]` | Query parameters that make a page of their own, such as `['page', 'view']` ([Pagination and filters](/guides/not-cached#pagination-and-filters)). Also on the Query strings tab |

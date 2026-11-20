@@ -9,6 +9,7 @@
 - **Clear section** also clears category groups and Commerce product types: their listings and the pages of their categories and products.
 - KeyCDN: changed pages are cleared from it, set up on the **CDN** tab.
 - **Pages that don’t exist (404)** on the General tab keeps the “not found” page for a while, so bots asking for missing addresses don’t load the server. It’s sent with status 404 and forgotten whenever content changes. Off by default.
+- **Never cache entry types** and **Never cache categories** on the General tab: the pages of entries of those types, of those categories, and of entries and products that have them aren’t cached. Pages cached before are removed when one is added.
 - Rebuilding waits while the server is busy, by its load for each CPU core (`warmBusyLoad`, 2 by default), for up to about five minutes.
 
 ### Fixed

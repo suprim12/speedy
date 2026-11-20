@@ -104,6 +104,7 @@ class Insights extends Component
         $redirects = 0;
         $noTemplate = [];
         $count = 0;
+        $excluded = $this->neverCachedIds();
         foreach ($sites ? Craft::$app->getElements()->getAllElementTypes() : [] as $class) {
             /** @var class-string<ElementInterface> $class */
             if (!$class::hasUris()) {
@@ -115,7 +116,7 @@ class Insights extends Component
                 ->site('*')
                 ->siteId(array_keys($sites))
                 ->uri(':notempty:')
-                ->select(array_filter(['elements_sites.uri', 'elements_sites.siteId', $groupColumn]))
+                ->select(array_filter(['elements.id', 'elements_sites.uri', 'elements_sites.siteId', $groupColumn]))
                 ->limit(self::COVERAGE_MOST - $count + 1);
             foreach ($query->all() as $row) {
                 if (++$count > self::COVERAGE_MOST) {
@@ -128,7 +129,7 @@ class Insights extends Component
                     continue;
                 }
                 $url = $sites[$row['siteId']] . '/' . $uri;
-                if ($this->leftOut($url, $uri)) {
+                if ($this->leftOut($url, $uri) || isset($excluded[(int)$row['id']])) {
                     $never++;
                     continue;
                 }
@@ -172,6 +173,28 @@ class Insights extends Component
         $cache->set(self::COVERAGE_CACHE, $coverage, 300);
 
         return $coverage;
+    }
+
+    /**
+     * The IDs of the elements whose pages are never cached by entry type or category: entries of the entry types,
+     * the categories, and the elements related to them.
+     *
+     * @return array<int, true>
+     */
+    public function neverCachedIds(?\suprim\speedy\models\Settings $settings = null): array
+    {
+        $settings ??= Plugin::getInstance()->getSettings();
+        $ids = [];
+        if ($settings->neverCacheEntryTypes) {
+            $ids = \craft\elements\Entry::find()->type($settings->neverCacheEntryTypes)->site('*')->status(null)->unique()->ids();
+        }
+        $categories = $settings->neverCacheCategories ? $settings->getNeverCacheCategoryIds() : [];
+        if ($categories) {
+            $related = (new \craft\db\Query())->select(['sourceId'])->from(\craft\db\Table::RELATIONS)->where(['targetId' => $categories])->column();
+            $ids = [...$ids, ...$categories, ...$related];
+        }
+
+        return array_fill_keys(array_map('intval', $ids), true);
     }
 
     /**
@@ -330,6 +353,12 @@ class Insights extends Component
         }
         if ($settings->getOnlyCache() && Cacher::matchingPattern($path, $settings->getOnlyCache()) === null && Cacher::matchingPattern($sitePath, $settings->getOnlyCache()) === null) {
             return ['state' => 'never', 'label' => Craft::t('speedy', 'Never cached'), 'detail' => Craft::t('speedy', 'Not in Only cache'), 'pages' => $pages];
+        }
+        $excluded = Cacher::neverCacheReason($element);
+        if ($excluded !== null) {
+            $detail = $excluded === 'never cache entry type' ? Craft::t('speedy', 'Its entry type is in Never cache') : Craft::t('speedy', 'Its category is in Never cache');
+
+            return ['state' => 'never', 'label' => Craft::t('speedy', 'Never cached'), 'detail' => $detail, 'pages' => $pages];
         }
         $key = $plugin->storage->key($parts['host'] ?? '', $path);
         $meta = $key ? $plugin->storage->meta($key) : null;

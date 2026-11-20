@@ -76,6 +76,39 @@
 	}) }}
 </div>
 
+{% set entryTypeOptions = craft.app.entries.getAllEntryTypes()|map(t => { label: t.name, value: t.handle }) %}
+{% set categoryGroupsExist = craft.app.categories.getAllGroups()|length > 0 %}
+{% if entryTypeOptions|length or categoryGroupsExist %}
+<div class="flex-fields speedy-paths">
+	{% if entryTypeOptions|length %}
+		{{ forms.checkboxSelectField({
+			label: 'Never cache entry types'|t('speedy'),
+			instructions: 'The pages of these entries are never cached, such as articles only for members.'|t('speedy'),
+			fieldClass: 'width-50',
+			id: 'neverCacheEntryTypes',
+			name: 'neverCacheEntryTypes',
+			options: entryTypeOptions,
+			values: settings.neverCacheEntryTypes,
+			disabled: 'neverCacheEntryTypes' in overrides,
+			warning: 'neverCacheEntryTypes' in overrides ? configWarning('neverCacheEntryTypes'),
+		}) }}
+	{% endif %}
+	{% if categoryGroupsExist %}
+		{{ forms.elementSelectField({
+			label: 'Never cache categories'|t('speedy'),
+			instructions: 'The pages of these categories, and of entries and products that have them, are never cached.'|t('speedy'),
+			fieldClass: 'width-50',
+			id: 'neverCacheCategories',
+			name: 'neverCacheCategories',
+			elementType: 'craft\\elements\\Category',
+			elements: settings.getNeverCacheCategoryIds() ? craft.categories().id(settings.getNeverCacheCategoryIds()).status(null).unique().all() : [],
+			disabled: 'neverCacheCategories' in overrides,
+			warning: 'neverCacheCategories' in overrides ? configWarning('neverCacheCategories'),
+		}) }}
+	{% endif %}
+</div>
+{% endif %}
+
 {{ forms.lightswitchField({
 	label: 'Build new pages'|t('speedy'),
 	instructions: 'When an entry, category or product is saved or goes live, build its page in the background if it isn’t cached, so its first visitor doesn’t wait. Not during imports.'|t('speedy'),

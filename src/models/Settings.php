@@ -24,6 +24,15 @@ class Settings extends Model
     /** @var string[]|string URL patterns that are never cached, such as `checkout/*`. `*` matches anything. One per line from the settings page. */
     public array|string $neverCache = [];
 
+    /** @var string[] Entry type handles whose entries’ pages are never cached, such as `memberArticle`. */
+    public array $neverCacheEntryTypes = [];
+
+    /**
+     * @var string[] Categories, by group handle and slug such as `topics/members`, whose pages, and the pages of
+     * entries and other elements related to them, are never cached.
+     */
+    public array $neverCacheCategories = [];
+
     /** @var string[]|string URL patterns to cache, when only some pages should be, such as `news/*`. Empty caches every page. `*` matches anything; `/` is the homepage. */
     public array|string $onlyCache = [];
 
@@ -235,6 +244,30 @@ class Settings extends Model
         return $this->patterns($this->neverCache);
     }
 
+    /** @var int[]|null */
+    private ?array $_neverCacheCategoryIds = null;
+
+    /**
+     * The IDs of the categories in `neverCacheCategories` that exist.
+     *
+     * @return int[]
+     */
+    public function getNeverCacheCategoryIds(): array
+    {
+        if ($this->_neverCacheCategoryIds === null) {
+            $this->_neverCacheCategoryIds = [];
+            foreach ($this->neverCacheCategories as $category) {
+                [$group, $slug] = array_pad(explode('/', (string)$category, 2), 2, '');
+                if ($group !== '' && $slug !== '') {
+                    array_push($this->_neverCacheCategoryIds, ...\craft\elements\Category::find()->group($group)->slug($slug)->site('*')->status(null)->unique()->ids());
+                }
+            }
+            $this->_neverCacheCategoryIds = array_values(array_unique(array_map('intval', $this->_neverCacheCategoryIds)));
+        }
+
+        return $this->_neverCacheCategoryIds;
+    }
+
     /**
      * The maximum age in seconds for the pages of a section’s entries, or null when it has none.
      */
@@ -319,6 +352,26 @@ class Settings extends Model
             if (isset($values[$name]) && is_array($values[$name])) {
                 $values[$name] = $this->patterns(array_map(fn($row) => is_array($row) ? (string)($row['pattern'] ?? '') : (string)$row, $values[$name]));
             }
+        }
+        // Entry types from the settings page’s checkboxes: an empty string when none are ticked.
+        if (array_key_exists('neverCacheEntryTypes', $values)) {
+            $values['neverCacheEntryTypes'] = array_values(array_filter(array_map('strval', (array)$values['neverCacheEntryTypes'])));
+        }
+        // Categories chosen on the settings page come as IDs: kept by group and slug, such as `topics/members`, which
+        // stay the same from one environment to the next.
+        if (array_key_exists('neverCacheCategories', $values)) {
+            $categories = [];
+            foreach ((array)$values['neverCacheCategories'] as $category) {
+                if (is_numeric($category)) {
+                    $element = \craft\elements\Category::find()->id((int)$category)->site('*')->status(null)->one();
+                    $category = $element ? $element->getGroup()->handle . '/' . $element->slug : '';
+                }
+                if (is_string($category) && str_contains($category, '/')) {
+                    $categories[] = trim($category, '/ ');
+                }
+            }
+            $values['neverCacheCategories'] = array_values(array_unique($categories));
+            $this->_neverCacheCategoryIds = null;
         }
         // Rows from the settings page’s table, such as [['section' => 'news', 'lifetime' => '3600']], or a map from
         // config/speedy.php, such as ['news' => 3600]. Rows without a section or a lifetime are left out.

@@ -124,6 +124,14 @@ class PageCheck extends Component
                 Craft::t('speedy', 'It matches {pattern} in **Never cache**.', ['pattern' => $this->codeList(array_filter([$this->neverCachePattern($url)]))]),
                 Craft::t('speedy', 'Remove it from **Never cache** in [Settings]({url}) if the page is the same for everyone.', ['url' => \craft\helpers\UrlHelper::cpUrl($settingsUrl)]),
             ],
+            $reason === 'never cache entry type' => [
+                Craft::t('speedy', 'Its entry type is in **Never cache**.'),
+                Craft::t('speedy', 'Remove the entry type from **Never cache entry types** in [Settings]({url}) if its pages are the same for everyone.', ['url' => \craft\helpers\UrlHelper::cpUrl($settingsUrl)]),
+            ],
+            $reason === 'never cache category' => [
+                Craft::t('speedy', 'It is, or has, a category in **Never cache**.'),
+                Craft::t('speedy', 'Remove the category from **Never cache categories** in [Settings]({url}) if its pages are the same for everyone.', ['url' => \craft\helpers\UrlHelper::cpUrl($settingsUrl)]),
+            ],
             $reason === 'not in only cache' => [
                 Craft::t('speedy', '**Only cache** is set, and this page isn’t in it.'),
                 Craft::t('speedy', 'Add it to **Only cache** in [Settings]({url}).', ['url' => \craft\helpers\UrlHelper::cpUrl($settingsUrl)]),

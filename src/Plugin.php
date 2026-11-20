@@ -22,6 +22,7 @@ use craft\events\RegisterElementActionsEvent;
 use craft\helpers\App;
 use craft\helpers\FileHelper;
 use craft\helpers\Html;
+use craft\helpers\Json;
 use craft\log\MonologTarget;
 use craft\services\Elements;
 use craft\services\Utilities;
@@ -255,7 +256,41 @@ class Plugin extends BasePlugin
     {
         parent::afterSaveSettings();
         $this->checkInstantLinks();
+        $this->checkNeverCache();
         $this->clearer->scheduleDailyRebuild();
+    }
+
+    /**
+     * Pages already cached for entry types or categories just added to Never cache are removed, as the web server
+     * would keep sending them: after the settings are saved in the control panel, or a deploy applies them.
+     */
+    public function checkNeverCache(): void
+    {
+        $settings = $this->savedSettings();
+        $now = md5(Json::encode([array_values($settings->neverCacheEntryTypes), array_values($settings->neverCacheCategories)]));
+        $state = $this->storage->readData('state');
+        if (($state['neverCache'] ?? md5(Json::encode([[], []]))) === $now) {
+            return;
+        }
+        $state['neverCache'] = $now;
+        $this->storage->writeData('state', $state);
+        $this->clearer->clearNeverCached($settings);
+    }
+
+    /**
+     * The settings as saved now, with config/speedy.php over them. While a deploy applies project config, the
+     * plugin still has the settings it started with.
+     */
+    private function savedSettings(): Settings
+    {
+        $file = Craft::$app->getConfig()->getConfigFromFile('speedy');
+        if (!is_array($file)) {
+            return $this->getSettings();
+        }
+        $settings = new Settings();
+        $settings->setAttributes(array_merge((array)Craft::$app->getProjectConfig()->get('plugins.speedy.settings'), $file), false);
+
+        return $settings;
     }
 
     /**
@@ -345,6 +380,7 @@ class Plugin extends BasePlugin
         // A deploy that applies project config changes, such as a new field in a template’s section, rebuilds pages.
         Event::on(\craft\services\ProjectConfig::class, \craft\services\ProjectConfig::EVENT_AFTER_APPLY_CHANGES, function() {
             $this->checkInstantLinks();
+            $this->checkNeverCache();
             if ($this->getSettings()->rebuildAfterDeploy) {
                 $this->clearer->rebuildAllLater(Craft::t('speedy', 'Project config changes applied'));
             }

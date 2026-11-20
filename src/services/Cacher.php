@@ -11,6 +11,7 @@ namespace suprim\speedy\services;
 
 use Craft;
 use craft\base\Component;
+use craft\base\ElementInterface;
 use craft\helpers\App;
 use craft\helpers\UrlHelper;
 use craft\web\Request;
@@ -541,7 +542,7 @@ class Cacher extends Component
         $reason = $this->uncacheableReason($response);
         // The page itself can’t be cached, rather than this copy: no visitor will save it either. Not for errors, which
         // may be gone in a moment.
-        $this->_neverSaved = $reason !== null && (in_array($reason, ['template', 'url case', 'not html', 'too large', 'private', 'vary', 'sets a cookie'], true) || in_array($response->getStatusCode(), [301, 302, 303, 307, 308, 404, 410], true));
+        $this->_neverSaved = $reason !== null && (in_array($reason, ['template', 'url case', 'never cache entry type', 'never cache category', 'not html', 'too large', 'private', 'vary', 'sets a cookie'], true) || in_array($response->getStatusCode(), [301, 302, 303, 307, 308, 404, 410], true));
         if ($reason !== null) {
             $headers = $response->getHeaders();
             $headers->set(self::HEADER, 'SKIP ' . $reason);
@@ -664,6 +665,7 @@ class Cacher extends Component
             $this->_templateSkip => 'template',
             $response->getStatusCode() !== 200 && !$this->mayKeepNotFound($response) => 'status ' . $response->getStatusCode(),
             $request instanceof Request && $this->inOtherCase($request) => 'url case',
+            ($element = Craft::$app->getUrlManager()->getMatchedElement()) instanceof ElementInterface && ($excluded = self::neverCacheReason($element)) !== null => $excluded,
             !str_contains(strtolower((string)$headers->get('Content-Type', 'text/html')), 'text/html') && $response->format !== Response::FORMAT_HTML => 'not html',
             !is_string($response->content) || $response->content === '' => 'empty',
             strlen((string)$response->content) > 5 * 1024 * 1024 => 'too large',
@@ -676,6 +678,28 @@ class Cacher extends Component
             $request instanceof Request && Plugin::getInstance()->getSettings()->skipWhenCart && $this->hasCookie($request, '_commerce_cart') => 'cart',
             default => null,
         };
+    }
+
+    /**
+     * Why an element’s page is never cached by `neverCacheEntryTypes` or `neverCacheCategories`, such as
+     * `never cache entry type`, or null when it can be.
+     */
+    public static function neverCacheReason(ElementInterface $element): ?string
+    {
+        $settings = Plugin::getInstance()->getSettings();
+        if ($settings->neverCacheEntryTypes && $element instanceof \craft\elements\Entry && in_array($element->getType()->handle, $settings->neverCacheEntryTypes, true)) {
+            return 'never cache entry type';
+        }
+        $categories = $settings->neverCacheCategories ? $settings->getNeverCacheCategoryIds() : [];
+        if ($categories && $element->id) {
+            // The category’s own page, or an entry, product or other element that has one of them.
+            if (($element instanceof \craft\elements\Category && in_array((int)$element->id, $categories, true))
+                || \craft\elements\Category::find()->id($categories)->relatedTo(['sourceElement' => $element])->site('*')->status(null)->exists()) {
+                return 'never cache category';
+            }
+        }
+
+        return null;
     }
 
     /**
