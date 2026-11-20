@@ -1,6 +1,6 @@
 # Release Notes for Speedy Cache
 
-## Unreleased
+## 1.6.0 - 2026-11-20
 
 ### Added
 - A **Page cache** column for the entries, categories and products tables, chosen from the table's columns menu: whether each page is cached and when, or why it isn't.
