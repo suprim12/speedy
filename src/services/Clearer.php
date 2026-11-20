@@ -708,26 +708,34 @@ class Clearer extends Component
     }
 
     /**
-     * Removes the cached pages of the elements that are never cached by entry type or category, such as just after one
-     * was added to Never cache: their own pages and their query string versions.
+     * Removes the cached pages that Never cache or Only cache leave out, such as just after a pattern, an entry type or
+     * a category was added: pages matching Never cache, outside Only cache, and the pages of those entries and
+     * categories, with their query string versions.
      *
      * @return int How many pages were removed.
      */
     public function clearNeverCached(\suprim\speedy\models\Settings $settings): int
     {
         $plugin = Plugin::getInstance();
-        $ids = array_keys($plugin->insights->neverCachedIds($settings));
-        if (!$ids) {
-            return 0;
+        $storage = $plugin->storage;
+        $keys = [];
+        if ($settings->getNeverCache() || $settings->getOnlyCache()) {
+            foreach ($storage->allKeys() as $key) {
+                // Matched as for visitors: on the path without its query string, and on the path within its site.
+                $page = explode('/' . Storage::QUERY_FOLDER . '/', $key, 2)[0];
+                $path = str_contains($page, '/') ? substr($page, strpos($page, '/') + 1) : '';
+                if ($plugin->insights->leftOut('https://' . $page, $this->siteForKey($page)['path'] ?? $path, $settings)) {
+                    $keys[] = $key;
+                }
+            }
         }
+        $ids = array_keys($plugin->insights->neverCachedIds($settings));
         $sites = [];
         foreach (Craft::$app->getSites()->getAllSites() as $site) {
             if ($site->hasUrls && $site->getBaseUrl()) {
                 $sites[$site->id] = rtrim((string)$site->getBaseUrl(), '/');
             }
         }
-        $storage = $plugin->storage;
-        $keys = [];
         foreach (array_chunk($ids, 1000) as $chunk) {
             $rows = (new \craft\db\Query())->select(['uri', 'siteId'])->from(\craft\db\Table::ELEMENTS_SITES)
                 ->where(['elementId' => $chunk])->andWhere(['not', ['uri' => null]])->all();

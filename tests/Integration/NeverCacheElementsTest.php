@@ -135,4 +135,40 @@ class NeverCacheElementsTest extends TestCase
             \Craft::$app->getDb()->createCommand()->delete('{{%queue}}', ['>', 'id', $lastJob])->execute();
         }
     }
+
+    public function testPagesMatchingANewNeverCachePatternAreRemoved(): void
+    {
+        $storage = $this->plugin()->storage;
+        $pages = [
+            'example.com/speedy-test-nc/a' => 'https://example.com/speedy-test-nc/a',
+            'example.com/speedy-test-nc/a/~query/page%3D2' => 'https://example.com/speedy-test-nc/a?page=2',
+            'example.com/speedy-test-nc-kept' => 'https://example.com/speedy-test-nc-kept',
+        ];
+        foreach ($pages as $key => $url) {
+            $storage->write($key, '<html>Old</html>', $url, [], null);
+        }
+        // Only the patterns: no entry type or category, so no other page is touched.
+        $settings = new \suprim\speedy\models\Settings();
+        $settings->neverCache = ['speedy-test-nc/*'];
+        try {
+            $this->assertSame(2, $this->plugin()->clearer->clearNeverCached($settings));
+            $this->assertFalse($storage->exists('example.com/speedy-test-nc/a'));
+            $this->assertFalse($storage->exists('example.com/speedy-test-nc/a/~query/page%3D2'), 'Its query string versions too.');
+            $this->assertTrue($storage->exists('example.com/speedy-test-nc-kept'), 'A page the pattern doesn’t match is kept.');
+        } finally {
+            foreach (array_keys($pages) as $key) {
+                $storage->delete($key);
+            }
+        }
+    }
+
+    public function testOnlyCacheDecidesWithTheSettingsGiven(): void
+    {
+        $settings = new \suprim\speedy\models\Settings();
+        $settings->onlyCache = ['news*'];
+        $insights = $this->plugin()->insights;
+        $this->assertTrue($insights->leftOut('https://example.com/about', 'about', $settings), 'Outside Only cache.');
+        $this->assertFalse($insights->leftOut('https://example.com/news/a', 'news/a', $settings));
+        $this->assertFalse($insights->leftOut('https://example.com/about', 'about'), 'The site’s own settings when none are given.');
+    }
 }

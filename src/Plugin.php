@@ -132,8 +132,10 @@ class Plugin extends BasePlugin
             if ($request->getIsSiteRequest()) {
                 $this->cacher->handleRequest();
             } elseif ($request->getIsCpRequest() && !$request->getIsAjax() && $request->getIsGet()) {
-                // A daily rebuild set in config/speedy.php is scheduled the first time someone opens the control panel.
+                // A daily rebuild set in config/speedy.php is scheduled the first time someone opens the control panel,
+                // and pages it now leaves out of the cache are removed.
                 $this->clearer->scheduleDailyRebuild();
+                $this->checkNeverCache();
             }
         });
     }
@@ -261,15 +263,16 @@ class Plugin extends BasePlugin
     }
 
     /**
-     * Pages already cached for entry types or categories just added to Never cache are removed, as the web server
-     * would keep sending them: after the settings are saved in the control panel, or a deploy applies them.
+     * Pages already cached that Never cache or Only cache now leave out, by URL, entry type or category, are removed,
+     * as the web server would keep sending them: after the settings are saved in the control panel, a deploy applies
+     * them, or config/speedy.php changes them and someone opens the control panel.
      */
     public function checkNeverCache(): void
     {
         $settings = $this->savedSettings();
-        $now = md5(Json::encode([array_values($settings->neverCacheEntryTypes), array_values($settings->neverCacheCategories)]));
+        $now = md5(Json::encode([array_values($settings->neverCacheEntryTypes), array_values($settings->neverCacheCategories), $settings->getNeverCache(), $settings->getOnlyCache()]));
         $state = $this->storage->readData('state');
-        if (($state['neverCache'] ?? md5(Json::encode([[], []]))) === $now) {
+        if (($state['neverCache'] ?? md5(Json::encode([[], [], [], []]))) === $now) {
             return;
         }
         $state['neverCache'] = $now;

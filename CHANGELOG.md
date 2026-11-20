@@ -1,5 +1,10 @@
 # Release Notes for Speedy Cache
 
+## Unreleased
+
+### Fixed
+- Pages already cached are removed when **Never cache** or **Only cache** starts leaving them out. The web server used to keep sending them until they were next cleared.
+
 ## 1.6.0 - 2026-11-20
 
 ### Added

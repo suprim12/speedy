@@ -39,6 +39,8 @@ Add URL paths on the settings page, one per line, or in `config/speedy.php`. `*`
 ],
 ```
 
+Pages already cached that a new pattern leaves out, or that a new **Only cache** list no longer includes, are removed when the settings are saved, a deploy applies them, or someone next opens the control panel after `config/speedy.php` changes. Otherwise the web server would keep sending them.
+
 ### By entry type or category
 
 When the pages to leave out don’t share a path, choose them by what they are, on the General tab or in `config/speedy.php`:

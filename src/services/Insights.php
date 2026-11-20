@@ -203,9 +203,9 @@ class Insights extends Component
      *
      * @param string $sitePath Such as an element’s URI; `__home__` for a homepage.
      */
-    public function leftOut(string $url, string $sitePath): bool
+    public function leftOut(string $url, string $sitePath, ?\suprim\speedy\models\Settings $settings = null): bool
     {
-        $settings = Plugin::getInstance()->getSettings();
+        $settings ??= Plugin::getInstance()->getSettings();
         $path = trim(rawurldecode((string)parse_url($url, PHP_URL_PATH)), '/');
         $sitePath = $sitePath === Element::HOMEPAGE_URI ? '' : $sitePath;
         if (Cacher::matchingPattern($path, $settings->getNeverCache()) !== null || Cacher::matchingPattern($sitePath, $settings->getNeverCache()) !== null) {
