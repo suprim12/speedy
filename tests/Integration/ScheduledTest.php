@@ -42,8 +42,14 @@ class ScheduledTest extends TestCase
         $storage->write('example.com/listing', 'x', 'https://example.com/listing', ["element::craft\\elements\\Entry::section:$section->id"], null);
         $storage->write('example.com/other', 'x', 'https://example.com/other', ['element::999999'], null);
         $storage->writeData('state', ['lastExpire' => time() - 60]);
+        // Its address may have been asked for before it went live, and its “not found” page kept.
+        $this->settings()->cacheNotFound = 300;
+        \suprim\speedy\services\Cacher::forgetNotFound();
+        $notFound = Craft::$app->getCache()->get('speedy:notFoundSet');
 
         $this->plugin()->clearer->clearExpired();
+
+        $this->assertNotSame($notFound, Craft::$app->getCache()->get('speedy:notFoundSet'), 'Kept “not found” pages are forgotten, as its address has a page now.');
 
         $this->assertFalse($storage->exists('example.com/listing'), 'The listing that will now show the entry is cleared.');
         $this->assertTrue($storage->exists('example.com/other'));

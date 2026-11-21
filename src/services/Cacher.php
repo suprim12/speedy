@@ -1189,10 +1189,6 @@ class Cacher extends Component
     }
 
     /**
-     * Whether the request carries a rebuild token that hasn’t expired. Which page it’s for is checked once the page’s
-     * key is known, in warmTokenMatches().
-     */
-    /**
      * How the site’s own index.php changed the address before Craft started: null when it didn’t, the path to keep
      * the page under when it only took part of the address off (such as a prefix that shows the page another way),
      * or false for any other change, such as adding a language, as the address alone might not decide the page.
@@ -1237,6 +1233,10 @@ class Cacher extends Component
         return implode('/', array_slice($asked, count($base)));
     }
 
+    /**
+     * Whether the request carries a rebuild token that hasn’t expired. Which page it’s for is checked once the page’s
+     * key is known, in warmTokenMatches().
+     */
     private function isWarmRequest(Request $request): bool
     {
         $given = (string)$request->getHeaders()->get('X-Speedy-Warm');
@@ -1307,11 +1307,6 @@ class Cacher extends Component
         return false;
     }
 
-    /**
-     * Query parameters left after ignoring tracking parameters.
-     *
-     * @return string[]
-     */
     /**
      * The query parameters to cache the page with, sorted, or null when any of them isn’t in `cachedParams`.
      *
@@ -1390,6 +1385,11 @@ class Cacher extends Component
         return $param !== '' ? $param : null;
     }
 
+    /**
+     * Query parameters left after ignoring tracking parameters.
+     *
+     * @return string[]
+     */
     private function remainingParams(Request $request): array
     {
         $ignored = Plugin::getInstance()->getSettings()->ignoredParams;

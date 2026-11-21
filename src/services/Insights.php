@@ -823,17 +823,28 @@ class Insights extends Component
 
     private function failedJobs(): int
     {
+        return count($this->failedJobIds());
+    }
+
+    /**
+     * The IDs of Speedy’s own failed queue jobs. Read from the queue’s table, as Craft’s list of jobs reads and sorts
+     * every job, which is slow on a big queue, and this is checked on each status request.
+     *
+     * @return string[]
+     */
+    public function failedJobIds(): array
+    {
         $queue = Craft::$app->getQueue();
         if (!$queue instanceof \craft\queue\Queue) {
-            return 0;
+            return [];
         }
-        $count = 0;
-        foreach ($queue->getJobInfo() as $job) {
-            if (($job['status'] ?? null) === \craft\queue\Queue::STATUS_FAILED && str_starts_with((string)($job['description'] ?? ''), 'Speedy Cache:')) {
-                $count++;
-            }
-        }
+        $channel = (fn() => $this->channel())->call($queue);
 
-        return $count;
+        return array_map('strval', (new \craft\db\Query())
+            ->select(['id'])
+            ->from($queue->tableName)
+            ->where(['channel' => $channel, 'fail' => true])
+            ->andWhere(['like', 'description', 'Speedy Cache:%', false])
+            ->column($queue->db));
     }
 }

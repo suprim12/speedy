@@ -4,6 +4,9 @@
 
 ### Fixed
 - Pages already cached are removed when **Never cache** or **Only cache** starts leaving them out. The web server used to keep sending them until they were next cleared.
+- Changes Speedy noted at the same moment, such as by a rebuild and a CDN clear, could undo each other. The status endpoint could then report a CDN clear that failed after a later one worked, the CloudFront path count for the month came out too low, and turning instant links on or off could rebuild every page a second time.
+- With **Pages that don’t exist (404)** on, an entry or product that went live at its post date could still get the “not found” page kept from before, for as long as it was kept.
+- The status endpoint, the utility page and **Clear all** no longer read the whole queue to find Speedy’s failed jobs, which was slow on a site with a big queue, such as during an import.
 
 ## 1.6.0 - 2026-11-20
 

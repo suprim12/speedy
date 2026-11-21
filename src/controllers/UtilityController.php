@@ -199,11 +199,11 @@ class UtilityController extends Controller
     {
         $storage = Plugin::getInstance()->storage;
         $result = Plugin::getInstance()->serverRules->check();
-        $state = $storage->readData('state');
-        $state['serverChecked'] = $result['ok'];
-        $state['folderOpen'] = $result['folderOpen'] ?? null;
-        $state['robotsKeepsOut'] = $result['robotsKeepsOut'] ?? null;
-        $storage->writeData('state', $state);
+        $storage->updateData('state', fn(array $state) => array_merge($state, [
+            'serverChecked' => $result['ok'],
+            'folderOpen' => $result['folderOpen'] ?? null,
+            'robotsKeepsOut' => $result['robotsKeepsOut'] ?? null,
+        ]));
 
         return $result['ok'] ? $this->asSuccess($result['message']) : $this->asFailure($result['message']);
     }

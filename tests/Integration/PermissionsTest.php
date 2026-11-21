@@ -47,6 +47,11 @@ class PermissionsTest extends TestCase
             $all[self::USER_ID] = $permissions;
         }
         $cache->setValue($service, $all);
+        // Craft 5.12 also keeps each user’s permissions as a map, built from the list above on first use.
+        if (property_exists($service, '_permissionMapsByUserId')) {
+            $maps = new \ReflectionProperty($service, '_permissionMapsByUserId');
+            $maps->setValue($service, array_diff_key($maps->getValue($service), [self::USER_ID => true]));
+        }
     }
 
     /**

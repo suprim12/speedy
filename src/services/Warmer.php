@@ -325,18 +325,20 @@ class Warmer extends Component
     private function noteUnbuilt(array $built, array $failed, array $why, array $redirects = []): void
     {
         $storage = Plugin::getInstance()->storage;
-        $unbuilt = $storage->readData('unbuilt');
-        if (!$failed && !array_intersect_key($unbuilt, array_flip($built))) {
+        // Most rebuilds change nothing here: only lock it when they do.
+        if (!$failed && !array_intersect_key($storage->readData('unbuilt'), array_flip($built))) {
             return;
         }
-        $unbuilt = array_diff_key($unbuilt, array_flip($built));
-        foreach ($failed as $url) {
-            unset($unbuilt[$url]);
-            $unbuilt[$url] = ['why' => (string)($why[$url] ?? ''), 'time' => time()] + (isset($redirects[$url]) ? ['redirect' => true] : []);
-        }
-        $since = time() - self::UNBUILT_DAYS * 86400;
-        $unbuilt = array_slice(array_filter($unbuilt, fn($u) => $u['time'] >= $since), -self::UNBUILT_MOST, null, true);
-        $storage->writeData('unbuilt', $unbuilt);
+        $storage->updateData('unbuilt', function(array $unbuilt) use ($built, $failed, $why, $redirects) {
+            $unbuilt = array_diff_key($unbuilt, array_flip($built));
+            foreach ($failed as $url) {
+                unset($unbuilt[$url]);
+                $unbuilt[$url] = ['why' => (string)($why[$url] ?? ''), 'time' => time()] + (isset($redirects[$url]) ? ['redirect' => true] : []);
+            }
+            $since = time() - self::UNBUILT_DAYS * 86400;
+
+            return array_slice(array_filter($unbuilt, fn($u) => $u['time'] >= $since), -self::UNBUILT_MOST, null, true);
+        });
     }
 
     /**
@@ -350,16 +352,16 @@ class Warmer extends Component
         if (!$built && !$failed) {
             return;
         }
-        $storage = Plugin::getInstance()->storage;
-        $state = $storage->readData('state');
-        if ($built) {
-            $state['rebuiltAt'] = time();
-        }
-        if ($failed) {
-            $url = (string)$failed[0];
-            $state['rebuildFailed'] = ['time' => time(), 'count' => count($failed), 'url' => $url, 'why' => (string)($why[$url] ?? '')];
-        }
-        $storage->writeData('state', $state);
+        Plugin::getInstance()->storage->updateData('state', function(array $state) use ($built, $failed, $why) {
+            if ($built) {
+                $state['rebuiltAt'] = time();
+            }
+            if ($failed) {
+                $url = (string)$failed[0];
+                $state['rebuildFailed'] = ['time' => time(), 'count' => count($failed), 'url' => $url, 'why' => (string)($why[$url] ?? '')];
+            }
+            return $state;
+        });
     }
 
     /**

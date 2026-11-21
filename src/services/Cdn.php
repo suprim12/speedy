@@ -104,11 +104,8 @@ class Cdn extends Component
             }
         }
         $storage = Plugin::getInstance()->storage;
-        $state = $storage->readData('cdn');
-        if (($state['detected'] ?? null) !== $found) {
-            $state['detected'] = $found;
-            $state['detectedAt'] = time();
-            $storage->writeData('cdn', $state);
+        if (($storage->readData('cdn')['detected'] ?? null) !== $found) {
+            $storage->updateData('cdn', fn(array $state) => array_merge($state, ['detected' => $found, 'detectedAt' => time()]));
         }
         $cache->set('speedy:cdn-checked', true, 3600);
     }
@@ -363,10 +360,9 @@ class Cdn extends Component
             }
         }
 
-        $storage = $plugin->storage;
-        $state = $storage->readData('cdn');
-        $state['cloudflareRules'] = ['time' => time(), 'hosts' => array_merge(...array_values($byZone))];
-        $storage->writeData('cdn', $state);
+        $plugin->storage->updateData('cdn', fn(array $state) => array_merge($state, [
+            'cloudflareRules' => ['time' => time(), 'hosts' => array_merge(...array_values($byZone))],
+        ]));
 
         $message = $updated === count($byZone)
             ? Craft::t('speedy', 'Cloudflare’s cache rules were already there, and are up to date.')
@@ -546,20 +542,21 @@ class Cdn extends Component
 
     private function countPaths(int $count): void
     {
-        $storage = Plugin::getInstance()->storage;
-        $state = $storage->readData('cdn');
-        $usage = $this->cloudfrontUsage();
-        $usage['paths'] += $count;
-        $state['cloudfrontUsage'] = $usage;
-        $storage->writeData('cdn', $state);
+        Plugin::getInstance()->storage->updateData('cdn', function(array $state) use ($count) {
+            // Read again inside the lock, so two clears at once both count.
+            $usage = $this->cloudfrontUsage();
+            $usage['paths'] += $count;
+            $state['cloudfrontUsage'] = $usage;
+            return $state;
+        });
     }
 
     private function record(string $cdn, string $result, bool $error = false): void
     {
-        $storage = Plugin::getInstance()->storage;
-        $state = $storage->readData('cdn');
-        $state['last'][$cdn] = ['time' => time(), 'result' => $result, 'error' => $error];
-        $storage->writeData('cdn', $state);
+        Plugin::getInstance()->storage->updateData('cdn', function(array $state) use ($cdn, $result, $error) {
+            $state['last'][$cdn] = ['time' => time(), 'result' => $result, 'error' => $error];
+            return $state;
+        });
         if ($error) {
             Plugin::getInstance()->log->add(($this->names()[$cdn] ?? $cdn) . ': ' . $result, 0, [], $result);
         }

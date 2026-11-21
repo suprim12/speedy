@@ -40,6 +40,7 @@ class ClearAllResetsTest extends TestCase
         $speedy = $queue->push(new WarmJob(['urls' => ['https://example.com/speedy-test-failed'], 'rebuild' => true]));
         $other = $queue->push(new \craft\queue\jobs\ResaveElements(['elementType' => \craft\elements\Entry::class, 'description' => 'Not Speedy’s']));
         Craft::$app->getDb()->createCommand()->update(Table::QUEUE, ['fail' => true, 'error' => 'test'], ['id' => [$speedy, $other]])->execute();
+        $this->assertSame([(string)$speedy], $this->plugin()->insights->failedJobIds(), 'Only Speedy’s own failed jobs are counted.');
 
         $this->assertTrue($this->plugin()->clearer->clearAll('test'));
 

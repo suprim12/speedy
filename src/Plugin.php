@@ -271,13 +271,18 @@ class Plugin extends BasePlugin
     {
         $settings = $this->savedSettings();
         $now = md5(Json::encode([array_values($settings->neverCacheEntryTypes), array_values($settings->neverCacheCategories), $settings->getNeverCache(), $settings->getOnlyCache()]));
-        $state = $this->storage->readData('state');
-        if (($state['neverCache'] ?? md5(Json::encode([[], [], [], []]))) === $now) {
-            return;
+        $changed = false;
+        $this->storage->updateData('state', function(array $state) use ($now, &$changed) {
+            if (($state['neverCache'] ?? md5(Json::encode([[], [], [], []]))) === $now) {
+                return null;
+            }
+            $changed = true;
+            $state['neverCache'] = $now;
+            return $state;
+        });
+        if ($changed) {
+            $this->clearer->clearNeverCached($settings);
         }
-        $state['neverCache'] = $now;
-        $this->storage->writeData('state', $state);
-        $this->clearer->clearNeverCached($settings);
     }
 
     /**
@@ -321,16 +326,18 @@ class Plugin extends BasePlugin
      */
     public function instantLinksChanged(bool $on): bool
     {
-        $state = $this->storage->readData('state');
-        // Pages cached before there were instant links don’t have them.
-        $was = (bool)($state['instantLinks'] ?? false);
-        if ($was === $on) {
-            return false;
-        }
-        $state['instantLinks'] = $on;
-        $this->storage->writeData('state', $state);
+        $changed = false;
+        $this->storage->updateData('state', function(array $state) use ($on, &$changed) {
+            // Pages cached before there were instant links don’t have them.
+            if ((bool)($state['instantLinks'] ?? false) === $on) {
+                return null;
+            }
+            $changed = true;
+            $state['instantLinks'] = $on;
+            return $state;
+        });
 
-        return true;
+        return $changed;
     }
 
     protected function settingsHtml(): ?string

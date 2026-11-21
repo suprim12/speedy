@@ -808,6 +808,39 @@ class Storage extends Component
         $this->atomicWrite($this->dataRoot() . "/$name.json", Json::encode($data));
     }
 
+    /**
+     * Changes a small JSON file from the data folder, one request at a time, so changes made at the same moment, such
+     * as by a rebuild and a visitor’s request, don’t undo each other. `$change` gets what’s there and returns it
+     * changed, or null to leave it.
+     *
+     * @param callable(array): ?array $change
+     * @return array What’s there afterwards.
+     */
+    public function updateData(string $name, callable $change): array
+    {
+        $mutex = Craft::$app->getMutex();
+        $lock = "speedy:data:$name";
+        // Up to five seconds: a lock that never comes mustn’t hang the request, and the change is still made, as before.
+        $locked = $mutex->acquire($lock, 5);
+        if (!$locked) {
+            Craft::warning("Couldn’t lock $name; changed it anyway.", 'speedy');
+        }
+        try {
+            $data = $this->readData($name);
+            $changed = $change($data);
+            if ($changed === null) {
+                return $data;
+            }
+            $this->writeData($name, $changed);
+
+            return $changed;
+        } finally {
+            if ($locked) {
+                $mutex->release($lock);
+            }
+        }
+    }
+
     private function metaFile(string $key): string
     {
         // A host-only key (the homepage) would clash with its folder, so it gets its own name.

@@ -951,18 +951,19 @@ class Clearer extends Component
             return 0;
         }
         try {
-            $state = $plugin->storage->readData('state');
-            // Set up since the last time it was due: start from the next one, rather than rebuilding straight away.
-            if (!isset($state['dailyRebuildAt'])) {
+            $go = false;
+            $plugin->storage->updateData('state', function(array $state) use ($now, $due, &$go) {
+                // Set up since the last time it was due: start from the next one, rather than rebuilding straight away.
+                if (isset($state['dailyRebuildAt']) && (int)$state['dailyRebuildAt'] >= $due) {
+                    return null;
+                }
+                $go = isset($state['dailyRebuildAt']);
                 $state['dailyRebuildAt'] = $now;
-                $plugin->storage->writeData('state', $state);
+                return $state;
+            });
+            if (!$go) {
                 return 0;
             }
-            if ((int)$state['dailyRebuildAt'] >= $due) {
-                return 0;
-            }
-            $state['dailyRebuildAt'] = $now;
-            $plugin->storage->writeData('state', $state);
         } finally {
             $mutex->release('speedy:dailyRebuild');
         }
@@ -1035,11 +1036,9 @@ class Clearer extends Component
             return;
         }
         $storage = Plugin::getInstance()->storage;
-        $state = $storage->readData('state');
-        if (!isset($state['dailyRebuildAt'])) {
+        if (!isset($storage->readData('state')['dailyRebuildAt'])) {
             // From now on: a time already passed today waits until tomorrow.
-            $state['dailyRebuildAt'] = $now;
-            $storage->writeData('state', $state);
+            $storage->updateData('state', fn(array $state) => isset($state['dailyRebuildAt']) ? null : ['dailyRebuildAt' => $now] + $state);
         }
         $this->scheduleExpiry($next);
     }
@@ -1091,10 +1090,8 @@ class Clearer extends Component
             return;
         }
         try {
-            foreach ($queue->getJobInfo() as $job) {
-                if (($job['status'] ?? null) === \craft\queue\Queue::STATUS_FAILED && str_starts_with((string)($job['description'] ?? ''), 'Speedy Cache:')) {
-                    $queue->release((string)$job['id']);
-                }
+            foreach (Plugin::getInstance()->insights->failedJobIds() as $id) {
+                $queue->release($id);
             }
         } catch (\Throwable $e) {
             Craft::warning('Couldn’t remove failed Speedy jobs: ' . $e->getMessage(), 'speedy');
@@ -1145,10 +1142,11 @@ class Clearer extends Component
         $count += $this->clearPricesChanged($since, $now);
         $count += $this->rebuildDaily($now);
 
-        $data = $plugin->storage->readData('state');
-        $data['lastExpire'] = $now;
-        unset($data['expireJobAt']);
-        $plugin->storage->writeData('state', $data);
+        $plugin->storage->updateData('state', function(array $state) use ($now) {
+            $state['lastExpire'] = $now;
+            unset($state['expireJobAt']);
+            return $state;
+        });
         $next = array_filter([$plugin->storage->nextExpiry(), $this->nextPostDate(), $this->nextPriceChange(), $this->nextDailyRebuild($now)]);
         if ($next) {
             $this->scheduleExpiry(max(min($next), time() + 60));
@@ -1164,9 +1162,11 @@ class Clearer extends Component
     private function clearWentLive(int $since, int $now): int
     {
         $count = 0;
+        $wentLive = false;
         $range = ['and', '> ' . date(DATE_ATOM, $since), '<= ' . date(DATE_ATOM, $now)];
         foreach ($this->postDatedTypes() as $class) {
             foreach ($class::find()->site('*')->unique()->status('live')->postDate($range)->all() as $element) {
+                $wentLive = true;
                 $tags = ["element::$element->id"];
                 foreach ($element->getCacheTags() as $tag) {
                     $tags[] = str_starts_with($tag, 'element::') ? $tag : "element::$class::$tag";
@@ -1177,6 +1177,11 @@ class Clearer extends Component
                     'title' => (string)$element,
                 ]), false);
             }
+        }
+        // Their addresses may have been asked for before they went live, such as by visitors waiting for a launch,
+        // and nothing was saved now to forget those “not found” pages.
+        if ($wentLive && Plugin::getInstance()->getSettings()->cacheNotFound > 0) {
+            Cacher::forgetNotFound();
         }
 
         // Their own pages too, in each site, as nobody could have cached them before.
@@ -1408,15 +1413,24 @@ class Clearer extends Component
      */
     public function scheduleExpiry(int $at): void
     {
+        $due = fn(array $state) => ($scheduled = $state['expireJobAt'] ?? null) !== null && $scheduled <= $at && $scheduled > time();
         $storage = Plugin::getInstance()->storage;
-        $state = $storage->readData('state');
-        $scheduled = $state['expireJobAt'] ?? null;
-        if ($scheduled !== null && $scheduled <= $at && $scheduled > time()) {
+        // Called for each page saved with a lifetime: only lock when a job is needed.
+        if ($due($storage->readData('state'))) {
             return;
         }
-        $state['expireJobAt'] = $at;
-        $storage->writeData('state', $state);
-        Queue::push(new ExpireJob(), 1024, max(0, $at - time()));
+        $push = false;
+        $storage->updateData('state', function(array $state) use ($due, $at, &$push) {
+            if ($due($state)) {
+                return null;
+            }
+            $push = true;
+            $state['expireJobAt'] = $at;
+            return $state;
+        });
+        if ($push) {
+            Queue::push(new ExpireJob(), 1024, max(0, $at - time()));
+        }
     }
 
     /**
