@@ -29,6 +29,24 @@ class StorageKeyTest extends TestCase
         $this->assertNull($storage->key('example.com', '/' . str_repeat('a', 401)));
     }
 
+    /**
+     * Each part of a key is a folder, and the page’s data file is named after its last part: a part too long for the
+     * file system would fail on every visit, so it isn’t cached.
+     */
+    public function testPartsTooLongForAFileNameAreRefused(): void
+    {
+        $storage = $this->plugin()->storage;
+        $this->assertNotNull($storage->key('example.com', 'a/' . str_repeat('x', 200)));
+        $this->assertNull($storage->key('example.com', 'a/' . str_repeat('x', 201)));
+        $this->assertNull($storage->key('example.com', 'p', ['q' => str_repeat('%', 100)]), 'Its query folder, once encoded, too.');
+
+        // The longest that's allowed can be saved, and found again.
+        foreach ([(string)$storage->key('example.com', 'a/' . str_repeat('x', 200)), (string)$storage->key('example.com', 'p', ['q' => str_repeat('y', 190)])] as $key) {
+            $storage->write($key, '<html></html>', 'https://example.com/', ['element::1'], null);
+            $this->assertTrue($storage->exists($key), $key);
+        }
+    }
+
     public function testQueryStringsMakeTheirOwnPage(): void
     {
         $storage = $this->plugin()->storage;

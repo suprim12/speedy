@@ -9,6 +9,8 @@
 - **Clear by pattern** with a pattern ending in `/*`, and **Clear site**, clear Cloudflare by prefix or host in one request, which also clears copies Speedy never had, such as with tracking parameters.
 
 ### Fixed
+- The API’s clear sent with a single URL or tag as plain text, such as `urls=https://example.com/news` rather than `urls[]=…`, cleared every page instead of that one. It now clears that page, and a call with an empty list is refused.
+- Addresses with a part too long for a file name, such as made-up ones from bots, failed to save on every visit and filled the log with errors. They’re now not cached (`X-Speedy: SKIP url`).
 - With instant links on, a browser fetching a page ahead for a visitor with something in their session, such as a flash message, could use it up on a page they didn’t open. That request is now refused, and the page opens as usual on the click.
 - Pages already cached are removed when **Never cache** or **Only cache** starts leaving them out. The web server used to keep sending them until they were next cleared.
 - Changes Speedy noted at the same moment, such as by a rebuild and a CDN clear, could undo each other. The status endpoint could then report a CDN clear that failed after a later one worked, the CloudFront path count for the month came out too low, and turning instant links on or off could rebuild every page a second time.

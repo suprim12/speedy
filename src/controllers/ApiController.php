@@ -90,23 +90,28 @@ class ApiController extends Controller
     public function actionClear(): Response
     {
         $clearer = Plugin::getInstance()->clearer;
-        $tags = $this->request->getBodyParam('tags');
-        if (is_array($tags) && $tags) {
-            $names = array_slice(array_filter($tags, 'is_string'), 0, 100);
+        // A single URL or tag sent as plain text, such as `urls=https://…` rather than `urls[]=…`, is one of them:
+        // never a reason to clear everything. Everything is cleared only when neither is sent.
+        $tags = $this->listParam('tags');
+        $urls = $this->listParam('urls');
+        if ($tags === [] || $urls === []) {
+            return $this->asJson(['success' => false, 'error' => 'No URLs or tags given. Leave both out to clear everything.'])->setStatusCode(400);
+        }
+        if ($tags !== null) {
+            $names = array_slice($tags, 0, 100);
             $count = $clearer->clearCustomTags($names, Craft::t('speedy', 'Cleared tags {tags}, with the API key', ['tags' => implode(', ', $names)]));
             return $this->asJson(['success' => true, 'cleared' => $count]);
         }
-        $urls = $this->request->getBodyParam('urls');
-        if (is_array($urls) && $urls) {
+        if ($urls !== null) {
             $count = 0;
             $patterns = 0;
-            foreach (array_slice(array_filter($urls, 'is_string'), 0, 1000) as $url) {
+            foreach (array_slice($urls, 0, 1000) as $url) {
                 // Each pattern looks through every cached page, so a call takes a few.
                 if (str_contains($url, '*') && ++$patterns > self::MOST_PATTERNS) {
                     return $this->asJson(['success' => false, 'error' => 'At most ' . self::MOST_PATTERNS . ' URLs with * at a time.'])->setStatusCode(400);
                 }
             }
-            foreach (array_slice(array_filter($urls, 'is_string'), 0, 1000) as $url) {
+            foreach (array_slice($urls, 0, 1000) as $url) {
                 $count += $clearer->clearUrl($url);
             }
             return $this->asJson(['success' => true, 'cleared' => $count]);
@@ -117,6 +122,23 @@ class ApiController extends Controller
         }
 
         return $this->asJson(['success' => true, 'cleared' => $count]);
+    }
+
+    /**
+     * A body parameter as a list of non-empty strings: null when it wasn’t sent, and an empty list when it was sent
+     * with nothing usable in it.
+     *
+     * @return string[]|null
+     */
+    private function listParam(string $name): ?array
+    {
+        $value = $this->request->getBodyParam($name);
+        if ($value === null) {
+            return null;
+        }
+        $values = is_array($value) ? $value : [$value];
+
+        return array_values(array_filter(array_map(fn($v) => is_string($v) ? trim($v) : '', $values), fn($v) => $v !== ''));
     }
 
     public function actionRebuild(): Response

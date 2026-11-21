@@ -44,6 +44,9 @@ class Storage extends Component
      *
      * @param array<string, mixed> $query
      */
+    /** The longest part of a key, in bytes, so its folder and data file names stay within the file system’s 255. */
+    private const NAME_MOST = 200;
+
     public function key(string $host, string $path, array $query = []): ?string
     {
         $host = strtolower($host);
@@ -56,7 +59,9 @@ class Storage extends Component
             return null;
         }
         foreach ($path === '' ? [] : explode('/', $path) as $segment) {
-            if ($segment === '' || $segment === '.' || $segment === '..' || $segment === self::QUERY_FOLDER) {
+            // Each part is a folder, and its data file is named after it with `.json` and a temporary suffix while it’s
+            // written: the file system allows 255 bytes for a name.
+            if ($segment === '' || $segment === '.' || $segment === '..' || $segment === self::QUERY_FOLDER || strlen($segment) > self::NAME_MOST) {
                 return null;
             }
         }
@@ -69,8 +74,7 @@ class Storage extends Component
                 return null;
             }
             $folder = rawurlencode($string);
-            // A folder name can’t be longer than 255 bytes.
-            if (strlen($folder) > 240) {
+            if (strlen($folder) > self::NAME_MOST) {
                 return null;
             }
             $key .= '/' . self::QUERY_FOLDER . '/' . $folder;
