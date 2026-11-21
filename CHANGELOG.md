@@ -5,6 +5,7 @@
 ### Added
 - **Never cache sites** on the General tab, on a site with several: a whole site, such as a members’ area, isn’t cached, and its pages cached before are removed. Also `neverCacheSites` in `config/speedy.php`.
 - **Open pages ahead** for instant links: the browser opens the page out of sight once a visitor points at its link, so it shows at once. Speedy’s own scripts, such as the CSRF token refresh and dynamic parts, wait until the page is shown, and so do scripts marked `data-speedy-wait`, such as analytics. Off by default; `instantLinksPrerender` in `config/speedy.php`.
+- The control panel in German, Dutch and French.
 - **Clear by pattern** with a pattern ending in `/*`, and **Clear site**, clear Cloudflare by prefix or host in one request, which also clears copies Speedy never had, such as with tracking parameters.
 
 ### Fixed
