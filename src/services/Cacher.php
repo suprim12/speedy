@@ -127,6 +127,18 @@ class Cacher extends Component
             return;
         }
 
+        // A browser fetching or opening a page ahead, for a visitor with something in their session, such as a flash
+        // message or a form step: building the page now would use it up on a page they may never open. Refused, so
+        // the browser opens it normally on the click.
+        if (InstantLinks::isSpeculative($request) && $this->hasCookie($request, self::STATE_COOKIE)) {
+            $response = Craft::$app->getResponse();
+            $response->setStatusCode(425);
+            $response->format = Response::FORMAT_RAW;
+            $response->content = '';
+            $response->getHeaders()->set(self::HEADER, 'SKIP speculative')->set('Cache-Control', 'no-store');
+            Craft::$app->end(0, $response);
+        }
+
         $this->_warming = $this->isWarmRequest($request);
         $this->_key = $this->cacheKey($request);
         if ($this->_key === null) {
@@ -246,6 +258,7 @@ class Cacher extends Component
             !$this->plainHost($request) => 'unknown host',
             // The port the server really took the request on: X-Forwarded-Port can say anything.
             !$this->isSiteHost((string)$request->getHostName(), parse_url($request->getHostInfo() ?? '', PHP_URL_PORT), (int)($_SERVER['SERVER_PORT'] ?? 0) ?: null) => 'unknown host',
+            $settings->neverCacheSites && in_array(Craft::$app->getSites()->getCurrentSite()->handle, $settings->neverCacheSites, true) => 'never cache site',
             default => null,
         };
         $this->_query = [];
@@ -368,6 +381,21 @@ class Cacher extends Component
 
     /** The most “not found” pages kept at once, so made-up addresses can’t fill the cache. */
     public const NOT_FOUND_MOST = 1000;
+
+    /**
+     * A page built for a browser opening it ahead, rather than sent from the cache, such as for a visitor with cookies:
+     * its scripts marked `data-speedy-wait` wait until it’s shown, as on cached pages.
+     */
+    public function holdForPrerender(Response $response): void
+    {
+        $request = Craft::$app->getRequest();
+        $settings = Plugin::getInstance()->getSettings();
+        if (!$request instanceof Request || !$settings->instantLinks || !$settings->instantLinksPrerender || !is_string($response->content)
+            || !str_contains(strtolower((string)$request->getHeaders()->get('Sec-Purpose')), 'prerender') || !$request->getIsSiteRequest()) {
+            return;
+        }
+        $response->content = InstantLinks::holdScripts($response->content, $response->getHeaders()->toArray());
+    }
 
     /**
      * Whether a response is a “not found” page to keep for a while, as `cacheNotFound` asks. Never while rebuilding,
@@ -602,7 +630,11 @@ class Cacher extends Component
             $html = $this->prepareHtml((string)$response->content);
             if ($settings->instantLinks) {
                 $sitePath = (string)parse_url((string)Craft::$app->getSites()->getCurrentSite()->getBaseUrl(), PHP_URL_PATH);
-                $html = InstantLinks::add($html, $response->getHeaders()->toArray(), $settings->getNeverCache(), $settings->getOnlyCache(), $sitePath);
+                $prerender = $settings->instantLinksPrerender;
+                $html = InstantLinks::add($html, $response->getHeaders()->toArray(), array_merge($settings->getNeverCache(), $this->neverCachedSitePaths()), $settings->getOnlyCache(), $sitePath, $prerender);
+                if ($prerender) {
+                    $html = InstantLinks::holdScripts($html, $response->getHeaders()->toArray());
+                }
             }
             // The address as requested, without the query string. (Building it from the site’s base URL would
             // repeat a subfolder such as /de/ on multi-site.)
@@ -703,6 +735,31 @@ class Cacher extends Component
     }
 
     /**
+     * The paths of the sites in `neverCacheSites` on this request’s host, such as `members` and `members/*`, so instant
+     * links don’t fetch pages that would be built for nothing.
+     *
+     * @return string[]
+     */
+    private function neverCachedSitePaths(): array
+    {
+        $paths = [];
+        $host = strtolower((string)Craft::$app->getRequest()->getHostName());
+        foreach (Plugin::getInstance()->getSettings()->getNeverCacheSiteIds() as $id) {
+            $site = Craft::$app->getSites()->getSiteById($id, true);
+            $base = $site?->getBaseUrl();
+            if (!$site?->hasUrls || !$base) {
+                continue;
+            }
+            $path = trim((string)parse_url($base, PHP_URL_PATH), '/');
+            if ($path !== '' && strtolower((string)parse_url($base, PHP_URL_HOST)) === $host) {
+                array_push($paths, $path, "$path/*");
+            }
+        }
+
+        return $paths;
+    }
+
+    /**
      * The lifetime set for the section of the entry whose page this is, in seconds, or null.
      */
     private function sectionLifetime(): ?int
@@ -793,7 +850,8 @@ class Cacher extends Component
         }
         $html = str_replace($token, self::CSRF_PLACEHOLDER, $html);
         $html = $this->addFormieRefresh($html);
-        $script = '<script>(function(){var p=' . json_encode(self::CSRF_PLACEHOLDER) . ';fetch(' . json_encode(self::relativeActionUrl('speedy/csrf')) . ',{headers:{Accept:"application/json"},credentials:"same-origin"}).then(function(r){return r.json()}).then(function(d){document.querySelectorAll("input[value=\'"+p+"\']").forEach(function(i){i.value=d.token});document.querySelectorAll("meta[content=\'"+p+"\']").forEach(function(m){m.content=d.token});window.csrfTokenValue=d.token})})();</script>';
+        // Once the page is shown: a page the browser opened ahead may never be.
+        $script = '<script>' . InstantLinks::whenShown('function(){var p=' . json_encode(self::CSRF_PLACEHOLDER) . ';fetch(' . json_encode(self::relativeActionUrl('speedy/csrf')) . ',{headers:{Accept:"application/json"},credentials:"same-origin"}).then(function(r){return r.json()}).then(function(d){document.querySelectorAll("input[value=\'"+p+"\']").forEach(function(i){i.value=d.token});document.querySelectorAll("meta[content=\'"+p+"\']").forEach(function(m){m.content=d.token});window.csrfTokenValue=d.token})}') . '</script>';
 
         return str_contains($html, '</body>') ? substr_replace($html, $script . '</body>', strrpos($html, '</body>'), 7) : $html . $script;
     }
@@ -846,7 +904,8 @@ class Cacher extends Component
             return $html;
         }
         // Formie starts its forms once the page has loaded, after this has run.
-        $script = '<script>document.addEventListener("onFormieInit",function(e){var d=e.detail||{};if(d.formie&&d.formId&&d.formie.refreshForCache){d.formie.refreshForCache(d.formId)}});</script>';
+        // Formie may start them while the browser opens the page ahead: the tokens are fetched once it’s shown.
+        $script = '<script>document.addEventListener("onFormieInit",function(e){var d=e.detail||{};if(d.formie&&d.formId&&d.formie.refreshForCache){' . InstantLinks::whenShown('function(){d.formie.refreshForCache(d.formId)}') . '}});</script>';
 
         return str_contains($html, '</body>') ? substr_replace($html, $script . '</body>', strrpos($html, '</body>'), 7) : $html . $script;
     }

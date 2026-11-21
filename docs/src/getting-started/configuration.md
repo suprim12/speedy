@@ -48,6 +48,7 @@ return [
 | `neverCache` | `[]` | URL paths never cached, such as `checkout/*`. Also on the General tab |
 | `allowedHosts` | `[]` | Host names to cache when a site’s base URL is `@web`, such as `['example.com', 'www.example.com']`. Set it on such sites: left empty, any host the request was sent to is cached, visitors with cookies don’t get pages built in the background, the warming login (`warmUsername`, `warmPassword`) isn’t sent, and **Why isn’t this page cached?** can’t check pages. The utility page warns ([Multi-site](/recipes/multi-site)) |
 | `neverCacheEntryTypes` | `[]` | Entry type handles whose entries’ pages are never cached, such as `['memberArticle']` ([Never cache](/guides/not-cached#by-entry-type-or-category)). Also on the General tab |
+| `neverCacheSites` | `[]` | Handles of sites whose pages are never cached, such as `['members']` ([Never cache](/guides/not-cached#by-site)). Also on the General tab when there are several sites |
 | `neverCacheCategories` | `[]` | Categories, by group handle and slug, such as `['topics/members']`, whose pages and the pages of elements that have them are never cached. Also on the General tab |
 | `onlyCache` | `[]` | URL paths to cache, when only some pages should be, such as `['/', 'news*']`. `/` is the homepage. Empty caches every page ([What isn’t cached](/guides/not-cached#caching-only-some-pages)) |
 | `queryStrings` | `'skip'` | `'skip'`: pages with a query string are cached only for the parameters in `cachedParams`. `'ignore'`: they’re cached without it, for sites that never use query strings for content: with `'ignore'`, `?page=2`, filters and tabs show the page without them. To leave out only some parameters, use `ignoredParams`. Also on the Query strings tab |
@@ -68,6 +69,7 @@ return [
 | `dailyRebuildTime` | `'00:05'` | When `dailyRebuild` pages are rebuilt, in the site’s time zone |
 | `broadRebuildDelay` | `60` | Seconds a page that clears on any change waits before it’s rebuilt, so an import rebuilds it once. Visitors get the old copy meanwhile. `0` rebuilds straight away |
 | `instantLinks` | `false` | Browsers fetch a page as soon as a visitor points at its link, so it opens straight away ([Instant Links](/guides/instant-links)). Also on the General tab |
+| `instantLinksPrerender` | `false` | With instant links on, also open the page ahead so it shows at once ([Opening pages ahead](/guides/instant-links#opening-pages-ahead)). Scripts marked `data-speedy-wait` wait until it’s shown. Also on the General tab |
 | `rebuildAfterDeploy` | `false` | Rebuild every cached page in the background when a deploy applies project config changes ([Deploy script](/recipes/deploy)) |
 | `queryReport` | `true` | Count the queries of pages Speedy rebuilds, and list pages that run the same query again and again ([Performance](/guides/utility#performance)) |
 | `warm` | `false` | Pages to build after a full clear: `'sitemap'` or a list of URLs |

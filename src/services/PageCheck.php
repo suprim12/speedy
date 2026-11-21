@@ -128,6 +128,10 @@ class PageCheck extends Component
                 Craft::t('speedy', 'Its entry type is in **Never cache**.'),
                 Craft::t('speedy', 'Remove the entry type from **Never cache entry types** in [Settings]({url}) if its pages are the same for everyone.', ['url' => \craft\helpers\UrlHelper::cpUrl($settingsUrl)]),
             ],
+            $reason === 'never cache site' => [
+                Craft::t('speedy', 'Its site is in **Never cache sites**.'),
+                Craft::t('speedy', 'Remove the site from **Never cache sites** in [Settings]({url}) if its pages are the same for everyone.', ['url' => \craft\helpers\UrlHelper::cpUrl($settingsUrl)]),
+            ],
             $reason === 'never cache category' => [
                 Craft::t('speedy', 'It is, or has, a category in **Never cache**.'),
                 Craft::t('speedy', 'Remove the category from **Never cache categories** in [Settings]({url}) if its pages are the same for everyone.', ['url' => \craft\helpers\UrlHelper::cpUrl($settingsUrl)]),

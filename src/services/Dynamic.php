@@ -80,14 +80,15 @@ class Dynamic extends Component
     }
 
     /**
-     * Fetches every part on the page in one request, puts each in place and runs its scripts in order.
+     * Fetches every part on the page in one request, puts each in place and runs its scripts in order. On a page the
+     * browser opened ahead, once it’s shown, as the visitor may never go to it.
      */
     private function loaderScript(): string
     {
         $url = Json::encode(Cacher::relativeActionUrl('speedy/dynamic/render'));
 
         return <<<JS
-(function(){var els=[].slice.call(document.querySelectorAll('[data-speedy-dynamic]'));if(!els.length)return;
+(function(f){document.prerendering?document.addEventListener('prerenderingchange',f,{once:true}):f()})(function(){var els=[].slice.call(document.querySelectorAll('[data-speedy-dynamic]'));if(!els.length)return;
 fetch($url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({tokens:els.map(function(e){return e.getAttribute('data-speedy-dynamic')})})})
 .then(function(r){return r.json()}).then(function(d){var queue=[];
 els.forEach(function(el,i){var html=(d.parts||[])[i];if(typeof html!=='string')return;var box=document.createElement('div');box.innerHTML=html;
@@ -95,7 +96,7 @@ els.forEach(function(el,i){var html=(d.parts||[])[i];if(typeof html!=='string')r
 (function next(){var old=queue.shift();if(!old){document.dispatchEvent(new CustomEvent('speedy:dynamic'));return}
 if(old.src&&[].some.call(document.querySelectorAll('script[src]'),function(x){return x!==old&&x.src===old.src})){old.remove();return next()}
 var s=document.createElement('script');[].slice.call(old.attributes).forEach(function(a){s.setAttribute(a.name,a.value)});s.setAttribute('data-speedy-run','');
-if(old.src){s.onload=s.onerror=next}s.text=old.text;old.parentNode.replaceChild(s,old);if(!old.src)next()})()})})();
+if(old.src){s.onload=s.onerror=next}s.text=old.text;old.parentNode.replaceChild(s,old);if(!old.src)next()})()})});
 JS;
     }
 }

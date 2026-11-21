@@ -68,5 +68,9 @@ Each page is cleared from its own domain’s zone. A domain covers its subdomain
 ## How clearing works
 
 - Changed pages are cleared by URL, 30 at a time, from their domain’s zone.
+- **Clear by pattern** with a pattern ending in `/*`, such as `/news/*`, clears that prefix from Cloudflare in one request, such as `example.com/news/`, on each of the sites’ domains. That also clears copies Speedy never had, such as ones with `?utm_source=` added. Other patterns, such as `news*`, clear by URL.
+- **Clear site** clears the site’s domain from Cloudflare by host, or its folder by prefix for a site such as `example.com/de`. A site whose base URL is `@web` is cleared by URL.
+- When the cleared pages are rebuilt, Cloudflare is cleared by prefix or host after the rebuilds, so it doesn’t fetch the old copies again.
+- Every Cloudflare plan can clear by prefix and host; the Free plan allows 5 such requests a minute.
 - **Clear all pages** clears everything in Cloudflare too, in every zone.
 - Results show on the utility page, and failures in the log.

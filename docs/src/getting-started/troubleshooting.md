@@ -31,6 +31,7 @@ The header says why, after `SKIP`:
 | `rewritten URL` | The site’s `index.php` changes the address before Craft opens it, other than taking part of it off (such as `/` to `/en/`), so the address alone might not decide the page | Expected. An `index.php` that only takes part off, such as a `/kiosk` prefix that shows pages another way, is cached: each address keeps its own copy |
 | `never cache` | The URL matches **Never cache** | Check the patterns in the settings |
 | `never cache entry type` | The entry’s type is in **Never cache entry types** | Untick it in the settings if its pages are the same for everyone |
+| `never cache site` | The page’s site is in **Never cache sites** | Remove it in the settings if its pages are the same for everyone |
 | `never cache category` | The page is a category in **Never cache categories**, or has one | Remove it in the settings if its pages are the same for everyone |
 | `sets a cookie` | The page sets a cookie, so it may be personal | Find what sets it, or move it to a page that isn’t cached |
 | `private` | The template or a plugin sent `Cache-Control: private` or `no-store` | Remove it if the page isn’t personal |

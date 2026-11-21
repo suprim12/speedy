@@ -2,7 +2,13 @@
 
 ## Unreleased
 
+### Added
+- **Never cache sites** on the General tab, on a site with several: a whole site, such as a members’ area, isn’t cached, and its pages cached before are removed. Also `neverCacheSites` in `config/speedy.php`.
+- **Open pages ahead** for instant links: the browser opens the page out of sight once a visitor points at its link, so it shows at once. Speedy’s own scripts, such as the CSRF token refresh and dynamic parts, wait until the page is shown, and so do scripts marked `data-speedy-wait`, such as analytics. Off by default; `instantLinksPrerender` in `config/speedy.php`.
+- **Clear by pattern** with a pattern ending in `/*`, and **Clear site**, clear Cloudflare by prefix or host in one request, which also clears copies Speedy never had, such as with tracking parameters.
+
 ### Fixed
+- With instant links on, a browser fetching a page ahead for a visitor with something in their session, such as a flash message, could use it up on a page they didn’t open. That request is now refused, and the page opens as usual on the click.
 - Pages already cached are removed when **Never cache** or **Only cache** starts leaving them out. The web server used to keep sending them until they were next cleared.
 - Changes Speedy noted at the same moment, such as by a rebuild and a CDN clear, could undo each other. The status endpoint could then report a CDN clear that failed after a later one worked, the CloudFront path count for the month came out too low, and turning instant links on or off could rebuild every page a second time.
 - With **Pages that don’t exist (404)** on, an entry or product that went live at its post date could still get the “not found” page kept from before, for as long as it was kept.

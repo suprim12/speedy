@@ -198,14 +198,21 @@ class Insights extends Component
     }
 
     /**
-     * Whether a page is left out by Never cache or Only cache, matched on its full path and its path within the site,
-     * as for visitors.
+     * Whether a page is left out by Never cache sites, Never cache or Only cache, matched on its full path and its path
+     * within the site, as for visitors.
      *
      * @param string $sitePath Such as an element’s URI; `__home__` for a homepage.
      */
     public function leftOut(string $url, string $sitePath, ?\suprim\speedy\models\Settings $settings = null): bool
     {
         $settings ??= Plugin::getInstance()->getSettings();
+        if ($siteIds = $settings->getNeverCacheSiteIds()) {
+            $key = Plugin::getInstance()->storage->keyForUrl($url);
+            $site = $key !== null ? Plugin::getInstance()->clearer->siteForKey($key) : null;
+            if ($site !== null && in_array($site['id'], $siteIds, true)) {
+                return true;
+            }
+        }
         $path = trim(rawurldecode((string)parse_url($url, PHP_URL_PATH)), '/');
         $sitePath = $sitePath === Element::HOMEPAGE_URI ? '' : $sitePath;
         if (Cacher::matchingPattern($path, $settings->getNeverCache()) !== null || Cacher::matchingPattern($sitePath, $settings->getNeverCache()) !== null) {
@@ -345,6 +352,9 @@ class Insights extends Component
 
         if (!$settings->isEnabled()) {
             return ['state' => 'off', 'label' => Craft::t('speedy', 'Caching is off'), 'detail' => null, 'pages' => $pages];
+        }
+        if (in_array((int)$element->siteId, $settings->getNeverCacheSiteIds(), true)) {
+            return ['state' => 'never', 'label' => Craft::t('speedy', 'Never cached'), 'detail' => Craft::t('speedy', 'Its site is in Never cache'), 'pages' => $pages];
         }
         $sitePath = $element->uri === '__home__' ? '' : (string)$element->uri;
         $pattern = Cacher::matchingPattern($path, $settings->getNeverCache()) ?? Cacher::matchingPattern($sitePath, $settings->getNeverCache());

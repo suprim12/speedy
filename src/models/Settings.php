@@ -33,6 +33,9 @@ class Settings extends Model
      */
     public array $neverCacheCategories = [];
 
+    /** @var string[] Handles of sites whose pages are never cached, such as a members’ area, on a site with several. */
+    public array $neverCacheSites = [];
+
     /** @var string[]|string URL patterns to cache, when only some pages should be, such as `news/*`. Empty caches every page. `*` matches anything; `/` is the homepage. */
     public array|string $onlyCache = [];
 
@@ -126,6 +129,12 @@ class Settings extends Model
      * HTML is fetched, and never for links that do something when opened, such as signing out.
      */
     public bool $instantLinks = false;
+
+    /**
+     * With instant links on, whether browsers also open the page ahead, out of sight, so it shows at once. Its scripts
+     * run then: Speedy’s own and those marked `data-speedy-wait` wait until the page is shown.
+     */
+    public bool $instantLinksPrerender = false;
 
     /**
      * Seconds a page that clears on any change, such as a listing of every entry, waits before it’s rebuilt, so an
@@ -269,6 +278,24 @@ class Settings extends Model
     }
 
     /**
+     * The IDs of the sites in `neverCacheSites` that exist.
+     *
+     * @return int[]
+     */
+    public function getNeverCacheSiteIds(): array
+    {
+        $ids = [];
+        foreach ($this->neverCacheSites as $handle) {
+            $site = Craft::$app->getSites()->getSiteByHandle((string)$handle, true);
+            if ($site !== null) {
+                $ids[] = (int)$site->id;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
      * The maximum age in seconds for the pages of a section’s entries, or null when it has none.
      */
     public function getSectionLifetime(string $handle): ?int
@@ -354,8 +381,10 @@ class Settings extends Model
             }
         }
         // Entry types from the settings page’s checkboxes: an empty string when none are ticked.
-        if (array_key_exists('neverCacheEntryTypes', $values)) {
-            $values['neverCacheEntryTypes'] = array_values(array_filter(array_map('strval', (array)$values['neverCacheEntryTypes'])));
+        foreach (['neverCacheEntryTypes', 'neverCacheSites'] as $name) {
+            if (array_key_exists($name, $values)) {
+                $values[$name] = array_values(array_filter(array_map('strval', (array)$values[$name])));
+            }
         }
         // Categories chosen on the settings page come as IDs: kept by group and slug, such as `topics/members`, which
         // stay the same from one environment to the next.
@@ -387,7 +416,7 @@ class Settings extends Model
             }
             $values['sectionLifetimes'] = $lifetimes;
         }
-        foreach (['rebuildCleared', 'instantLinks', 'buildSavedPages'] as $name) {
+        foreach (['rebuildCleared', 'instantLinks', 'instantLinksPrerender', 'buildSavedPages'] as $name) {
             if (isset($values[$name]) && is_string($values[$name])) {
                 $values[$name] = $values[$name] === '1';
             }

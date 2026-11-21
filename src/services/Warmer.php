@@ -380,8 +380,9 @@ class Warmer extends Component
             return [];
         }
         $priorities = [];
+        $never = Plugin::getInstance()->getSettings()->getNeverCacheSiteIds();
         foreach (Craft::$app->getSites()->getAllSites() as $site) {
-            if (!$site->hasUrls || !$site->getBaseUrl()) {
+            if (!$site->hasUrls || !$site->getBaseUrl() || in_array((int)$site->id, $never, true)) {
                 continue;
             }
             $priorities += $this->readSitemap(rtrim($site->getBaseUrl(), '/') . '/' . ltrim(Plugin::getInstance()->getSettings()->sitemap, '/'));

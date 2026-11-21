@@ -39,9 +39,21 @@
 	instructions: 'Browsers fetch a page as soon as a visitor points at its link, so it opens straight away. Only its HTML is fetched; links that do something when opened, such as signing out, are left alone. Add `data-no-prefetch` to a link or its container to leave it out.'|t('speedy'),
 	name: 'instantLinks',
 	on: settings.instantLinks,
+	toggle: 'speedy-prerender',
 	disabled: 'instantLinks' in overrides,
 	warning: 'instantLinks' in overrides ? configWarning('instantLinks'),
 }) }}
+
+<div id="speedy-prerender" class="nested-fields{{ settings.instantLinks ? '' : ' hidden' }}">
+	{{ forms.lightswitchField({
+		label: 'Open pages ahead'|t('speedy'),
+		instructions: 'Also open the page out of sight, so it shows at once. Its scripts run then: Speedy’s own wait until it’s shown, and so do scripts you mark with `data-speedy-wait`, such as analytics.'|t('speedy'),
+		name: 'instantLinksPrerender',
+		on: settings.instantLinksPrerender,
+		disabled: 'instantLinksPrerender' in overrides,
+		warning: 'instantLinksPrerender' in overrides ? configWarning('instantLinksPrerender'),
+	}) }}
+</div>
 
 <div class="flex-fields speedy-paths">
 	{{ forms.editableTableField({
@@ -75,6 +87,20 @@
 		warning: 'onlyCache' in overrides ? configWarning('onlyCache'),
 	}) }}
 </div>
+
+{% set siteOptions = craft.app.sites.getAllSites(true)|filter(s => s.hasUrls)|map(s => { label: s.name, value: s.handle }) %}
+{% if siteOptions|length > 1 %}
+	{{ forms.checkboxSelectField({
+		label: 'Never cache sites'|t('speedy'),
+		instructions: 'The pages of these sites are never cached, such as a members’ area.'|t('speedy'),
+		id: 'neverCacheSites',
+		name: 'neverCacheSites',
+		options: siteOptions,
+		values: settings.neverCacheSites,
+		disabled: 'neverCacheSites' in overrides,
+		warning: 'neverCacheSites' in overrides ? configWarning('neverCacheSites'),
+	}) }}
+{% endif %}
 
 {% set entryTypeOptions = craft.app.entries.getAllEntryTypes()|map(t => { label: t.name, value: t.handle }) %}
 {% set categoryGroupsExist = craft.app.categories.getAllGroups()|length > 0 %}

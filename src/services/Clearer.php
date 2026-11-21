@@ -492,8 +492,10 @@ class Clearer extends Component
      * Clears pages by key.
      *
      * @param string[] $keys
+     * @param array{prefixes?: string[], hosts?: string[]} $cloudflare What Cloudflare clears instead of the pages’ URLs,
+     * when they’re a whole part of a site: also the copies Speedy doesn’t know of, such as with tracking parameters.
      */
-    public function clearKeys(array $keys, string $reason): int
+    public function clearKeys(array $keys, string $reason, array $cloudflare = []): int
     {
         $plugin = Plugin::getInstance();
         if ($keys && $this->hasEventHandlers(self::EVENT_BEFORE_CLEAR)) {
@@ -535,8 +537,13 @@ class Clearer extends Component
             }
         }
 
-        if ($purge) {
-            $plugin->cdn->purgeUrls($purge);
+        if (!in_array(Cdn::CLOUDFLARE, $plugin->cdn->configured(), true)) {
+            $cloudflare = [];
+        }
+        $rebuilding = $rebuild || $later;
+        if ($purge || ($cloudflare && !$rebuilding)) {
+            // Rebuilt pages are cleared from the CDN as each is ready, and Cloudflare’s part once they all are, below.
+            $plugin->cdn->purgeUrls($purge, $rebuilding ? [] : $cloudflare);
         }
         if ($rebuild) {
             $plugin->warmer->queue($rebuild, true, $rebuildKeys);
@@ -548,6 +555,10 @@ class Clearer extends Component
             $later = array_values(array_filter($later, fn($url) => $cache->add(self::REBUILD_LATER . md5($url), true, $delay + self::REBUILD_LATER_GRACE)));
             $plugin->warmer->queue($later, true, $rebuildKeys, $delay);
             $rebuild = array_merge($rebuild, $later);
+        }
+        if ($cloudflare && $rebuilding) {
+            // After the rebuilds, so Cloudflare doesn’t fetch the old copies again.
+            Queue::push(new \suprim\speedy\jobs\PurgeJob(['cloudflare' => $cloudflare]), 1026);
         }
         if ($count) {
             $plugin->log->add($reason, $count, array_merge($rebuild, $purge));
@@ -708,9 +719,9 @@ class Clearer extends Component
     }
 
     /**
-     * Removes the cached pages that Never cache or Only cache leave out, such as just after a pattern, an entry type or
-     * a category was added: pages matching Never cache, outside Only cache, and the pages of those entries and
-     * categories, with their query string versions.
+     * Removes the cached pages that Never cache or Only cache leave out, such as just after a pattern, an entry type,
+     * a category or a site was added: pages matching Never cache, outside Only cache, of those sites, and the pages of
+     * those entries and categories, with their query string versions.
      *
      * @return int How many pages were removed.
      */
@@ -719,7 +730,7 @@ class Clearer extends Component
         $plugin = Plugin::getInstance();
         $storage = $plugin->storage;
         $keys = [];
-        if ($settings->getNeverCache() || $settings->getOnlyCache()) {
+        if ($settings->getNeverCache() || $settings->getOnlyCache() || $settings->neverCacheSites) {
             foreach ($storage->allKeys() as $key) {
                 // Matched as for visitors: on the path without its query string, and on the path within its site.
                 $page = explode('/' . Storage::QUERY_FOLDER . '/', $key, 2)[0];
@@ -808,7 +819,41 @@ class Clearer extends Component
             }
         }
 
-        return $this->clearKeys($keys, Craft::t('speedy', 'Cleared {url}', ['url' => trim($pattern)]));
+        return $this->clearKeys($keys, Craft::t('speedy', 'Cleared {url}', ['url' => trim($pattern)]), $this->cloudflareParts($pattern));
+    }
+
+    /**
+     * What Cloudflare clears for a pattern, by prefix, when it means the same: one ending in `/*` with no other `*`,
+     * such as `https://example.com/news/*`, or `/news/*` on each of the sites’ domains. Empty otherwise, so the pages
+     * are cleared by URL.
+     *
+     * @return array{prefixes?: string[], hosts?: string[]}
+     */
+    public function cloudflareParts(string $pattern): array
+    {
+        $pattern = (string)preg_replace(['/[?#].*$/s', '/\*+/'], ['', '*'], trim($pattern));
+        if (preg_match('#^https?://([^/*]+)(.*)$#i', $pattern, $m)) {
+            $hosts = [strtolower($m[1])];
+            $path = $m[2];
+        } elseif (!preg_match('#^[a-z][a-z0-9+.-]*:#i', $pattern) && ($hosts = Plugin::getInstance()->cacher->certainHosts())) {
+            $path = $pattern;
+        } else {
+            return [];
+        }
+        $path = ltrim(rawurldecode($path), '/');
+        if (substr_count($path, '*') !== 1 || !($path === '*' || str_ends_with($path, '/*')) || array_filter($hosts, fn($h) => str_contains($h, ':'))) {
+            return [];
+        }
+        $path = substr($path, 0, -1);
+        // Cloudflare’s limit on the folders in a prefix.
+        if (substr_count($path, '/') > 30) {
+            return [];
+        }
+        if ($path === '') {
+            return ['hosts' => array_values($hosts)];
+        }
+
+        return ['prefixes' => array_values(array_map(fn($h) => "$h/$path", $hosts))];
     }
 
     /**
@@ -883,7 +928,36 @@ class Clearer extends Component
             : Craft::t('speedy', 'Cleared the {sites} sites{by, select, none{} other{ by {by}}}', [
                 'sites' => implode(', ', array_map(fn($site) => $site->getName(), $sites)),
                 'by' => $by,
-            ]));
+            ]), $this->cloudflareSiteParts($sites));
+    }
+
+    /**
+     * What Cloudflare clears for whole sites: the host of a site at the root of its domain, or the prefix of one in a
+     * folder, such as `example.com/de`. Empty when a site’s domain isn’t known for certain (`@web`), so the pages are
+     * cleared by URL. (A site in a folder of another’s domain is cleared from Cloudflare too; it fetches them again.)
+     *
+     * @param \craft\models\Site[] $sites
+     * @return array{prefixes?: string[], hosts?: string[]}
+     */
+    private function cloudflareSiteParts(array $sites): array
+    {
+        $parts = [];
+        foreach ($sites as $site) {
+            $raw = (string)\craft\helpers\App::parseEnv((string)$site->getBaseUrl(false));
+            $url = parse_url((string)Craft::getAlias($raw));
+            if (str_contains($raw, '@web') || empty($url['host']) || isset($url['port'])) {
+                return [];
+            }
+            $host = strtolower($url['host']);
+            $path = trim(rawurldecode($url['path'] ?? ''), '/');
+            if ($path === '') {
+                $parts['hosts'][] = $host;
+            } else {
+                $parts['prefixes'][] = "$host/$path";
+            }
+        }
+
+        return $parts;
     }
 
     /** @var array<int, array{id: int, host: ?string, path: string}>|null */

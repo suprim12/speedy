@@ -56,6 +56,16 @@ Categories are kept by group handle and slug, so the setting works on every envi
 
 Pages already cached are removed when an entry type or category is added, after the settings are saved or a deploy applies them, so the web server stops sending them. `X-Speedy` says `SKIP never cache entry type` or `SKIP never cache category`, and the entry’s **Page cache** status says why.
 
+### By site
+
+On a Craft install with several sites, leave a whole site out, such as a members’ area, under **Never cache sites** on the General tab, or by handle in `config/speedy.php`:
+
+```php
+'neverCacheSites' => ['members'],
+```
+
+Its pages are built for every visit, its cached pages are removed when it’s added, and instant links on the other sites don’t fetch its pages. `X-Speedy` says `SKIP never cache site`.
+
 ## Caching only some pages
 
 To cache a few sections and leave the rest alone, list them in **Only cache** on the settings page, or in `config/speedy.php`. `/` is the homepage:

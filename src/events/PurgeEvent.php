@@ -20,6 +20,12 @@ class PurgeEvent extends CancelableEvent
     /** @var string[] Empty when everything is being cleared. */
     public array $urls = [];
 
+    /**
+     * @var array{prefixes?: string[], hosts?: string[]} What Cloudflare clears instead of the URLs, when a whole part
+     * of a site is cleared: prefixes such as `example.com/news/`, and hosts such as `example.com`.
+     */
+    public array $cloudflare = [];
+
     /** Whether everything is being cleared. */
     public bool $all = false;
 

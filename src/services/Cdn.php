@@ -162,23 +162,32 @@ class Cdn extends Component
      * Clears URLs from every configured CDN.
      *
      * @param string[] $urls
+     * @param array{prefixes?: string[], hosts?: string[]} $cloudflare What Cloudflare clears instead, when a whole part
+     * of a site is cleared, such as `['prefixes' => ['example.com/news/']]`: also the copies Speedy doesn’t know of,
+     * such as with tracking parameters, in one request.
      */
-    public function purgeUrls(array $urls): void
+    public function purgeUrls(array $urls, array $cloudflare = []): void
     {
         $urls = array_values(array_unique(array_filter($urls)));
-        if (!$urls || !$this->configured()) {
+        $cloudflare = array_filter(['prefixes' => array_values(array_unique($cloudflare['prefixes'] ?? [])), 'hosts' => array_values(array_unique($cloudflare['hosts'] ?? []))]);
+        if ((!$urls && !$cloudflare) || !$this->configured()) {
             return;
         }
-        $event = new PurgeEvent(['urls' => $urls]);
+        $event = new PurgeEvent(['urls' => $urls, 'cloudflare' => $cloudflare]);
         $this->trigger(self::EVENT_BEFORE_PURGE, $event);
         $urls = array_values(array_unique(array_filter($event->urls)));
-        if (!$event->isValid || !$urls) {
+        $cloudflare = $event->cloudflare;
+        if (!$event->isValid || (!$urls && !$cloudflare)) {
             return;
         }
         foreach ($this->configured() as $cdn) {
+            // Only Cloudflare clears by prefix: the others have just the URLs, if any.
+            if (!$urls && $cdn !== self::CLOUDFLARE) {
+                continue;
+            }
             try {
                 $result = match ($cdn) {
-                    self::CLOUDFLARE => $this->cloudflarePurge($urls),
+                    self::CLOUDFLARE => $cloudflare ? $this->cloudflarePurgeParts($cloudflare) : $this->cloudflarePurge($urls),
                     self::CLOUDFRONT => $this->cloudfrontInvalidate($this->cloudfrontPaths($urls)),
                     default => $this->purgers()[$cdn]->purgeUrls($urls),
                 };
@@ -498,6 +507,43 @@ class Cdn extends Component
         $result = Craft::t('speedy', 'Cleared {count, plural, =1{# URL} other{# URLs}}', ['count' => count($urls) - $skipped]);
         if ($skipped) {
             $result .= ' · ' . Craft::t('speedy', '{count, plural, =1{# URL has} other{# URLs have}} no zone for its domain', ['count' => $skipped]);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Clears Cloudflare by prefix and host, each sent to the zone of its domain, up to 100 in a request.
+     *
+     * @param array{prefixes?: string[], hosts?: string[]} $parts
+     */
+    private function cloudflarePurgeParts(array $parts): string
+    {
+        $settings = Plugin::getInstance()->getSettings();
+        $client = $this->cloudflareClient ?? Craft::createGuzzleClient(['timeout' => 20]);
+        $headers = ['Authorization' => 'Bearer ' . $settings->getCloudflareToken(), 'Content-Type' => 'application/json'];
+        $byZone = [];
+        $skipped = 0;
+        foreach (['prefixes', 'hosts'] as $type) {
+            foreach ($parts[$type] ?? [] as $part) {
+                $zone = $this->cloudflareZoneFor('https://' . explode('/', (string)$part, 2)[0] . '/');
+                if ($zone === null) {
+                    $skipped++;
+                } else {
+                    $byZone[$zone][$type][] = (string)$part;
+                }
+            }
+        }
+        foreach ($byZone as $zone => $types) {
+            foreach ($types as $type => $values) {
+                foreach (array_chunk($values, 100) as $chunk) {
+                    $client->post('https://api.cloudflare.com/client/v4/zones/' . rawurlencode((string)$zone) . '/purge_cache', ['headers' => $headers, 'body' => Json::encode([$type => $chunk])]);
+                }
+            }
+        }
+        $result = Craft::t('speedy', 'Cleared {parts}', ['parts' => implode(', ', array_merge($parts['hosts'] ?? [], array_map(fn($p) => $p . "…", $parts['prefixes'] ?? [])))]);
+        if ($skipped) {
+            $result .= ' · ' . Craft::t('speedy', '{count, plural, =1{# domain has} other{# domains have}} no zone', ['count' => $skipped]);
         }
 
         return $result;

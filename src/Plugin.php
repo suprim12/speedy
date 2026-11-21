@@ -128,6 +128,7 @@ class Plugin extends BasePlugin
             // After the response is prepared (Craft renders templates then, so a form step or flash message has just
             // been stored) and before its headers go out.
             Event::on(\yii\web\Response::class, \yii\web\Response::EVENT_AFTER_PREPARE, fn() => $this->cacher->markState());
+            Event::on(\yii\web\Response::class, \yii\web\Response::EVENT_AFTER_PREPARE, fn(\yii\base\Event $event) => $this->cacher->holdForPrerender($event->sender));
             $request = Craft::$app->getRequest();
             if ($request->getIsSiteRequest()) {
                 $this->cacher->handleRequest();
@@ -270,7 +271,12 @@ class Plugin extends BasePlugin
     public function checkNeverCache(): void
     {
         $settings = $this->savedSettings();
-        $now = md5(Json::encode([array_values($settings->neverCacheEntryTypes), array_values($settings->neverCacheCategories), $settings->getNeverCache(), $settings->getOnlyCache()]));
+        $parts = [array_values($settings->neverCacheEntryTypes), array_values($settings->neverCacheCategories), $settings->getNeverCache(), $settings->getOnlyCache()];
+        // Added only when set, so sites cached before there was the setting don’t look changed.
+        if ($settings->neverCacheSites) {
+            $parts[] = array_values($settings->neverCacheSites);
+        }
+        $now = md5(Json::encode($parts));
         $changed = false;
         $this->storage->updateData('state', function(array $state) use ($now, &$changed) {
             if (($state['neverCache'] ?? md5(Json::encode([[], [], [], []]))) === $now) {
@@ -308,32 +314,36 @@ class Plugin extends BasePlugin
      */
     public function checkInstantLinks(): void
     {
-        $file = Craft::$app->getConfig()->getConfigFromFile('speedy');
-        $value = match (true) {
-            is_array($file) && array_key_exists('instantLinks', $file) => $file['instantLinks'],
-            // A config file that returns a closure or config object: read through the settings.
-            !is_array($file) => $this->getSettings()->instantLinks,
-            default => Craft::$app->getProjectConfig()->get('plugins.speedy.settings.instantLinks'),
-        };
-        if ($this->instantLinksChanged(filter_var($value, FILTER_VALIDATE_BOOLEAN))) {
-            $on = filter_var($value, FILTER_VALIDATE_BOOLEAN);
-            $this->clearer->rebuildAllLater($on ? Craft::t('speedy', 'Instant links turned on') : Craft::t('speedy', 'Instant links turned off'));
+        $settings = $this->savedSettings();
+        $on = $settings->instantLinks;
+        $prerender = $on && $settings->instantLinksPrerender;
+        $was = $this->storage->readData('state');
+        if ($this->instantLinksChanged($on, $prerender)) {
+            $reason = match (true) {
+                $on !== (bool)($was['instantLinks'] ?? false) => $on ? Craft::t('speedy', 'Instant links turned on') : Craft::t('speedy', 'Instant links turned off'),
+                $prerender => Craft::t('speedy', 'Opening pages ahead turned on'),
+                default => Craft::t('speedy', 'Opening pages ahead turned off'),
+            };
+            $this->clearer->rebuildAllLater($reason);
         }
     }
 
     /**
-     * Whether the cached pages were built with instant links the other way, noting that they’re now as given.
+     * Whether the cached pages were built with instant links, or with opening pages ahead, the other way, noting that
+     * they’re now as given.
      */
-    public function instantLinksChanged(bool $on): bool
+    public function instantLinksChanged(bool $on, bool $prerender = false): bool
     {
+        $prerender = $on && $prerender;
         $changed = false;
-        $this->storage->updateData('state', function(array $state) use ($on, &$changed) {
-            // Pages cached before there were instant links don’t have them.
-            if ((bool)($state['instantLinks'] ?? false) === $on) {
+        $this->storage->updateData('state', function(array $state) use ($on, $prerender, &$changed) {
+            // Pages cached before there were instant links, or opening pages ahead, don’t have them.
+            if ((bool)($state['instantLinks'] ?? false) === $on && (bool)($state['instantLinksPrerender'] ?? false) === $prerender) {
                 return null;
             }
             $changed = true;
             $state['instantLinks'] = $on;
+            $state['instantLinksPrerender'] = $prerender;
             return $state;
         });
 
