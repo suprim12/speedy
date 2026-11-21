@@ -1,6 +1,6 @@
 # Release Notes for Speedy Cache
 
-## Unreleased
+## 1.7.0 - 2026-11-21
 
 ### Added
 - **Never cache sites** on the General tab, on a site with several: a whole site, such as a members’ area, isn’t cached, and its pages cached before are removed. Also `neverCacheSites` in `config/speedy.php`.
